@@ -10,8 +10,25 @@
 :root{
   --bg:#eef0ec; --card:#fff; --ink:#1c2526; --muted:#5f6b68; --line:#d9ddd8;
   --soft:#e2e7e3; --primary:#2f5e4e; --primary-ink:#fff; --danger:#c8323c;
-  --danger-bg:#fbe3e6; --pill:#e4e8e5; --warn:#c9952b; --radius:14px;
+  --danger-bg:#fbe3e6; --danger-line:#d97b84; --pill:#e4e8e5; --pill-ink:#4c5654;
+  --warn:#c9952b; --warn-bg:#fbf7ee; --field:#f6f7f5; --check:#c9cfcc; --faint:#cfd4d2;
+  --chip-on:#1c2526; --chip-on-ink:#fff; --chip-on-muted:#aab3b1; --hover:rgba(0,0,0,.05);
+  --backdrop:rgba(20,30,28,.45); --radius:14px;
 }
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a19; --card:#1d2523; --ink:#e7ecea; --muted:#9aa7a3; --line:#2f3a37;
+  --soft:#222c2a; --primary:#5aa58a; --primary-ink:#0f1614; --danger:#ec6b74;
+  --danger-bg:#3a2226; --danger-line:#8a3d45; --pill:#2c3633; --pill-ink:#c4cecb;
+  --warn:#d9a640; --warn-bg:#2c2618; --field:#182020; --check:#4a5653; --faint:#46524f;
+  --chip-on:#e7ecea; --chip-on-ink:#141a19; --chip-on-muted:#5f6b68; --hover:rgba(255,255,255,.07);
+  --backdrop:rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a19; --card:#1d2523; --ink:#e7ecea; --muted:#9aa7a3; --line:#2f3a37;
+  --soft:#222c2a; --primary:#5aa58a; --primary-ink:#0f1614; --danger:#ec6b74;
+  --danger-bg:#3a2226; --danger-line:#8a3d45; --pill:#2c3633; --pill-ink:#c4cecb;
+  --warn:#d9a640; --warn-bg:#2c2618; --field:#182020; --check:#4a5653; --faint:#46524f;
+  --chip-on:#e7ecea; --chip-on-ink:#141a19; --chip-on-muted:#5f6b68; --hover:rgba(255,255,255,.07);
+  --backdrop:rgba(0,0,0,.6); color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Instrument Sans",system-ui,-apple-system,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -25,25 +42,25 @@ h1{font-size:clamp(40px,7vw,64px);line-height:1;margin:0 0 14px;letter-spacing:-
 .quick{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 18px 20px;margin-bottom:28px}
 .quick input[type=text]{width:100%;border:0;border-bottom:1px solid var(--line);padding:6px 2px 16px;font-size:20px;outline:none;background:transparent}
 .quick-row{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
-select,.input{background:#f6f7f5;border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:17px;min-width:0}
+select,.input{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:17px;min-width:0}
 .quick-row select{flex:0 1 240px}
 .quick-row .grow{flex:1}
 .btn{border-radius:8px;padding:10px 20px;font-weight:600;font-size:17px;border:1px solid var(--line);background:var(--card)}
 .btn.primary{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
-.btn.danger{color:var(--danger);border-color:#e9b9be}
+.btn.danger{color:var(--danger);border-color:var(--danger-line)}
 .btn.small{padding:6px 12px;font-size:15px}
 
 /* Tabs */
 .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
 .tab{background:transparent;border:1px solid var(--line);border-radius:10px;padding:12px 8px;font-weight:600;font-size:18px;text-align:center}
 .tab .n{color:var(--muted);font-weight:500;margin-left:6px;font-size:16px}
-.tab.active{border-color:var(--warn);background:#fbf7ee}
+.tab.active{border-color:var(--warn);background:var(--warn-bg)}
 .chips{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:22px;scrollbar-width:thin}
 .chip{flex:none;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:999px;padding:10px 18px;font-weight:500;font-size:18px;white-space:nowrap}
 .chip .dot{width:10px;height:10px;border-radius:50%}
 .chip .n{color:var(--muted);font-size:16px}
-.chip.active{background:var(--ink);color:#fff;border-color:var(--ink)}
-.chip.active .n{color:#aab3b1}
+.chip.active{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
+.chip.active .n{color:var(--chip-on-muted)}
 .chip.add{color:var(--muted);border-style:dashed}
 
 /* Objective */
@@ -69,29 +86,29 @@ h2.section .n,.theme-h .n{color:var(--muted);font-weight:500;font-size:18px}
 .theme.closed .caret{transform:rotate(-90deg)}
 .theme.closed .list{display:none}
 .icon{color:var(--muted);font-size:17px;padding:2px 4px;border-radius:4px;line-height:1}
-.icon:hover{color:var(--ink);background:rgba(0,0,0,.05)}
+.icon:hover{color:var(--ink);background:var(--hover)}
 .add-theme{display:flex;gap:10px;margin-top:10px}
-.add-theme input{flex:1;border:1px dashed #c9cfc9;background:transparent;border-radius:8px;padding:12px 14px}
+.add-theme input{flex:1;border:1px dashed var(--check);background:transparent;border-radius:8px;padding:12px 14px}
 .empty{color:var(--muted);font-style:italic;padding:6px 2px}
 
 /* Cards */
 .list{display:flex;flex-direction:column;gap:10px}
 .card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:12px;padding:14px 64px 14px 16px;position:relative}
-.card.flag{background:var(--danger-bg);border-color:#d97b84;border-left-color:var(--danger)}
+.card.flag{background:var(--danger-bg);border-color:var(--danger-line);border-left-color:var(--danger)}
 .card.done .title{text-decoration:line-through;color:var(--muted)}
 .card-main{display:flex;gap:14px;align-items:flex-start}
-.check{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid #c9cfcc;background:#fff;margin-top:1px;display:grid;place-items:center;color:#fff;font-size:14px}
+.check{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--check);background:var(--card);margin-top:1px;display:grid;place-items:center;color:var(--primary-ink);font-size:14px}
 .check:hover{border-color:var(--primary)}
 .check.on{background:var(--primary);border-color:var(--primary)}
 .body{flex:1;min-width:0;cursor:pointer}
 .title{font-size:19px;font-weight:500;display:inline;margin-right:8px}
-.pill{display:inline-block;background:var(--pill);color:#4c5654;font-weight:600;font-size:15px;border-radius:999px;padding:2px 12px;vertical-align:2px}
-.pill.late{background:var(--danger);color:#fff}
+.pill{display:inline-block;background:var(--pill);color:var(--pill-ink);font-weight:600;font-size:15px;border-radius:999px;padding:2px 12px;vertical-align:2px}
+.pill.late{background:var(--danger);color:var(--card)}
 .meta{color:var(--muted);font-size:15.5px;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 14px}
 .meta .theme-tag{color:var(--primary);font-weight:600}
 .meta .proj-tag{font-weight:600}
 .actions{position:absolute;top:12px;right:12px;display:flex;gap:6px}
-.flagbtn{color:#cfd4d2}
+.flagbtn{color:var(--faint)}
 .flagbtn.on{color:var(--danger)}
 .subs{margin:12px 0 2px 40px;display:flex;flex-direction:column;gap:6px}
 .subrow{display:flex;align-items:center;gap:10px;font-size:16px}
@@ -106,7 +123,7 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 
 /* Modal */
 dialog{border:0;border-radius:16px;padding:0;width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 40px);background:var(--card);color:var(--ink)}
-dialog::backdrop{background:rgba(20,30,28,.45)}
+dialog::backdrop{background:var(--backdrop)}
 .modal{padding:22px}
 .modal h3{margin:0 0 16px;font-size:22px}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
@@ -117,7 +134,8 @@ dialog::backdrop{background:rgba(20,30,28,.45)}
 .sub-edit .input{padding:8px 10px;font-size:15px}
 .sub-head{display:grid;grid-template-columns:22px 1fr 150px 90px 28px;gap:8px;font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px}
 .modal-foot{display:flex;gap:10px;justify-content:space-between;margin-top:20px;flex-wrap:wrap}
-.modal-foot .right{display:flex;gap:10px;margin-left:auto}
+.modal-foot .right{display:flex;flex-direction:row-reverse;gap:10px;margin-left:auto}
+.ask-area{width:100%;min-height:160px;font:13px/1.4 ui-monospace,Menlo,monospace}
 .colors{display:flex;gap:8px;flex-wrap:wrap}
 .swatch{width:30px;height:30px;border-radius:50%;border:3px solid transparent}
 .swatch.on{border-color:var(--ink)}
@@ -137,6 +155,7 @@ dialog::backdrop{background:rgba(20,30,28,.45)}
 <body>
 <div class="wrap" id="app"></div>
 <dialog id="dlg"></dialog>
+<dialog id="ask"></dialog>
 
 <script>
 /* ---------- Données ---------- */
@@ -419,8 +438,8 @@ function renderTaskModal() {
     <div class="modal-foot">
       <button type="button" class="btn danger" data-action="delete-task">Supprimer</button>
       <div class="right">
-        <button type="button" class="btn" data-action="close">Annuler</button>
         <button class="btn primary">Enregistrer</button>
+        <button type="button" class="btn" data-action="close">Annuler</button>
       </div>
     </div>
   </form>`;
@@ -459,16 +478,35 @@ function renderProjectModal() {
     <div class="field"><label>Couleur</label><div class="colors">${PALETTE.map(c => `<button type="button" class="swatch ${c === p.color ? 'on' : ''}" style="background:${c}" data-action="color" data-id="${c}"></button>`).join('')}</div></div>
     <div class="modal-foot">
       ${p.id ? `<button type="button" class="btn danger" data-action="delete-project">Supprimer le projet</button>` : ''}
-      <div class="right"><button type="button" class="btn" data-action="close">Annuler</button><button class="btn primary">Enregistrer</button></div>
+      <div class="right"><button class="btn primary">Enregistrer</button><button type="button" class="btn" data-action="close">Annuler</button></div>
     </div>
   </form>`;
+}
+
+/* ---------- Confirmation / saisie dans la page ---------- */
+const askDlg = document.getElementById('ask');
+// Résout avec true (ou le texte saisi) si validé, null si annulé
+function ask(message, { input = null, area = false, ok = 'Confirmer', danger = false, cancel = true } = {}) {
+  askDlg.innerHTML = `<form class="modal" method="dialog">
+    <p style="margin:0 0 14px;font-size:17px">${esc(message)}</p>
+    ${input === null ? '' : area ? `<textarea id="ask-input" class="input ask-area">${esc(input)}</textarea>` : `<input id="ask-input" class="input" style="width:100%" value="${esc(input)}">`}
+    <div class="modal-foot"><div class="right">
+      <button class="btn ${danger ? 'danger' : 'primary'}" value="ok">${ok}</button>
+      ${cancel ? '<button class="btn" value="cancel" formnovalidate>Annuler</button>' : ''}
+    </div></div></form>`;
+  askDlg.returnValue = '';
+  askDlg.showModal();
+  const field = askDlg.querySelector('#ask-input');
+  if (field) { field.focus(); if (!area) field.select() }
+  return new Promise(res => askDlg.addEventListener('close', () =>
+    res(askDlg.returnValue === 'ok' ? (field ? field.value : true) : null), { once: true }));
 }
 
 /* ---------- Actions ---------- */
 const findTask = id => db.tasks.find(t => t.id === id);
 function commit() { save(); render() }
 
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const { action, id } = el.dataset;
@@ -486,10 +524,10 @@ document.addEventListener('click', e => {
     case 'toggle-sub': { const s = t.subgoals.find(x => x.id === el.dataset.sub); s.done = !s.done; return commit() }
     case 'edit-task': return openTask(id);
     case 'toggle-theme': { const th = theme(id); th.collapsed = !th.collapsed; return commit() }
-    case 'rename-theme': { const th = theme(id); const n = prompt('Nouveau nom de la thématique', th.name); if (n && n.trim()) { th.name = n.trim(); commit() } return }
+    case 'rename-theme': { const th = theme(id); const n = await ask('Nouveau nom de la thématique', { input: th.name, ok: 'Renommer' }); if (n && n.trim()) { th.name = n.trim(); commit() } return }
     case 'delete-theme': {
       const th = theme(id);
-      if (!confirm(`Supprimer la thématique « ${th.name} » ? Ses tâches passeront « Sans thématique ».`)) return;
+      if (!await ask(`Supprimer la thématique « ${th.name} » ? Ses tâches passeront dans « Sans thématique ».`, { ok: 'Supprimer', danger: true })) return;
       db.tasks.forEach(x => { if (x.themeId === id) x.themeId = null });
       db.themes = db.themes.filter(x => x.id !== id);
       return commit();
@@ -498,13 +536,13 @@ document.addEventListener('click', e => {
     case 'add-sub': readDraft(); draft.subgoals.push({ id: uid(), title: '', due: null, est: 0, done: false }); renderTaskModal(); dlg.querySelector('.sub-edit:last-of-type [data-f="title"]')?.focus(); return;
     case 'del-sub': readDraft(); draft.subgoals = draft.subgoals.filter(s => s.id !== el.dataset.sub); return renderTaskModal();
     case 'delete-task':
-      if (!confirm('Supprimer cette tâche ?')) return;
+      if (!await ask('Supprimer cette tâche ?', { ok: 'Supprimer', danger: true })) return;
       db.tasks = db.tasks.filter(x => x.id !== draft.id); dlg.close(); return commit();
     // Modale projet
     case 'color': projDraft.name = dlg.querySelector('[name=name]').value; projDraft.color = id; return renderProjectModal();
     case 'delete-project': {
       const n = db.tasks.filter(x => x.projectId === projDraft.id).length;
-      if (!confirm(`Supprimer « ${projDraft.name} » et ses ${n} tâche(s) ? C'est définitif.`)) return;
+      if (!await ask(`Supprimer « ${projDraft.name} » et ses ${n} tâche(s) ? C'est définitif.`, { ok: 'Supprimer', danger: true })) return;
       db.tasks = db.tasks.filter(x => x.projectId !== projDraft.id);
       db.themes = db.themes.filter(x => x.projectId !== projDraft.id);
       db.projects = db.projects.filter(x => x.id !== projDraft.id);
@@ -512,22 +550,22 @@ document.addEventListener('click', e => {
     }
     case 'close': return dlg.close();
     case 'export': {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' }));
-      a.download = `mes-projets-${new Date().toISOString().slice(0, 10)}.json`; a.click(); return;
+      const json = JSON.stringify(db);
+      if (!await ask('Voici ta sauvegarde. Copie-la et garde-la dans une note ou un fichier.', { input: json, area: true, ok: 'Copier' })) return;
+      try { await navigator.clipboard.writeText(json); await ask('Sauvegarde copiée.', { ok: 'OK', cancel: false }) }
+      catch { await ask('Copie automatique impossible : sélectionne le texte et copie-le à la main.', { input: json, area: true, ok: 'Fermer', cancel: false }) }
+      return;
     }
     case 'import': {
-      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json';
-      inp.onchange = async () => {
-        try {
-          const data = JSON.parse(await inp.files[0].text());
-          if (!Array.isArray(data.projects) || !Array.isArray(data.tasks)) throw new Error();
-          if (!confirm('Remplacer toutes les données actuelles par ce fichier ?')) return;
-          db = { projects: data.projects, themes: data.themes || [], tasks: data.tasks };
-          ui.project = db.projects[0]?.id || null; ui.view = null; commit();
-        } catch { alert('Fichier invalide.') }
-      };
-      inp.click(); return;
+      const txt = await ask('Colle ici une sauvegarde. Elle remplacera toutes les données actuelles.', { input: '', area: true, ok: 'Importer', danger: true });
+      if (!txt) return;
+      try {
+        const data = JSON.parse(txt);
+        if (!Array.isArray(data.projects) || !Array.isArray(data.tasks)) throw new Error();
+        db = { projects: data.projects, themes: data.themes || [], tasks: data.tasks };
+        ui.project = db.projects[0]?.id || null; ui.view = null; commit();
+      } catch { ask("Ce texte n'est pas une sauvegarde valide. Utilise le texte complet donné par « Exporter ».", { ok: 'OK', cancel: false }) }
+      return;
     }
   }
 });
