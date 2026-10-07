@@ -121,6 +121,23 @@ h2.section .n,.theme-h .n{color:var(--muted);font-weight:500;font-size:14px}
 details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margin:30px 0 10px}
 .footer{margin-top:60px;display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:11px}
 
+/* Glisser-déposer */
+.handle{flex:none;align-self:center;cursor:grab;color:var(--faint);font-size:14px;letter-spacing:-3px;padding:4px 4px 4px 0;touch-action:none;user-select:none}
+.handle:hover{color:var(--muted)}
+.ghost{position:fixed;z-index:50;pointer-events:none;opacity:.92;box-shadow:0 10px 30px rgba(0,0,0,.18);transform:rotate(1deg);margin:0}
+.dragging,.dragging *{cursor:grabbing!important;user-select:none}
+.drag-src{opacity:.35}
+.drop-line{height:3px;border-radius:2px;background:var(--primary);margin:-2px 0}
+.theme.drop-over>.theme-h{color:var(--primary);border-bottom-color:var(--primary)}
+.theme.drop-over.closed>.theme-h,.theme.drop-over .list:empty{background:var(--hover)}
+.chip.drop-over{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary)}
+.drop-only{display:none}
+.dragging .drop-only{display:block}
+.drop-only .list{min-height:36px;border:1px dashed var(--check);border-radius:10px}
+.chip-ghost{position:fixed;z-index:50;pointer-events:none;opacity:.9}
+.chip-line{flex:none;width:3px;align-self:stretch;border-radius:2px;background:var(--primary)}
+.order-row{display:flex;align-items:center;gap:8px}
+
 /* Modal */
 dialog{border:0;border-radius:16px;padding:0;width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 40px);background:var(--card);color:var(--ink)}
 dialog::backdrop{background:var(--backdrop)}
@@ -267,7 +284,7 @@ function render() {
     </div>
 
     <div class="chips">
-      ${db.projects.map(p => `<button class="chip ${!ui.view && p.id === ui.project ? 'active' : ''}" data-action="project" data-id="${p.id}">
+      ${db.projects.map(p => `<button class="chip ${!ui.view && p.id === ui.project ? 'active' : ''}" data-action="project" data-id="${p.id}" data-chip="${p.id}">
         <span class="dot" style="background:${p.color}"></span>${esc(p.name)}<span class="n">${act.filter(t => t.projectId === p.id).length}</span></button>`).join('')}
       <button class="chip add" data-action="new-project">+ Projet</button>
     </div>
@@ -287,6 +304,9 @@ function themeOptions(pid, selected) {
 function sortTasks(list) {
   return list.sort((a, b) => (b.flagged - a.flagged) || ((nextDeadline(a) || '9999') < (nextDeadline(b) || '9999') ? -1 : (nextDeadline(a) || '9999') > (nextDeadline(b) || '9999') ? 1 : a.createdAt - b.createdAt));
 }
+
+// Ordre manuel (glisser-déposer) ; les tâches jamais déplacées gardent leur ordre de création
+const sortManual = list => list.sort((a, b) => (a.order ?? a.createdAt) - (b.order ?? b.createdAt));
 
 function renderProject(p) {
   const tasks = db.tasks.filter(t => t.projectId === p.id);
@@ -318,8 +338,8 @@ function renderProject(p) {
 
     <h2 class="section">En attente <span class="n">${waiting.length}</span></h2>
     ${themes.map(th => {
-      const list = sortTasks(waiting.filter(t => t.themeId === th.id));
-      return `<div class="theme ${th.collapsed ? 'closed' : ''}">
+      const list = sortManual(waiting.filter(t => t.themeId === th.id));
+      return `<div class="theme ${th.collapsed ? 'closed' : ''}" data-drop="${th.id}">
         <div class="theme-h">
           <button class="caret" data-action="toggle-theme" data-id="${th.id}">▼</button>
           <span class="name" data-action="toggle-theme" data-id="${th.id}" style="cursor:pointer">${esc(th.name)}</span><span class="n">${list.length}</span>
@@ -329,8 +349,8 @@ function renderProject(p) {
         <div class="list">${list.length ? list.map(t => card(t)).join('') : '<div class="empty">Aucune tâche en attente.</div>'}</div>
       </div>`;
     }).join('')}
-    ${noTheme.length ? `<div class="theme"><div class="theme-h"><span class="caret"></span><span class="name">Sans thématique</span><span class="n">${noTheme.length}</span></div>
-      <div class="list">${sortTasks(noTheme).map(t => card(t)).join('')}</div></div>` : ''}
+    <div class="theme ${noTheme.length ? '' : 'drop-only'}" data-drop=""><div class="theme-h"><span class="caret"></span><span class="name">Sans thématique</span><span class="n">${noTheme.length}</span></div>
+      <div class="list">${sortManual(noTheme).map(t => card(t)).join('')}</div></div>
 
     <form class="add-theme" data-form="theme">
       <input name="name" placeholder="Nouvelle thématique…" autocomplete="off">
@@ -370,8 +390,9 @@ function card(t, { showTheme, showProject } = {}) {
   if (showTheme && th) meta.push(`<span class="theme-tag">${esc(th.name)}</span>`);
   const isOpen = ui.open[t.id];
 
-  return `<article class="card ${t.flagged && !t.done ? 'flag' : ''} ${t.done ? 'done' : ''}" style="--c:${p.color}">
+  return `<article class="card ${t.flagged && !t.done ? 'flag' : ''} ${t.done ? 'done' : ''}" style="--c:${p.color}" data-task="${t.id}">
     <div class="card-main">
+      ${t.done ? '' : '<span class="handle" title="Glisser pour déplacer">⋮⋮</span>'}
       <button class="check ${t.done ? 'on' : ''}" data-action="toggle-done" data-id="${t.id}" title="Terminer">${t.done ? '✓' : ''}</button>
       <div class="body" data-action="expand" data-id="${t.id}">
         <span class="title">${esc(t.title)}</span>${t.due ? `<span class="pill ${daysFromToday(t.due) < 0 && !t.done ? 'late' : ''}">${fmtDate(t.due)}</span>` : ''}
@@ -470,6 +491,11 @@ function renderProjectModal() {
   dlg.innerHTML = `<form class="modal" data-form="project" method="dialog">
     <h3>${p.id ? 'Modifier le projet' : 'Nouveau projet'}</h3>
     <div class="field"><label>Nom</label><input class="input" name="name" value="${esc(p.name)}" required autofocus></div>
+    ${p.id ? `<div class="field"><label>Position dans la liste</label><div class="order-row">
+      <button type="button" class="btn small" data-action="move-project" data-id="-1" ${db.projects[0].id === p.id ? 'disabled' : ''}>← Avant</button>
+      <span>${db.projects.findIndex(x => x.id === p.id) + 1} / ${db.projects.length}</span>
+      <button type="button" class="btn small" data-action="move-project" data-id="1" ${db.projects.at(-1).id === p.id ? 'disabled' : ''}>Après →</button>
+    </div></div>` : ''}
     <div class="field"><label>Couleur</label><div class="colors">${PALETTE.map(c => `<button type="button" class="swatch ${c === p.color ? 'on' : ''}" style="background:${c}" data-action="color" data-id="${c}"></button>`).join('')}</div></div>
     <div class="modal-foot">
       ${p.id ? `<button type="button" class="btn danger" data-action="delete-project">Supprimer le projet</button>` : ''}
@@ -534,6 +560,12 @@ document.addEventListener('click', async e => {
       if (!await ask('Supprimer cette tâche ?', { ok: 'Supprimer', danger: true })) return;
       db.tasks = db.tasks.filter(x => x.id !== draft.id); dlg.close(); return commit();
     // Modale projet
+    case 'move-project': {
+      const i = db.projects.findIndex(x => x.id === projDraft.id), j = i + Number(id);
+      [db.projects[i], db.projects[j]] = [db.projects[j], db.projects[i]];
+      projDraft.name = dlg.querySelector('[name=name]').value;
+      save(); render(); return renderProjectModal();
+    }
     case 'color': projDraft.name = dlg.querySelector('[name=name]').value; projDraft.color = id; return renderProjectModal();
     case 'delete-project': {
       const n = db.tasks.filter(x => x.projectId === projDraft.id).length;
@@ -608,6 +640,106 @@ document.addEventListener('submit', e => {
     dlg.close(); commit();
   }
 });
+
+/* ---------- Glisser-déposer ---------- */
+// Tâches : poignée ⋮⋮ (souris et tactile), dépôt dans une thématique ou sur un projet.
+// Projets : glisser les pastilles à la souris pour changer leur ordre.
+let drag = null;
+const dropLine = Object.assign(document.createElement('div'), { className: 'drop-line' });
+const chipLine = Object.assign(document.createElement('span'), { className: 'chip-line' });
+
+document.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  const h = e.target.closest('.handle');
+  const chip = !h && e.pointerType === 'mouse' && e.target.closest('[data-chip]');
+  if (!h && !chip) return;
+  const el = h ? h.closest('.card') : chip;
+  const r = el.getBoundingClientRect();
+  drag = { kind: h ? 'task' : 'chip', el, id: h ? el.dataset.task : chip.dataset.chip, x0: e.clientX, y0: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, started: false, target: null };
+  if (h) { e.preventDefault(); startDrag() }
+});
+
+function startDrag() {
+  drag.started = true;
+  drag.ghost = drag.el.cloneNode(true);
+  drag.ghost.classList.add(drag.kind === 'task' ? 'ghost' : 'chip-ghost');
+  drag.ghost.style.width = drag.w + 'px';
+  document.body.appendChild(drag.ghost);
+  drag.el.classList.add('drag-src');
+  document.body.classList.add('dragging');
+}
+
+function clearMarks() {
+  document.querySelectorAll('.drop-over').forEach(x => x.classList.remove('drop-over'));
+  dropLine.remove(); chipLine.remove();
+}
+
+document.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (!drag.started) { if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return; startDrag() }
+  e.preventDefault();
+  drag.ghost.style.left = e.clientX - drag.dx + 'px';
+  drag.ghost.style.top = e.clientY - drag.dy + 'px';
+  if (e.clientY < 60) scrollBy(0, -12); else if (e.clientY > innerHeight - 60) scrollBy(0, 12);
+  clearMarks();
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  drag.target = null;
+  if (!under) return;
+
+  if (drag.kind === 'chip') {
+    const row = document.querySelector('.chips');
+    const chips = [...row.querySelectorAll('[data-chip]')].filter(c => c !== drag.el);
+    if (!under.closest('.chips')) return;
+    const before = chips.find(c => { const r = c.getBoundingClientRect(); return e.clientX < r.left + r.width / 2 });
+    row.insertBefore(chipLine, before || row.querySelector('.chip.add'));
+    drag.target = { before: before?.dataset.chip || null };
+    return;
+  }
+
+  const chip = under.closest('[data-chip]');
+  if (chip) { chip.classList.add('drop-over'); drag.target = { project: chip.dataset.chip }; return }
+  const th = under.closest('[data-drop]');
+  if (!th) return;
+  th.classList.add('drop-over');
+  const list = th.querySelector('.list');
+  const cards = [...list.querySelectorAll(':scope > .card')].filter(c => c !== drag.el);
+  const before = th.classList.contains('closed') ? null : cards.find(c => { const r = c.getBoundingClientRect(); return e.clientY < r.top + r.height / 2 });
+  if (!th.classList.contains('closed')) list.insertBefore(dropLine, before || null);
+  drag.target = { theme: th.dataset.drop, list: cards.map(c => c.dataset.task), before: before?.dataset.task || null };
+}, { passive: false });
+
+function endDrag(e) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (!d.started) return;
+  d.ghost.remove(); d.el.classList.remove('drag-src'); document.body.classList.remove('dragging'); clearMarks();
+  // Empêche le clic qui suit le relâchement (sélection de projet, ouverture de carte)
+  const swallow = ev => { ev.stopPropagation(); ev.preventDefault() };
+  addEventListener('click', swallow, { capture: true, once: true });
+  setTimeout(() => removeEventListener('click', swallow, true), 0);
+  const t = d.target;
+  if (e.type === 'pointercancel' || !t) return render();
+
+  if (d.kind === 'chip') {
+    const moved = db.projects.find(p => p.id === d.id);
+    db.projects = db.projects.filter(p => p !== moved);
+    const i = t.before ? db.projects.findIndex(p => p.id === t.before) : db.projects.length;
+    db.projects.splice(i, 0, moved);
+    return commit();
+  }
+  const task = findTask(d.id);
+  if (t.project) {
+    if (task.projectId !== t.project) { task.projectId = t.project; task.themeId = null; task.order = undefined }
+    return commit();
+  }
+  task.themeId = t.theme || null;
+  const ids = t.list.slice();
+  ids.splice(t.before ? ids.indexOf(t.before) : ids.length, 0, task.id);
+  ids.forEach((id, i) => { findTask(id).order = i });
+  commit();
+}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
 
 // Fermer la modale en cliquant hors du cadre
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close() });
