@@ -93,24 +93,25 @@ h2.section .n,.theme-h .n{color:var(--muted);font-weight:500;font-size:14px}
 
 /* Cards */
 .list{display:flex;flex-direction:column;gap:10px}
-.card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:12px;padding:10px 56px 10px 12px;position:relative}
+.card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:12px;padding:10px 10px 10px 12px;position:relative}
 .card.flag{background:var(--danger-bg);border-color:var(--danger-line);border-left-color:var(--danger)}
 .card.done .title{text-decoration:line-through;color:var(--muted)}
-.card-main{display:flex;gap:14px;align-items:flex-start}
-.check{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--check);background:var(--card);margin-top:1px;display:grid;place-items:center;color:var(--primary-ink);font-size:11px}
+.card-main{display:flex;gap:12px;align-items:center;min-height:24px}
+.check{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--check);background:var(--card);display:grid;place-items:center;color:var(--primary-ink);font-size:11px}
 .check:hover{border-color:var(--primary)}
 .check.on{background:var(--primary);border-color:var(--primary)}
 .body{flex:1;min-width:0;cursor:pointer}
-.title{font-size:15px;font-weight:500;display:inline;margin-right:8px}
-.pill{display:inline-block;background:var(--pill);color:var(--pill-ink);font-weight:600;font-size:12px;border-radius:999px;padding:2px 12px;vertical-align:2px}
+.title{font-size:15px;font-weight:500;line-height:1.35;margin-right:8px}
+.title-row{display:flex;flex-wrap:wrap;align-items:center;row-gap:4px}
+.pill{display:inline-block;background:var(--pill);color:var(--pill-ink);font-weight:600;font-size:12px;border-radius:999px;padding:2px 10px;line-height:1.4}
 .pill.late{background:var(--danger);color:var(--card)}
-.meta{color:var(--muted);font-size:12px;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 14px}
+.meta{color:var(--muted);font-size:12px;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 14px}
 .meta .theme-tag{color:var(--primary);font-weight:600}
 .meta .proj-tag{font-weight:600}
-.actions{position:absolute;top:12px;right:12px;display:flex;gap:6px}
+.actions{flex:none;display:flex;align-items:center;gap:4px}
 .flagbtn{color:var(--faint)}
 .flagbtn.on{color:var(--danger)}
-.subs{margin:8px 0 2px 34px;display:flex;flex-direction:column;gap:6px}
+.subs{margin:8px 0 2px 58px;display:flex;flex-direction:column;gap:6px}
 .subrow{display:flex;align-items:center;gap:10px;font-size:13px}
 .subrow .check{width:16px;height:16px;font-size:9px}
 .subrow.done span.t{text-decoration:line-through;color:var(--muted)}
@@ -165,7 +166,6 @@ dialog::backdrop{background:var(--backdrop)}
   .sub-edit .d,.sub-edit .e{grid-column:2}
   .sub-head span:nth-child(n+3){display:none}
   .grid2{grid-template-columns:1fr}
-  .card{padding-right:56px}
 }
 </style>
 </head>
@@ -395,8 +395,12 @@ function card(t, { showTheme, showProject } = {}) {
       ${t.done ? '' : '<span class="handle" title="Glisser pour déplacer">⋮⋮</span>'}
       <button class="check ${t.done ? 'on' : ''}" data-action="toggle-done" data-id="${t.id}" title="Terminer">${t.done ? '✓' : ''}</button>
       <div class="body" data-action="expand" data-id="${t.id}">
-        <span class="title">${esc(t.title)}</span>${t.due ? `<span class="pill ${daysFromToday(t.due) < 0 && !t.done ? 'late' : ''}">${fmtDate(t.due)}</span>` : ''}
+        <div class="title-row"><span class="title">${esc(t.title)}</span>${t.due ? `<span class="pill ${daysFromToday(t.due) < 0 && !t.done ? 'late' : ''}">${fmtDate(t.due)}</span>` : ''}</div>
         ${meta.length ? `<div class="meta">${meta.join('')}</div>` : ''}
+      </div>
+      <div class="actions">
+      <button class="icon" data-action="edit-task" data-id="${t.id}" title="Modifier">✎</button>
+      <button class="icon flagbtn ${t.flagged ? 'on' : ''}" data-action="flag" data-id="${t.id}" title="Priorité">⚑</button>
       </div>
     </div>
     ${isOpen && t.subgoals.length ? `<div class="subs">${t.subgoals.map(s => `
@@ -406,10 +410,6 @@ function card(t, { showTheme, showProject } = {}) {
         ${s.due ? `<span class="m ${!s.done && daysFromToday(s.due) < 0 ? 'late' : ''}">${fmtDate(s.due)}</span>` : ''}
         ${s.est ? `<span class="m">${fmtDur(s.est)}</span>` : ''}
       </div>`).join('')}</div>` : ''}
-    <div class="actions">
-      <button class="icon" data-action="edit-task" data-id="${t.id}" title="Modifier">✎</button>
-      <button class="icon flagbtn ${t.flagged ? 'on' : ''}" data-action="flag" data-id="${t.id}" title="Priorité">⚑</button>
-    </div>
   </article>`;
 }
 
