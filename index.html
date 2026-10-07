@@ -122,6 +122,34 @@ h2.section .n,.theme-h .n{color:var(--muted);font-weight:500;font-size:14px}
 details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margin:30px 0 10px}
 .footer{margin-top:60px;display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:11px}
 
+/* Calendrier de publication */
+.cal{border:1px solid var(--line);border-top:4px solid var(--c);background:var(--card);border-radius:var(--radius);padding:16px 14px 14px;margin-bottom:28px}
+.cal-h{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:12px}
+.cal-h h2{margin:0;font-size:19px}
+.cal-h .sub{color:var(--muted);font-size:13px}
+.cal-month{display:grid;grid-template-columns:84px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.cal-mlabel{font-weight:600;font-size:13px;text-transform:capitalize;padding-top:6px}
+.cal-mlabel small{display:block;color:var(--muted);font-weight:400}
+.cal-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;min-width:0}
+.slot{border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:78px;background:var(--bg);min-width:0}
+.slot.free{border-style:dashed;background:transparent}
+.slot.past{opacity:.6}
+.slot.next{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c)}
+.slot.drop-over{border-color:var(--primary);border-style:solid;background:var(--hover)}
+.slot-date{font-size:12px;color:var(--muted);display:flex;align-items:baseline;gap:5px}
+.slot-date b{font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
+.slot-date .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--c)}
+.slot-add{color:var(--muted);font-size:13px;text-align:left;padding:4px 2px;margin-top:auto}
+.slot-add:hover{color:var(--primary)}
+.card.mini{padding:6px 8px;border-left-width:4px;border-radius:8px}
+.card.mini .card-main{gap:6px;min-height:0;align-items:flex-start}
+.card.mini .handle{align-self:flex-start;padding-top:1px}
+.card.mini .check{width:16px;height:16px;font-size:10px;margin-top:1px}
+.card.mini .title{font-size:13px;margin:0;word-break:break-word}
+.card.mini .meta{font-size:11px;margin-top:2px}
+.card.late-pub{border-color:var(--danger-line)}
+@media (max-width:640px){.cal-month{grid-template-columns:1fr;gap:6px}.cal-slots{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 /* Glisser-déposer */
 .handle{flex:none;align-self:center;cursor:grab;color:var(--faint);font-size:14px;letter-spacing:-3px;padding:4px 4px 4px 0;touch-action:none;user-select:none}
 .handle:hover{color:var(--muted)}
@@ -229,7 +257,8 @@ function parseDur(s) {
 /* ---------- Logique tâches ---------- */
 const openSubs = t => t.subgoals.filter(s => !s.done);
 const nextSubDeadline = t => openSubs(t).map(s => s.due).filter(Boolean).sort()[0] || null;
-const nextDeadline = t => [t.due, nextSubDeadline(t)].filter(Boolean).sort()[0] || null;
+const nextDeadline = t => [t.due, t.pub, nextSubDeadline(t)].filter(Boolean).sort()[0] || null;
+const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const totalEst = t => t.subgoals.length ? t.subgoals.reduce((a, s) => a + (s.est || 0), 0) : (t.est || 0);
 function bucket(t) {
   const d = nextDeadline(t);
@@ -312,7 +341,7 @@ function renderProject(p) {
   const tasks = db.tasks.filter(t => t.projectId === p.id);
   const open = tasks.filter(t => !t.done);
   const week = sortTasks(open.filter(t => inWeek(t) || t.flagged));
-  const waiting = open.filter(t => !week.includes(t));
+  const waiting = open.filter(t => !week.includes(t) && !t.pub);
   const done = tasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
   const load = weekLoad(week);
   const themes = projThemes(p.id);
@@ -328,6 +357,7 @@ function renderProject(p) {
   return `
     <div class="proj-tools"><button class="linkbtn" data-action="edit-project" data-id="${p.id}">Modifier le projet</button></div>
     <div class="objective" style="--c:${p.color}"><small>Objectif à 90 jours</small>${objective}</div>
+    ${p.calendar ? renderCalendar(p, tasks) : ''}
 
     <section class="week">
       <h2>Cette semaine</h2>
@@ -360,6 +390,75 @@ function renderProject(p) {
     ${done.length ? `<details class="done-sec"><summary>Terminées (${done.length})</summary><div class="list">${done.map(t => card(t, { showTheme: true })).join('')}</div></details>` : ''}`;
 }
 
+/* ---------- Calendrier de publication ---------- */
+// Créneaux à cadence fixe (7 ou 14 jours) à partir de la 1re date de sortie, sur 6 mois.
+// Le créneau en cours (sorti il y a moins d'une période) reste affiché.
+function calendarSlots(cal) {
+  const t0 = today0(), end = new Date(t0); end.setMonth(end.getMonth() + 6);
+  const d = parseDate(cal.start), step = cal.cadence;
+  while ((t0 - d) / 86400000 >= step) d.setDate(d.getDate() + step);
+  const out = [];
+  for (; d <= end; d.setDate(d.getDate() + step)) out.push(isoDate(d));
+  return out;
+}
+
+function renderCalendar(p, tasks) {
+  const slots = calendarSlots(p.calendar);
+  const sched = tasks.filter(t => t.pub);
+  const inSlot = i => sched.filter(t => (i === 0 ? (t.pub < slots[1] && (!t.done || t.pub >= slots[0])) : (t.pub >= slots[i] && (i === slots.length - 1 || t.pub < slots[i + 1]))));
+  const filled = slots.filter((_, i) => inSlot(i).length).length;
+  const nextIdx = slots.findIndex(x => daysFromToday(x) >= 0);
+  const months = [];
+  slots.forEach((date, i) => {
+    const d = parseDate(date), key = date.slice(0, 7);
+    if (months.at(-1)?.key !== key) months.push({ key, label: d.toLocaleDateString('fr-FR', { month: 'long' }), year: d.getFullYear(), slots: [] });
+    months.at(-1).slots.push(i);
+  });
+  return `<section class="cal" style="--c:${p.color}" data-proj="${p.id}">
+    <div class="cal-h"><h2>Calendrier de publication</h2>
+      <span class="sub">${p.calendar.cadence === 7 ? 'Chaque semaine' : 'Toutes les 2 semaines'} · ${filled} / ${slots.length} créneaux programmés · <button class="linkbtn" data-action="edit-project" data-id="${p.id}">Réglages</button></span></div>
+    ${months.map(m => `<div class="cal-month">
+      <div class="cal-mlabel">${m.label}${m.year !== today0().getFullYear() ? `<small>${m.year}</small>` : ''}</div>
+      <div class="cal-slots">${m.slots.map(i => {
+        const date = slots[i], items = inSlot(i), d = parseDate(date), n = daysFromToday(date);
+        return `<div class="slot ${items.length ? '' : 'free'} ${n < 0 ? 'past' : ''} ${i === nextIdx ? 'next' : ''}" data-slot="${date}">
+          <div class="slot-date"><b>${d.getDate()}</b>${d.toLocaleDateString('fr-FR', { weekday: 'short' })}${i === nextIdx ? '<span class="tag">Prochain</span>' : ''}</div>
+          ${items.map(t => miniCard(t, p)).join('')}
+          ${items.length ? '' : `<button class="slot-add" data-action="slot-add" data-id="${date}">+ Programmer</button>`}
+        </div>`;
+      }).join('')}</div>
+    </div>`).join('')}
+  </section>`;
+}
+
+function miniCard(t, p) {
+  const th = theme(t.themeId);
+  const late = !t.done && daysFromToday(t.pub) < 0;
+  return `<article class="card mini ${t.done ? 'done' : ''} ${late ? 'late-pub' : ''}" style="--c:${p.color}" data-task="${t.id}">
+    <div class="card-main">
+      ${t.done ? '' : '<span class="handle" title="Glisser vers un autre créneau">⋮⋮</span>'}
+      <button class="check ${t.done ? 'on' : ''}" data-action="toggle-done" data-id="${t.id}" title="Publié">${t.done ? '✓' : ''}</button>
+      <div class="body" data-action="edit-task" data-id="${t.id}">
+        <span class="title">${esc(t.title)}</span>
+        ${th || late ? `<div class="meta">${late ? `<span style="color:var(--danger);font-weight:600">Prévu ${fmtDate(t.pub)}</span>` : ''}${th ? `<span class="theme-tag">${esc(th.name)}</span>` : ''}</div>` : ''}
+      </div>
+    </div>
+  </article>`;
+}
+
+function openSlot(date) {
+  dlg.innerHTML = `<form class="modal" data-form="slot" method="dialog">
+    <h3>Programmer le ${fmtDate(date)}</h3>
+    <input type="hidden" name="date" value="${date}">
+    <div class="field"><label for="slot-title">Titre de l'épisode</label><input class="input" id="slot-title" name="title" required autocomplete="off"></div>
+    <div class="field"><label for="slot-theme">Thématique</label><select id="slot-theme" name="theme">${themeOptions(ui.project)}</select></div>
+    <p class="hint">Tu peux aussi glisser une tâche existante (poignée ⋮⋮) directement dans un créneau.</p>
+    <div class="modal-foot"><div class="right"><button class="btn primary">Programmer</button><button type="button" class="btn" data-action="close">Annuler</button></div></div>
+  </form>`;
+  dlg.showModal();
+  dlg.querySelector('#slot-title').focus();
+}
+
 function renderView(view) {
   const list = sortTasks(active().filter(t => view === 'week' ? inWeek(t) : bucket(t) === view));
   if (!list.length) return `<p class="empty">Rien ici pour le moment.</p>`;
@@ -386,6 +485,7 @@ function card(t, { showTheme, showProject } = {}) {
   if (showProject) meta.push(`<span class="proj-tag" style="color:${p.color}">${esc(p.name)}</span>`);
   if (t.subgoals.length) meta.push(`<span>${doneSubs}/${t.subgoals.length} sous-objectifs${est ? `, environ ${fmtDur(est)}` : ''}</span>`);
   else if (est) meta.push(`<span>environ ${fmtDur(est)}</span>`);
+  if (t.pub) meta.push(`<span ${!t.done && daysFromToday(t.pub) < 0 ? 'style="color:var(--danger);font-weight:600"' : ''}>Sortie : ${fmtDate(t.pub)}</span>`);
   if (nsd) meta.push(`<span ${daysFromToday(nsd) < 0 ? 'style="color:var(--danger);font-weight:600"' : ''}>Prochaine échéance : ${fmtDate(nsd)}</span>`);
   if (showTheme && th) meta.push(`<span class="theme-tag">${esc(th.name)}</span>`);
   const isOpen = ui.open[t.id];
@@ -435,6 +535,7 @@ function renderTaskModal() {
     </div>
     <div class="grid2">
       <div class="field"><label>Date limite</label><input class="input" type="date" name="due" value="${t.due || ''}"></div>
+      <div class="field"><label>Date de sortie (calendrier)</label><input class="input" type="date" name="pub" value="${t.pub || ''}"></div>
       <div class="field"><label>Estimation globale</label><input class="input" name="est" value="${t.est ? fmtDur(t.est) : ''}" placeholder="ex. 1h30" ${t.subgoals.length ? 'disabled title="Calculée à partir des sous-objectifs"' : ''}></div>
     </div>
     ${t.subgoals.length ? '<p class="hint">Avec des sous-objectifs, l\'estimation est la somme de leurs durées.</p>' : ''}
@@ -468,6 +569,7 @@ function readDraft() {
   draft.projectId = f.projectId.value;
   draft.themeId = f.themeId.value || null;
   draft.due = f.due.value || null;
+  draft.pub = f.pub.value || null;
   if (!f.est.disabled) draft.est = parseDur(f.est.value);
   draft.flagged = f.flagged.checked;
   f.querySelectorAll('.sub-edit').forEach(row => {
@@ -496,12 +598,27 @@ function renderProjectModal() {
       <span>${db.projects.findIndex(x => x.id === p.id) + 1} / ${db.projects.length}</span>
       <button type="button" class="btn small" data-action="move-project" data-id="1" ${db.projects.at(-1).id === p.id ? 'disabled' : ''}>Après →</button>
     </div></div>` : ''}
+    <div class="field"><label>Calendrier de publication</label>
+      <label class="check-line" style="margin:0"><input type="checkbox" name="calOn" ${p.calendar ? 'checked' : ''}> Afficher un calendrier de sorties (podcast, contenus…)</label>
+      <div class="grid2">
+        <select name="calCadence"><option value="7" ${p.calendar?.cadence !== 14 ? 'selected' : ''}>Chaque semaine</option><option value="14" ${p.calendar?.cadence === 14 ? 'selected' : ''}>Toutes les 2 semaines</option></select>
+        <input class="input" type="date" name="calStart" value="${p.calendar?.start || isoDate(today0())}">
+      </div>
+      <p class="hint" style="margin:0">La date choisie fixe le jour de sortie ; le calendrier se prolonge sur 6 mois.</p>
+    </div>
     <div class="field"><label>Couleur</label><div class="colors">${PALETTE.map(c => `<button type="button" class="swatch ${c === p.color ? 'on' : ''}" style="background:${c}" data-action="color" data-id="${c}"></button>`).join('')}</div></div>
     <div class="modal-foot">
       ${p.id ? `<button type="button" class="btn danger" data-action="delete-project">Supprimer le projet</button>` : ''}
       <div class="right"><button class="btn primary">Enregistrer</button><button type="button" class="btn" data-action="close">Annuler</button></div>
     </div>
   </form>`;
+}
+
+// Recopie le formulaire projet dans le brouillon (avant re-rendu ou enregistrement)
+function readProjDraft() {
+  const f = dlg.querySelector('form');
+  projDraft.name = f.name.value.trim();
+  projDraft.calendar = f.calOn.checked ? { cadence: Number(f.calCadence.value), start: f.calStart.value || isoDate(today0()) } : null;
 }
 
 /* ---------- Confirmation / saisie dans la page ---------- */
@@ -563,10 +680,11 @@ document.addEventListener('click', async e => {
     case 'move-project': {
       const i = db.projects.findIndex(x => x.id === projDraft.id), j = i + Number(id);
       [db.projects[i], db.projects[j]] = [db.projects[j], db.projects[i]];
-      projDraft.name = dlg.querySelector('[name=name]').value;
+      readProjDraft();
       save(); render(); return renderProjectModal();
     }
-    case 'color': projDraft.name = dlg.querySelector('[name=name]').value; projDraft.color = id; return renderProjectModal();
+    case 'color': readProjDraft(); projDraft.color = id; return renderProjectModal();
+    case 'slot-add': return openSlot(id);
     case 'delete-project': {
       const n = db.tasks.filter(x => x.projectId === projDraft.id).length;
       if (!await ask(`Supprimer « ${projDraft.name} » et ses ${n} tâche(s) ? C'est définitif.`, { ok: 'Supprimer', danger: true })) return;
@@ -632,8 +750,14 @@ document.addEventListener('submit', e => {
     const i = db.tasks.findIndex(x => x.id === draft.id);
     db.tasks[i] = draft; dlg.close(); commit();
   }
+  if (kind === 'slot') {
+    const title = f.title.value.trim();
+    if (!title) return;
+    db.tasks.push({ id: uid(), projectId: ui.project, themeId: f.theme.value || null, title, due: null, pub: f.date.value, flagged: false, done: false, est: 0, subgoals: [], createdAt: Date.now() });
+    dlg.close(); return commit();
+  }
   if (kind === 'project') {
-    projDraft.name = f.name.value.trim();
+    readProjDraft();
     if (!projDraft.name) return;
     if (projDraft.id) Object.assign(project(projDraft.id), projDraft);
     else { projDraft.id = uid(); db.projects.push(projDraft); ui.project = projDraft.id; ui.view = null }
@@ -642,7 +766,7 @@ document.addEventListener('submit', e => {
 });
 
 /* ---------- Glisser-déposer ---------- */
-// Tâches : poignée ⋮⋮ (souris et tactile), dépôt dans une thématique ou sur un projet.
+// Tâches : poignée ⋮⋮ (souris et tactile), dépôt dans une thématique, un créneau du calendrier ou sur un projet.
 // Projets : glisser les pastilles à la souris pour changer leur ordre.
 let drag = null;
 const dropLine = Object.assign(document.createElement('div'), { className: 'drop-line' });
@@ -698,6 +822,8 @@ document.addEventListener('pointermove', e => {
 
   const chip = under.closest('[data-chip]');
   if (chip) { chip.classList.add('drop-over'); drag.target = { project: chip.dataset.chip }; return }
+  const slot = under.closest('[data-slot]');
+  if (slot) { slot.classList.add('drop-over'); drag.target = { slot: slot.dataset.slot, project: slot.closest('[data-proj]').dataset.proj }; return }
   const th = under.closest('[data-drop]');
   if (!th) return;
   th.classList.add('drop-over');
@@ -730,8 +856,11 @@ function endDrag(e) {
   const task = findTask(d.id);
   if (t.project) {
     if (task.projectId !== t.project) { task.projectId = t.project; task.themeId = null; task.order = undefined }
+    if (t.slot) task.pub = t.slot;
     return commit();
   }
+  // Remettre une tâche dans une thématique la retire du calendrier
+  task.pub = null;
   task.themeId = t.theme || null;
   const ids = t.list.slice();
   ids.splice(t.before ? ids.indexOf(t.before) : ids.length, 0, task.id);
