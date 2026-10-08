@@ -228,6 +228,33 @@ if (!db.v) {
   db.tasks = db.tasks.filter(t => !SAMPLES.includes(t.title));
   db.v = 2;
 }
+// Ajout ponctuel : plan « Livre offert » du projet chakras. N'efface rien ; ne s'ajoute qu'une fois (même après un import).
+const LIVRE_THEME = 'Livre offert — Amazon & Lulu';
+if (!db.themes.some(t => t.name === LIVRE_THEME)) {
+  let pj = db.projects.find(p => /chakra|six lotus|sept roues/i.test(p.name));
+  if (!pj) { pj = { id: uid(), name: 'Chakra', color: PALETTE[3], objective: '' }; db.projects.push(pj) }
+  const thId = uid(), now = Date.now();
+  db.themes.push({ id: thId, projectId: pj.id, name: LIVRE_THEME, collapsed: false });
+  const PLAN = [
+    ['1. Finaliser le manuscrit', ['Réécrire le ton (Partie III, ch. 21 bis)', 'Écrire les encadrés « Ce que j\'ai vécu »', 'Vérifier les points ⚠️ (Avalon, Padoux, Hirschi, Brennan)', 'Relecture par un correcteur professionnel']],
+    ['2. ISBN et nom d\'éditeur', ['S\'inscrire comme éditeur à l\'AFNIL (« Éditions OCCULT »)', 'Obtenir un ISBN broché + un ISBN ebook']],
+    ['3. Maquette intérieure', ['Format 15,24 × 22,86 cm, noir et blanc', 'Illustrations au trait, 300 DPI', 'PDF intérieur prêt à imprimer (Claude, Typst)', 'EPUB en couleur pour l\'ebook']],
+    ['4. Couverture', ['Design de la couverture', 'Version gabarit KDP (dos selon nb de pages)', 'Version gabarit Lulu']],
+    ['5. Amazon KDP', ['Fiche broché + fiche ebook (hors KDP Select)', 'Déclarer le contenu IA (illustrations)', 'Catégories de niche + 7 mots-clés', 'Commander un exemplaire d\'épreuve', 'Publier', 'Dépôt légal BnF']],
+    ['6. Lulu', ['Projet privé, distribution désactivée', 'Charger intérieur + couverture Lulu', 'Commander une épreuve', 'Noter le code produit (pod_package_id)', 'Carte enregistrée pour les commandes API', 'Clés API bac à sable puis production']],
+    ['7. Google Sheet élèves + Zap 1 (Skool → email)', ['Créer le Sheet « Élèves Six lotus »', 'Zap : Skool New Paid Member → ligne Sheet', 'Zap : email « Ton livre t\'attend » (texte dans Notion)', 'Option : envoi au CRM OCCULT']],
+    ['8. Page de commande Tally', ['Couverture + prix barré « Offert »', 'Champs adresse + email caché prérempli', 'Message de fin']],
+    ['9. Zap 2 (Tally → Lulu)', ['Recherche de l\'email dans le Sheet', 'Filtre : élève payé et livre pas encore commandé', 'Jeton Lulu puis commande (print-job)', 'Mise à jour du Sheet + email de confirmation']],
+    ['10. Test complet en bac à sable', ['Achat test Skool', 'Vérifier Sheet, emails, commande Lulu sandbox', 'Tester un email non inscrit : rien ne part']],
+    ['11. Passage en production', ['Basculer les adresses Lulu en production', 'Commander un vrai exemplaire pour moi', 'Suivre le coût réel par livre']],
+    ['12. Lancement et mise en lumière', ['QR code dans le livre → méditation audio contre email', 'Précommande ebook 4-6 semaines avant', 'Demander des avis honnêtes aux premiers lecteurs', 'Pubs Amazon 5 €/jour', 'Série de contenus (« Ton cœur n\'est pas vert »…)']]
+  ];
+  PLAN.forEach(([title, subs], i) => db.tasks.push({
+    id: uid(), projectId: pj.id, themeId: thId, title, due: null, flagged: false, done: false, est: 0, order: i, createdAt: now + i,
+    subgoals: subs.map(s => ({ id: uid(), title: s, due: null, est: 0, done: false }))
+  }));
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+}
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
 try { Object.assign(ui, JSON.parse(localStorage.getItem(KEY + '.ui')) || {}, { editObjective: false }) } catch (e) {}
 if (!db.projects.some(p => p.id === ui.project)) ui.project = db.projects[0]?.id || null;
