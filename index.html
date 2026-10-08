@@ -51,9 +51,11 @@ select,.input{background:var(--field);border:1px solid var(--line);border-radius
 .btn.small{padding:6px 12px;font-size:12px}
 
 /* Tabs */
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
 .tab{background:transparent;border:1px solid var(--line);border-radius:10px;padding:8px 8px;font-weight:600;font-size:14px;text-align:center}
 .tab .n{color:var(--muted);font-weight:500;margin-left:6px;font-size:13px}
+.tab.urgent{color:var(--danger)}
+.tab.urgent.active{border-color:var(--danger);background:var(--danger-bg)}
 .tab.active{border-color:var(--warn);background:var(--warn-bg)}
 .chips{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:22px;scrollbar-width:thin}
 .chip{flex:none;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-weight:500;font-size:14px;white-space:nowrap}
@@ -188,7 +190,7 @@ dialog::backdrop{background:var(--backdrop)}
 .hint{color:var(--muted);font-size:10px;margin-top:-6px;margin-bottom:12px}
 
 @media (max-width:640px){
-  .tabs{grid-template-columns:1fr}
+  .tabs{grid-template-columns:1fr 1fr}
   .quick-row select{flex:1 1 45%}
   .sub-edit,.sub-head{grid-template-columns:22px 1fr 28px}
   .sub-edit .d,.sub-edit .e{grid-column:2}
@@ -288,14 +290,14 @@ const app = document.getElementById('app');
 
 function render() {
   const act = active();
-  const counts = { today: 0, week: 0, later: 0 };
+  const counts = { urgent: 0, today: 0, week: 0, later: 0 };
   act.forEach(t => { const b = bucket(t); counts[b]++; if (b === 'today') counts.week++ });
-  const flagged = act.filter(t => t.flagged).length;
+  const flagged = counts.urgent = act.filter(t => t.flagged).length;
   const cur = project(ui.project);
 
   app.innerHTML = `
     <h1>Mes projets</h1>
-    <p class="summary"><b>${plural(flagged, 'priorité')}</b> cette semaine, ${plural(counts.later, 'idée')} en attente.</p>
+    <p class="summary"><b>${plural(flagged, 'tâche urgente', 'tâches urgentes')}</b>, ${plural(counts.later, 'idée')} en attente.</p>
 
     <form class="quick" data-form="quick">
       <input type="text" name="title" placeholder="Note une idée ou une tâche…" autocomplete="off">
@@ -308,8 +310,8 @@ function render() {
     </form>
 
     <div class="tabs">
-      ${[['today', "À faire aujourd'hui"], ['week', 'À faire cette semaine'], ['later', 'À anticiper']].map(([k, l]) =>
-        `<button class="tab ${ui.view === k ? 'active' : ''}" data-action="view" data-id="${k}">${l}<span class="n">${counts[k]}</span></button>`).join('')}
+      ${[['urgent', 'Urgent'], ['today', "À faire aujourd'hui"], ['week', 'À faire cette semaine'], ['later', 'À anticiper']].map(([k, l]) =>
+        `<button class="tab ${k === 'urgent' ? 'urgent' : ''} ${ui.view === k ? 'active' : ''}" data-action="view" data-id="${k}">${l}<span class="n">${counts[k]}</span></button>`).join('')}
     </div>
 
     <div class="chips">
@@ -460,8 +462,15 @@ function openSlot(date) {
 }
 
 function renderView(view) {
-  const list = sortTasks(active().filter(t => view === 'week' ? inWeek(t) : bucket(t) === view));
-  if (!list.length) return `<p class="empty">Rien ici pour le moment.</p>`;
+  const list = sortTasks(active().filter(t => view === 'urgent' ? t.flagged : view === 'week' ? inWeek(t) : bucket(t) === view));
+  if (!list.length) return `<p class="empty">${view === 'urgent' ? 'Aucune tâche urgente. Clique sur le drapeau ⚑ d\'une tâche pour l\'ajouter ici.' : 'Rien ici pour le moment.'}</p>`;
+  if (view === 'urgent') {
+    // Pas besoin de date : on additionne le travail restant de chaque tâche urgente
+    const min = list.reduce((a, t) => a + (t.subgoals.length ? openSubs(t).reduce((b, x) => b + (x.est || 0), 0) : (t.est || 0)), 0);
+    return `<section class="week"><h2>Urgent</h2>
+      <p class="sub">${plural(list.length, 'tâche')} marquée${list.length > 1 ? 's' : ''} d'un drapeau${min ? `, environ <b>${fmtDur(min)}</b> de travail restant` : ''}.</p>
+      <div class="list">${list.map(t => card(t, { showProject: true, showTheme: true })).join('')}</div></section>`;
+  }
   if (view !== 'later') {
     const load = weekLoad(list);
     return `<section class="week"><h2>${view === 'today' ? "Aujourd'hui" : 'Cette semaine'}</h2>
