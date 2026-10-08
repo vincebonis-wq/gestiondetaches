@@ -255,6 +255,21 @@ if (!db.themes.some(t => t.name === LIVRE_THEME)) {
   }));
   try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
 }
+// Ajout ponctuel : les 26 chapitres du livre dans « 1. Finaliser le manuscrit » (réécriture, puis images). Une seule fois.
+if (!db.livreChapitres) {
+  const CHAPITRES = ['Avant-propos — Pourquoi un livre de plus sur les chakras', 'Ch. 1 — Avant les chakras : le corps-cosmos de l\'Inde ancienne', 'Ch. 2 — La naissance des chakras dans les Tantras', 'Ch. 3 — Le texte de 1577 et le haṭha yoga', 'Ch. 4 — Le grand voyage vers l\'Occident', 'Ch. 5 — Les autres cartes du corps subtil', 'Ch. 6 — Les trois couches du système', 'Ch. 7 — Ce que la science sait, et ce qu\'elle ne sait pas', 'Ch. 8 — Les pièges et les dérives', 'Ch. 9 — La carte n\'est pas le territoire', 'Ouverture de la Partie III — Six lotus et un serpent', 'Ch. 10 — Mūlādhāra, la racine', 'Ch. 11 — Svādhiṣṭhāna, le sacré', 'Ch. 12 — Maṇipūra, le plexus solaire', 'Ch. 13 — Anāhata, le cœur', 'Ch. 14 — Viśuddha, la gorge', 'Ch. 15 — Ājñā, le troisième œil', 'Ch. 16 — Sahasrāra, le sommet aux mille pétales', 'Ch. 17 — Les deux courants et l\'équilibre d\'ensemble', 'Ch. 18 — Le protocole de 21 jours', 'Ch. 18 bis — Le pendule : interroger ses centres', 'Ch. 19 — Chakras et perceptions', 'Ch. 20 — Kundalinī, le serpent de feu', 'Ch. 21 — Anatomie subtile avancée', 'Ch. 21 bis — Les chakras et les couches de l\'aura', 'Ch. 22 — Les dieux des chakras'];
+  const livreTheme = db.themes.find(t => t.name === LIVRE_THEME);
+  const manuscrit = db.tasks.find(t => t.title === '1. Finaliser le manuscrit' && (!livreTheme || t.themeId === livreTheme.id));
+  if (manuscrit) {
+    const ajout = [...CHAPITRES.map(c => 'Réécriture — ' + c), ...CHAPITRES.map(c => 'Images — ' + c)]
+      .map(title => ({ id: uid(), title, due: null, est: 0, done: false }));
+    // Avant la relecture par le correcteur, qui vient en dernier
+    const i = manuscrit.subgoals.findIndex(s => /correcteur/i.test(s.title));
+    manuscrit.subgoals.splice(i < 0 ? manuscrit.subgoals.length : i, 0, ...ajout);
+    db.livreChapitres = true;
+    try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+  }
+}
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
 try { Object.assign(ui, JSON.parse(localStorage.getItem(KEY + '.ui')) || {}, { editObjective: false }) } catch (e) {}
 if (!db.projects.some(p => p.id === ui.project)) ui.project = db.projects[0]?.id || null;
@@ -743,7 +758,7 @@ document.addEventListener('click', async e => {
       try {
         const data = JSON.parse(txt);
         if (!Array.isArray(data.projects) || !Array.isArray(data.tasks)) throw new Error();
-        db = { v: 2, projects: data.projects, themes: data.themes || [], tasks: data.tasks };
+        db = { v: 2, livreChapitres: data.livreChapitres, projects: data.projects, themes: data.themes || [], tasks: data.tasks };
         ui.project = db.projects[0]?.id || null; ui.view = null; commit();
       } catch { ask("Ce texte n'est pas une sauvegarde valide. Utilise le texte complet donné par « Exporter ».", { ok: 'OK', cancel: false }) }
       return;
