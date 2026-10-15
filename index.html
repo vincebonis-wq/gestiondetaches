@@ -126,10 +126,12 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 
 /* Chantier (villa) */
 .site{border:1px solid var(--line);background:var(--card);border-radius:var(--radius);overflow:hidden;margin-bottom:28px}
-.site-scene{display:block;width:100%;height:auto;aspect-ratio:800/360;background:#cfe9f5}
+.site-wrap{position:relative}
+.site-scene{display:block;width:100%;height:auto;aspect-ratio:960/440;background:#bfe6f7}
 .site-info{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px}
 .site-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px}
 .site-top h2{margin:0;font-size:19px}
+.site-top .tools{display:flex;gap:10px;align-items:center}
 .site-top select{font-size:12px;padding:4px 8px}
 .site-stage{font-size:15px;font-weight:600}
 .site-stage small{color:var(--muted);font-weight:500;margin-right:6px;font-variant-numeric:tabular-nums}
@@ -137,23 +139,42 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .site-bar span{display:block;height:100%;background:linear-gradient(90deg,#d9a640,#f2c94c);border-radius:inherit;transition:width .6s ease}
 .site-next{color:var(--muted);font-size:13px}
 .site-next b{color:var(--ink)}
-.site-steps{display:flex;gap:4px;flex-wrap:wrap}
-.site-steps i{width:18px;height:6px;border-radius:3px;background:var(--pill)}
+.site-steps{display:grid;grid-template-columns:repeat(20,1fr);gap:3px}
+.site-steps i{height:6px;border-radius:3px;background:var(--pill)}
 .site-steps i.on{background:#d9a640}
-.pop{animation:pop .9s cubic-bezier(.2,1.4,.4,1) both;transform-box:fill-box;transform-origin:50% 100%}
-@keyframes pop{from{opacity:0;transform:translateY(18px) scaleY(.6)}to{opacity:1;transform:none}}
-.arm{animation:dig 2.4s ease-in-out infinite;transform-box:view-box}
-@keyframes dig{0%,100%{transform:rotate(0)}50%{transform:rotate(-9deg)}}
-.hook{animation:swing 3s ease-in-out infinite;transform-box:view-box}
-@keyframes swing{0%,100%{transform:rotate(3deg)}50%{transform:rotate(-3deg)}}
-.drum{animation:spin 3s linear infinite;transform-box:fill-box;transform-origin:center}
-@keyframes spin{to{transform:rotate(360deg)}}
-.shimmer{animation:shim 3s ease-in-out infinite}
-@keyframes shim{0%,100%{opacity:.25}50%{opacity:.75}}
+.site-steps i.cur{background:linear-gradient(90deg,#d9a640 var(--f),var(--pill) var(--f))}
+.site-run{position:absolute;left:10px;top:10px;right:10px;display:flex;align-items:center;gap:10px;background:rgba(20,26,25,.72);color:#fff;border-radius:10px;padding:8px 12px;font-size:13px;max-width:460px}
+.site-run span{flex:1;min-width:0}
+.site-run i{display:block;height:4px;border-radius:2px;background:rgba(255,255,255,.25);margin-top:5px;overflow:hidden}
+.site-run i b{display:block;height:100%;background:#f2c94c;transform-origin:left;transform:scaleX(0)}
+.site-run button{color:#fff;font-weight:600;font-size:12px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px}
+/* Boucles d'ambiance (transform/opacity uniquement) */
+.s-cloud{animation:s-cloud 70s linear infinite alternate}
+@keyframes s-cloud{to{transform:translateX(-140px)}}
+.s-boat{animation:s-boat 90s ease-in-out infinite alternate}
+@keyframes s-boat{to{transform:translateX(220px)}}
+.s-shim{animation:s-shim 4s ease-in-out infinite}
+.s-shim:nth-child(2n){animation-delay:-2s}
+@keyframes s-shim{0%,100%{opacity:.15}50%{opacity:.7}}
+.s-bird{animation:s-bird 40s linear infinite}
+@keyframes s-bird{from{transform:translateX(0)}to{transform:translateX(-1100px)}}
+.s-idle-arm{animation:s-dig 5s ease-in-out infinite}
+@keyframes s-dig{0%,100%{transform:rotate(0)}50%{transform:rotate(-12deg)}}
+.s-idle-hook{animation:s-swing 4s ease-in-out infinite}
+@keyframes s-swing{0%,100%{transform:rotate(2deg)}50%{transform:rotate(-2deg)}}
+.s-idle-drum{animation:s-drum 1.6s linear infinite}
+@keyframes s-drum{to{transform:translateX(-24px)}}
+.s-wk{animation:s-wk .9s ease-in-out infinite alternate}
+.s-wk.b{animation-delay:-.45s}
+@keyframes s-wk{to{transform:translateY(-2px)}}
+.s-fw{animation:s-fw 2.8s ease-out infinite;opacity:0}
+.s-fw.b{animation-delay:-1s}.s-fw.c{animation-delay:-1.9s}
+@keyframes s-fw{0%{opacity:0;transform:scale(.2)}15%{opacity:1}100%{opacity:0;transform:scale(1)}}
+.s-bulb{animation:s-shim 2.4s ease-in-out infinite}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--chip-on);color:var(--chip-on-ink);padding:12px 18px;border-radius:12px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100vw - 32px);animation:toast 4.5s ease both}
 .toast small{display:block;font-weight:500;opacity:.75}
 @keyframes toast{0%{opacity:0;transform:translate(-50%,20px)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,10px)}}
-@media (prefers-reduced-motion:reduce){.pop,.arm,.hook,.drum,.shimmer,.toast{animation:none}}
+@media (prefers-reduced-motion:reduce){.s-cloud,.s-boat,.s-shim,.s-bird,.s-idle-arm,.s-idle-hook,.s-idle-drum,.s-wk,.s-fw,.s-bulb,.toast{animation:none}.s-fw{opacity:.8}}
 
 /* Calendrier de publication */
 .cal{border:1px solid var(--line);border-top:4px solid var(--c);background:var(--card);border-radius:var(--radius);padding:16px 14px 14px;margin-bottom:28px}
@@ -625,6 +646,7 @@ function render() {
       <button class="linkbtn" data-action="export">Exporter (sauvegarde)</button>
       <button class="linkbtn" data-action="import">Importer</button>
     </div>`;
+  playSite();
 }
 
 function themeOptions(pid, selected) {
@@ -693,19 +715,35 @@ function renderProject(p) {
 }
 
 /* ---------- Chantier : la villa se construit avec l'avancement ---------- */
+const SITE_N = 20;
 const SITE_STEPS = [
-  ['Terrain à vendre', 'Le terrain t\'attend'],
-  ['Terrain acheté', 'Le terrain est à toi : on plante les piquets'],
-  ['Terrassement', 'Les engins préparent le terrain'],
-  ['Fondations', 'On coule la dalle de béton'],
-  ['Rez-de-chaussée', 'Les murs du rez-de-chaussée s\'élèvent'],
-  ['Étage', 'L\'étage prend forme'],
-  ['Toit-terrasse', 'Le toit est posé : la villa est hors d\'eau'],
-  ['Baies vitrées', 'Les grandes baies vitrées sont posées'],
-  ['Piscine creusée', 'La pelleteuse creuse la piscine'],
-  ['Piscine & terrasse', 'La piscine est remplie, la terrasse posée'],
-  ['Villa livrée', 'Intérieurs, jardin et lumières : la villa est terminée']
+  ['Terrain à vendre', 'Une parcelle avec vue sur la mer t\'attend'],
+  ['Terrain acheté', 'Signature chez le notaire : le terrain est à toi'],
+  ['Bornage', 'Le géomètre plante les piquets'],
+  ['Débroussaillage', 'Le bulldozer nettoie le terrain'],
+  ['Terrassement', 'La pelleteuse creuse les fondations'],
+  ['Ferraillage', 'Coffrages et fers à béton en place'],
+  ['Dalle', 'La toupie coule la dalle de béton'],
+  ['Murs du rez-de-chaussée', 'Les briques montent rang par rang'],
+  ['Plancher', 'La dalle de l\'étage est coulée'],
+  ['Murs de l\'étage', 'L\'étage s\'élève brique après brique'],
+  ['Toit-terrasse', 'La grue pose la toiture'],
+  ['Façade', 'Enduit blanc, pierre et bardage bois'],
+  ['Baies vitrées', 'Les grandes vitres sont posées'],
+  ['Piscine : terrassement', 'On creuse le bassin'],
+  ['Piscine : carrelage', 'Le bassin est carrelé'],
+  ['Mise en eau', 'La piscine se remplit'],
+  ['Terrasse', 'Terrasse en bois et transats'],
+  ['Intérieurs', 'Les meubles arrivent'],
+  ['Jardin', 'Palmiers, olivier et gazon'],
+  ['Éclairage', 'Allée, lampadaires et lumières'],
+  ['Villa livrée', 'Bienvenue chez toi']
 ];
+// Véhicule de chaque étape et sa position de travail sur la route
+const SITE_VEH = { 1: ['sedan', 170], 2: ['van:GÉOMÈTRE:#3b6fb5', 230], 3: ['bulldozer', 460], 4: ['excavator', 520], 5: ['flatbed:rebar', 600], 6: ['mixer', 600], 7: ['flatbed:bricks', 600], 8: ['mixer', 620], 9: ['flatbed:bricks', 620], 10: ['flatbed:beams', 620], 11: ['van:PEINTURE:#d0582f', 560], 12: ['flatbed:glass', 600], 13: ['excavator', 690], 14: ['van:CARRELAGE:#2a8a9a', 640], 15: ['tanker', 640], 16: ['flatbed:wood', 420], 17: ['box', 470], 18: ['pickup', 660], 19: ['van:ÉLECTRICITÉ:#b5487a', 520], 20: ['sport', 120] };
+const SITE_FX = { 1: 'drop', 2: 'drop', 3: 'vanish', 4: 'fade', 5: 'drop', 6: 'rise', 7: 'drop', 8: 'rise', 9: 'drop', 10: 'drop', 11: 'fade', 12: 'fade', 13: 'fade', 14: 'fade', 15: 'rise', 16: 'drop', 17: 'fade', 18: 'rise', 19: 'drop', 20: 'fade' };
+const SITE_T = 30000; // durée de l'animation d'une étape
+let siteAnim = null, siteTimer = null;
 
 // Une « brique » = un sous-objectif (ou une tâche sans sous-objectif). Une tâche terminée compte toutes ses briques.
 function siteProgress(p) {
@@ -716,33 +754,37 @@ function siteProgress(p) {
     else { total++; if (t.done) done++ }
   }
   const ratio = total ? done / total : 0;
-  const stage = !done ? 0 : ratio >= 1 ? 10 : 1 + Math.floor(ratio * 9);
-  // Briques à poser pour atteindre l'étape suivante
-  const need = stage >= 10 ? 0 : stage === 0 ? 1 : stage === 9 ? total - done : Math.ceil(stage / 9 * total) - done || 1;
-  return { total, done, ratio, stage, need };
+  const x = ratio * SITE_N, stage = ratio >= 1 ? SITE_N : Math.floor(x + 1e-9);
+  const frac = stage >= SITE_N ? 0 : Math.max(0, x - stage);
+  const need = stage >= SITE_N ? 0 : Math.max(1, Math.ceil((stage + 1) / SITE_N * total - 1e-9) - done);
+  return { total, done, ratio, stage, frac, need };
 }
 
 function renderSite(p) {
   const pr = siteProgress(p);
   const seen = p.siteSeen ?? pr.stage;
-  // Nouvelle étape franchie depuis le dernier affichage : on la fait apparaître et on fête ça
-  const fresh = pr.stage > seen ? pr.stage : -1;
-  if (fresh > 0) setTimeout(() => toast(`Nouvelle étape : ${SITE_STEPS[fresh][0]}`, SITE_STEPS[fresh][1]), 300);
+  // Nouvelle étape franchie : on lance les travaux (animation) de la plus haute étape atteinte
+  if (pr.stage > seen && !matchMedia('(prefers-reduced-motion: reduce)').matches) siteAnim = { pid: p.id, k: pr.stage, start: performance.now() };
+  else if (pr.stage > seen) setTimeout(() => toast(`Nouvelle étape : ${SITE_STEPS[pr.stage][0]}`, SITE_STEPS[pr.stage][1]), 300);
   if (p.siteSeen !== pr.stage) { p.siteSeen = pr.stage; save() }
+  const anim = siteAnim && siteAnim.pid === p.id && performance.now() - siteAnim.start < SITE_T ? siteAnim.k : 0;
   const [name, line] = SITE_STEPS[pr.stage];
   const next = SITE_STEPS[pr.stage + 1];
+  const pct = Math.round(pr.ratio * 100);
   return `<section class="site">
-    ${siteSVG(pr.stage, fresh, p.name)}
+    <div class="site-wrap">${siteSVG(anim ? anim - 1 : pr.stage, anim ? 0 : pr.frac, anim, p.name)}
+      ${anim ? `<div class="site-run"><span>Travaux en cours · <b>${SITE_STEPS[anim][0]}</b><i><b class="run-bar"></b></i></span><button data-action="site-skip">Passer</button></div>` : ''}</div>
     <div class="site-info">
       <div class="site-top"><h2>Mon chantier</h2>
+        <div class="tools">${pr.stage ? `<button class="linkbtn" data-action="site-replay" data-id="${p.id}">Revoir la dernière étape</button>` : ''}
         <select data-change="site-scope" data-id="${p.id}" aria-label="Ce que mesure le chantier">
           <option value="">Tout le projet</option>${projThemes(p.id).map(t => `<option value="${t.id}" ${t.id === p.siteScope ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
-        </select></div>
-      <div class="site-stage"><small>Étape ${pr.stage}/10</small>${name} · <span style="font-weight:500">${line}</span></div>
-      <div class="site-bar" title="${Math.round(pr.ratio * 100)} %"><span style="width:${Math.round(pr.ratio * 100)}%"></span></div>
-      <div class="site-steps">${SITE_STEPS.slice(1).map((_, i) => `<i class="${i < pr.stage ? 'on' : ''}"></i>`).join('')}</div>
+        </select></div></div>
+      <div class="site-stage"><small>Étape ${pr.stage}/${SITE_N}</small>${name} · <span style="font-weight:500">${line}</span></div>
+      <div class="site-bar" title="${pct} %"><span style="width:${pct}%"></span></div>
+      <div class="site-steps">${SITE_STEPS.slice(1).map((_, i) => `<i class="${i < pr.stage ? 'on' : i === pr.stage ? 'cur' : ''}" style="--f:${Math.round(pr.frac * 100)}%" title="${SITE_STEPS[i + 1][0]}"></i>`).join('')}</div>
       <div class="site-next">${!pr.total ? 'Ajoute des tâches à ce projet pour lancer le chantier.'
-        : next ? `${pr.done} / ${pr.total} briques posées (${Math.round(pr.ratio * 100)} %). Encore <b>${plural(pr.need, 'élément')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>.`
+        : next ? `${pr.done} / ${pr.total} briques posées (${pct} %). Encore <b>${plural(pr.need, 'élément')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>.`
         : `${pr.total} / ${pr.total} briques posées. Bravo, c'est construit !`}</div>
     </div>
   </section>`;
@@ -757,92 +799,211 @@ function toast(title, sub) {
   setTimeout(() => el.remove(), 4600);
 }
 
-// Scène dessinée en SVG : chaque étape ajoute des éléments ; les parties pas encore construites sont en pointillés (le plan de l'architecte)
-function siteSVG(st, fresh, projName) {
-  const at = n => st >= n, pop = n => (fresh === n ? 'class="pop"' : '');
-  const plan = 'fill="none" stroke="#2b6cb0" stroke-width="1.5" stroke-dasharray="6 5" opacity=".55"';
-  const night = st >= 10;
-  const signText = st === 0 ? 'À VENDRE' : st === 1 ? 'VENDU' : st < 10 ? 'CHANTIER' : 'VILLA';
-  const signSub = st >= 2 ? esc(projName).slice(0, 18) : st === 1 ? 'Permis accordé' : 'Belle parcelle';
-  const glass = night ? '#ffd98a' : '#a9d8ea';
-  const palm = x => `<g transform="translate(${x} 0)"><path d="M0 300 C -4 260 4 230 -2 196" stroke="#8a5a32" stroke-width="7" fill="none" stroke-linecap="round"/>
-    <g fill="#2f8a4a"><path d="M-2 196 q-34 -6 -48 18 q22 -16 48 -18z"/><path d="M-2 196 q34 -8 50 14 q-24 -14 -50 -14z"/><path d="M-2 196 q-20 -26 -44 -24 q26 4 44 24z"/><path d="M-2 196 q16 -30 42 -30 q-26 10 -42 30z"/><path d="M-2 196 q2 -30 -10 -40 q14 14 10 40z"/></g></g>`;
-  return `<svg class="site-scene" viewBox="0 0 800 360" role="img" aria-label="Chantier : étape ${st} sur 10, ${SITE_STEPS[st][0]}">
+/* --- Dessin --- */
+const wheel = (x, r = 10, y = -r) => `<g transform="translate(${x} ${y})"><g class="whl"><circle r="${r}" fill="#22272b"/><circle r="${r * .5}" fill="#b9c0c6"/><path d="M${-r * .5} 0H${r * .5}M0 ${-r * .5}V${r * .5}" stroke="#6b737a" stroke-width="1.5"/></g></g>`;
+const shadow = (x, w) => `<ellipse cx="${x}" cy="0" rx="${w}" ry="5" fill="#000" opacity=".16"/>`;
+const cab = (c) => `<path d="M0 -10 V-44 Q0 -54 10 -56 H36 Q44 -56 46 -48 V-10Z" fill="${c}"/><path d="M6 -46 Q6 -51 12 -51 H32 V-38 H6Z" fill="#cfe8f2"/><rect x="2" y="-24" width="10" height="4" rx="2" fill="#ffd36b"/>`;
+function vehicle(spec) {
+  const [type, a, b] = spec.split(':');
+  let body = '', w = 140;
+  if (type === 'sedan' || type === 'sport') {
+    const c = type === 'sport' ? '#c8323c' : '#e9eef2';
+    body = type === 'sport'
+      ? `<path d="M0 -10 Q4 -20 26 -22 L56 -34 Q86 -38 110 -26 L134 -20 Q142 -16 142 -10 V-6 H0Z" fill="${c}"/><path d="M60 -32 L74 -36 H96 L108 -26 H56Z" fill="#1d2b36"/>${wheel(28, 9)}${wheel(114, 9)}`
+      : `<path d="M0 -12 Q2 -24 20 -26 L44 -40 Q76 -46 102 -36 L120 -26 Q130 -24 132 -14 V-6 H0Z" fill="${c}"/><path d="M48 -37 L62 -42 H90 L104 -28 H44Z" fill="#9fc6d8"/>${wheel(26, 9)}${wheel(108, 9)}`;
+  } else if (type === 'van') {
+    body = `<path d="M0 -10 V-36 Q2 -46 14 -50 L30 -62 H134 Q142 -62 142 -54 V-10Z" fill="#f6f6f2"/><path d="M16 -48 L30 -58 H46 V-42 H12Z" fill="#cfe8f2"/><rect x="52" y="-46" width="84" height="16" rx="3" fill="${b}"/><text x="94" y="-34" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">${a}</text>${wheel(28)}${wheel(116)}`;
+    w = 142;
+  } else if (type === 'bulldozer') {
+    body = `<rect x="22" y="-22" width="108" height="22" rx="11" fill="#2f3438"/>${[36, 58, 80, 102, 120].map(x => `<circle cx="${x}" cy="-11" r="6" fill="#59616a"/>`).join('')}
+      <rect x="40" y="-54" width="80" height="34" rx="4" fill="#f2b632"/><rect x="74" y="-86" width="40" height="34" rx="3" fill="#e0a21c"/><rect x="80" y="-80" width="28" height="18" fill="#cfe8f2"/>
+      <path d="M-8 -44 Q2 -24 -8 -2 H8 V-44Z" fill="#8a9097"/><path d="M8 -30 H40" stroke="#555" stroke-width="5"/>`;
+  } else if (type === 'excavator') {
+    body = `<rect x="34" y="-22" width="104" height="22" rx="11" fill="#2f3438"/>${[48, 70, 92, 114, 128].map(x => `<circle cx="${x}" cy="-11" r="6" fill="#59616a"/>`).join('')}
+      <rect x="44" y="-54" width="96" height="32" rx="4" fill="#f2b632"/><rect x="44" y="-88" width="38" height="36" rx="4" fill="#e0a21c"/><rect x="50" y="-82" width="26" height="20" fill="#cfe8f2"/><rect x="112" y="-64" width="28" height="12" fill="#d39a1a"/>
+      <g transform="translate(48 -52)"><g class="arm"><path d="M0 0 L-52 -64 L-98 -14" stroke="#e0a21c" stroke-width="11" fill="none" stroke-linejoin="round" stroke-linecap="round"/><path d="M-108 -24 l24 2 l-6 24 l-24 -8z" fill="#4a4f55"/></g></g>`;
+  } else if (type === 'mixer') {
+    body = `${cab('#2f6bb5')}<rect x="40" y="-22" width="130" height="10" fill="#3d4247"/>
+      <clipPath id="drumclip"><ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)"/></clipPath>
+      <ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)" fill="#e8e8e6"/>
+      <g clip-path="url(#drumclip)"><g class="drum">${[0, 24, 48, 72, 96, 120, 144].map(x => `<path d="M${50 + x} -84 l-30 76" stroke="#e8553e" stroke-width="7"/>`).join('')}</g></g>
+      <ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)" fill="none" stroke="#9aa0a6" stroke-width="2"/>`;
+    body += `${wheel(24)}${wheel(124)}${wheel(150)}`; w = 170;
+  } else if (type === 'tanker') {
+    body = `${cab('#2a8a9a')}<rect x="40" y="-22" width="130" height="10" fill="#3d4247"/><rect x="50" y="-58" width="120" height="38" rx="19" fill="#d9e7ee"/><rect x="50" y="-44" width="120" height="8" fill="#2a8a9a"/>
+      <text x="110" y="-46" text-anchor="middle" font-size="10" font-weight="700" fill="#2a8a9a" font-family="system-ui,sans-serif">EAU</text>${wheel(24)}${wheel(128)}${wheel(152)}`; w = 172;
+  } else if (type === 'box') {
+    body = `${cab('#9b4dbb')}<rect x="48" y="-78" width="130" height="66" rx="3" fill="#f6f4ee"/><rect x="48" y="-78" width="130" height="10" fill="#9b4dbb"/>
+      <text x="113" y="-38" text-anchor="middle" font-size="11" font-weight="700" fill="#9b4dbb" font-family="system-ui,sans-serif">DÉMÉNAGEMENT</text>${wheel(24)}${wheel(136)}${wheel(160)}`; w = 178;
+  } else if (type === 'pickup') {
+    body = `${cab('#2f6b4f')}<rect x="44" y="-30" width="96" height="20" rx="3" fill="#2f6b4f"/><g class="cargo"><rect x="78" y="-46" width="24" height="16" fill="#b5653a"/><path d="M90 -46 C88 -70 94 -84 90 -100" stroke="#8a5a32" stroke-width="5" fill="none"/>
+      <g fill="#2f8a4a"><path d="M90 -100 q-30 -4 -40 16 q18 -14 40 -16z"/><path d="M90 -100 q30 -6 42 12 q-20 -12 -42 -12z"/><path d="M90 -100 q-6 -24 -26 -26 q20 6 26 26z"/><path d="M90 -100 q12 -24 32 -24 q-20 8 -32 24z"/></g></g>${wheel(24)}${wheel(118)}`; w = 140;
+  } else if (type === 'flatbed') {
+    const cargo = {
+      bricks: [56, 96, 136].map(x => `<rect x="${x}" y="-50" width="34" height="26" fill="url(#brick)"/><rect x="${x - 2}" y="-24" width="38" height="4" fill="#a87a45"/>`).join(''),
+      rebar: [0, 3, 6, 9].map(d => `<path d="M48 ${-28 - d} H176" stroke="#7d8389" stroke-width="2"/>`).join('') + '<path d="M174 -40 v14" stroke="#e8553e" stroke-width="3"/>',
+      beams: [0, 8, 16].map(d => `<rect x="50" y="${-30 - d}" width="126" height="6" fill="#59616a"/>`).join(''),
+      glass: `<path d="M110 -24 L94 -70 L126 -70 Z" fill="none" stroke="#7d8389" stroke-width="3"/>${[0, 10, 20].map(d => `<rect x="${60 + d}" y="-66" width="44" height="42" fill="#bfe6f5" opacity=".75" stroke="#7aaac0"/>`).join('')}`,
+      wood: [0, 7, 14, 21].map(d => `<rect x="${52 + (d % 14)}" y="${-30 - d}" width="116" height="6" fill="${d % 14 ? '#b07a4a' : '#c9925a'}"/>`).join('')
+    }[a];
+    body = `${cab('#e0a21c')}<rect x="44" y="-24" width="136" height="10" fill="#5a6066"/><g class="cargo">${cargo}</g>${wheel(24)}${wheel(140)}${wheel(162)}`; w = 180;
+  }
+  return `<g class="veh">${shadow(w / 2, w / 2)}${body}</g>`;
+}
+const worker = (x, y, cls = '') => `<g transform="translate(${x} ${y})"><g class="s-wk ${cls}"><rect x="-4" y="-8" width="3" height="8" fill="#2f3a4a"/><rect x="1" y="-8" width="3" height="8" fill="#2f3a4a"/><rect x="-5" y="-19" width="10" height="12" rx="2" fill="#f07a2a"/><path d="M-5 -14 H5" stroke="#f6e27a" stroke-width="1.5"/><circle cy="-23" r="4" fill="#e7b48f"/><path d="M-5 -24 a5 5 0 0 1 10 0z" fill="#f2c94c"/></g></g>`;
+const palm = (x, y, h = 120) => `<g transform="translate(${x} ${y})"><path d="M0 0 C -6 ${-h * .4} 6 ${-h * .7} -2 ${-h}" stroke="#8a5a32" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <g transform="translate(-2 ${-h})" fill="#2f8a4a"><path d="M0 0 q-40 -8 -58 22 q26 -20 58 -22z"/><path d="M0 0 q40 -10 60 18 q-28 -18 -60 -18z"/><path d="M0 0 q-24 -32 -54 -30 q32 6 54 30z"/><path d="M0 0 q20 -36 52 -36 q-32 12 -52 36z"/><path d="M0 0 q2 -36 -12 -48 q16 18 12 48z"/><path d="M0 0 q-30 4 -44 34 q20 -26 44 -34z" fill="#26763f"/></g></g>`;
+const cypress = (x, y) => `<g transform="translate(${x} ${y})"><ellipse cx="0" cy="-34" rx="9" ry="36" fill="#2e5e3a"/><ellipse cx="2" cy="-30" rx="5" ry="30" fill="#3c7449"/></g>`;
+const bush = (x, y, c = '#4f9a45') => `<g transform="translate(${x} ${y})"><circle cx="-8" cy="-8" r="10" fill="${c}"/><circle cx="6" cy="-10" r="12" fill="${c}"/><circle cx="0" cy="-16" r="9" fill="#6ab35a"/></g>`;
+const segs = (x0, x1, n, f) => Array.from({ length: n }, (_, i) => f(x0 + (x1 - x0) * i / n, (x1 - x0) / n, i));
+
+// Éléments de chaque étape (dans l'ordre où ils apparaissent)
+function siteItems(k, night) {
+  const glass = night ? 'url(#glassN)' : 'url(#glass)';
+  switch (k) {
+    case 1: return [`<g transform="rotate(-14 120 272)"><rect x="70" y="262" width="100" height="18" fill="#c8323c"/><text x="120" y="275" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="system-ui,sans-serif">VENDU</text></g>`];
+    case 2: return [...[[296, 340], [380, 342], [470, 342], [560, 342], [652, 340], [296, 314], [652, 314], [466, 396], [784, 396], [784, 344]].map(([x, y]) => `<g><rect x="${x - 1.5}" y="${y - 18}" width="3" height="18" fill="#a07a50"/><rect x="${x - 2.5}" y="${y - 20}" width="5" height="4" fill="#e8553e"/></g>`),
+      `<path d="M296 322 H652 V322 M296 340 H652" stroke="#fff" stroke-width="1" opacity=".9"/>`, `<path d="M466 378 H784 M466 378 V396 M784 344 V396" stroke="#fff" stroke-width="1" opacity=".9"/>`];
+    case 3: return [[250, 330], [330, 362], [410, 318], [500, 372], [580, 330], [660, 366], [742, 340], [790, 300]].map(([x, y]) => bush(x, y, '#5c8f3c'));
+    case 4: return [...segs(190, 820, 8, (x, w) => `<rect x="${x}" y="262" width="${w + .5}" height="138" fill="url(#dirt)"/>`), `<rect x="282" y="314" width="372" height="24" rx="3" fill="#8f6a3f"/>`];
+    case 5: return [`<rect x="284" y="330" width="368" height="8" fill="#c08a4e"/>`, `<rect x="284" y="310" width="368" height="6" fill="#b07a40"/>`, `<rect x="284" y="310" width="6" height="28" fill="#b07a40"/>`, `<rect x="646" y="310" width="6" height="28" fill="#b07a40"/>`,
+      ...segs(300, 640, 8, x => `<path d="M${x + 20} 330 V292 M${x + 26} 330 V296" stroke="#6b7177" stroke-width="2"/>`)];
+    case 6: return segs(284, 652, 8, (x, w) => `<g><rect x="${x}" y="312" width="${w + .5}" height="24" fill="url(#concrete)"/><rect x="${x}" y="312" width="${w + .5}" height="3" fill="#d4d7da"/></g>`);
+    case 7: return Array.from({ length: 9 }, (_, r) => segs(300, 620, 3, (x, w) => `<rect x="${x}" y="${300 - 12 * r}" width="${w + .5}" height="12.5" fill="url(#brick)"/>`)).flat();
+    case 8: return segs(292, 692, 8, (x, w) => `<g><rect x="${x}" y="194" width="${w + .5}" height="14" fill="url(#concrete)"/><rect x="${x}" y="194" width="${w + .5}" height="2" fill="#d4d7da"/></g>`);
+    case 9: return Array.from({ length: 7 }, (_, r) => segs(380, 680, 3, (x, w) => `<rect x="${x}" y="${184 - 10 * r}" width="${w + .5}" height="10.5" fill="url(#brick)"/>`)).flat();
+    case 10: return [...segs(366, 706, 8, (x, w) => `<rect x="${x}" y="112" width="${w + .5}" height="14" fill="#2f3438"/>`), `<rect x="366" y="126" width="340" height="5" fill="#b07a4a"/>`, `<rect x="286" y="190" width="94" height="6" fill="#2f3438"/>`];
+    case 11: return [...segs(300, 540, 3, (x, w) => `<rect x="${x}" y="206" width="${w + .5}" height="108" fill="url(#wall)"/>`),
+      `<g><rect x="540" y="206" width="80" height="108" fill="#d9cdb6"/><g stroke="#bfae92" stroke-width="1.2" fill="none">${[220, 236, 252, 268, 284, 300].map((y, i) => `<path d="M540 ${y} H620 M${556 + (i % 2) * 16} ${y - 16} V${y} M${590 + (i % 2) * 12} ${y - 16} V${y}"/>`).join('')}</g></g>`,
+      ...segs(380, 640, 2, (x, w) => `<rect x="${x}" y="126" width="${w + .5}" height="68" fill="url(#wall)"/>`),
+      `<g><rect x="640" y="126" width="40" height="68" fill="#a8743f"/>${[646, 654, 662, 670].map(x => `<path d="M${x} 128 V192" stroke="#8a5a2c" stroke-width="2"/>`).join('')}</g>`];
+    case 12: return [...[356, 416, 476].map(x => `<g><rect x="${x}" y="226" width="60" height="88" fill="${glass}"/><rect x="${x}" y="226" width="60" height="88" fill="none" stroke="#2b3136" stroke-width="3"/>${night ? '' : `<path d="M${x + 10} 234 l22 40 M${x + 22} 234 l22 40" stroke="#fff" stroke-width="3" opacity=".35"/>`}</g>`),
+      `<g><rect x="306" y="248" width="34" height="66" fill="#6b4428"/><rect x="306" y="248" width="34" height="66" fill="none" stroke="#2b3136" stroke-width="2"/><rect x="332" y="278" width="3" height="12" rx="1" fill="#e2c07a"/></g>`,
+      ...[400, 456, 512, 568].map(x => `<g><rect x="${x}" y="140" width="56" height="50" fill="${glass}"/><rect x="${x}" y="140" width="56" height="50" fill="none" stroke="#2b3136" stroke-width="3"/>${night ? '' : `<path d="M${x + 8} 146 l18 32" stroke="#fff" stroke-width="3" opacity=".35"/>`}</g>`),
+      `<g><rect x="290" y="174" width="88" height="16" fill="#bfe6f5" opacity=".55"/><path d="M290 174 H378" stroke="#7d8389" stroke-width="2"/></g>`];
+    case 13: return [...segs(466, 784, 6, (x, w) => `<rect x="${x}" y="344" width="${w + .5}" height="48" fill="#7a5636"/>`), `<path d="M466 344 H784 L776 352 H474Z" fill="#5e4128"/>`];
+    case 14: return [`<rect x="470" y="352" width="306" height="36" fill="url(#tiles)"/>`, `<rect x="462" y="342" width="322" height="10" rx="2" fill="#f3f1ea"/>`, `<rect x="462" y="388" width="322" height="8" rx="2" fill="#f3f1ea"/>`, `<rect x="462" y="342" width="10" height="54" fill="#f3f1ea"/>`, `<rect x="774" y="342" width="10" height="54" fill="#f3f1ea"/>`];
+    case 15: return [...['#1a8fbf', '#2aa3cf', '#3cb6da', '#4fc6e2', '#62d3ea'].map((c, i) => `<rect x="472" y="${382 - 6 * i}" width="302" height="${6.5 + (i ? 0 : 0)}" fill="${c}"/>`),
+      `<g><rect x="472" y="352" width="302" height="6" fill="#74ddf0"/><g stroke="#fff" stroke-width="2" stroke-linecap="round">${[[500, 362], [560, 374], [620, 360], [690, 372], [740, 362]].map(([x, y]) => `<path class="s-shim" d="M${x} ${y} q8 -4 16 0"/>`).join('')}</g></g>`];
+    case 16: return [...segs(350, 462, 8, (x, w, i) => `<rect x="${x}" y="340" width="${w - .8}" height="58" fill="${i % 2 ? '#bf8850' : '#c9925a'}"/>`),
+      ...[784, 798].map((x, i) => `<rect x="${x}" y="340" width="13" height="58" fill="${i % 2 ? '#bf8850' : '#c9925a'}"/>`),
+      ...[360, 404].map(x => `<g><rect x="${x}" y="364" width="38" height="8" rx="3" fill="#fff" stroke="#d8d0c0"/><path d="M${x + 34} 364 l8 -12" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M${x + 4} 372 v6 M${x + 32} 372 v6" stroke="#9a9a9a" stroke-width="2"/></g>`),
+      `<g><path d="M452 392 V330" stroke="#6b5a48" stroke-width="2.5"/><path d="M424 336 Q452 310 480 336Z" fill="#f2efe6"/><path d="M424 336 Q438 330 452 336 Q466 330 480 336" fill="none" stroke="#d8d0c0"/></g>`];
+    case 17: return [`<g><rect x="362" y="290" width="70" height="22" rx="6" fill="#8d8f93"/><rect x="362" y="282" width="70" height="12" rx="5" fill="#a3a6aa"/></g>`, `<g><path d="M452 312 V262" stroke="#333" stroke-width="2"/><path d="M442 262 h20 l-5 -12 h-10z" fill="#f6e3b0"/></g>`,
+      `<g><rect x="508" y="296" width="18" height="16" fill="#c9925a"/><circle cx="512" cy="288" r="8" fill="#3f8f4a"/><circle cx="522" cy="284" r="9" fill="#4f9a55"/></g>`, `<rect x="420" y="150" width="34" height="22" fill="#e8b65c" stroke="#5a4630" stroke-width="2"/>`,
+      `<g><rect x="520" y="174" width="90" height="16" rx="3" fill="#f2efe6"/><rect x="520" y="166" width="16" height="10" rx="3" fill="#d8d0c0"/></g>`, `<g><path d="M490 140 V156" stroke="#333"/><path d="M482 156 h16 l-3 6 h-10z" fill="#f2c94c"/></g>`];
+    case 18: return [...segs(190, 820, 6, (x, w) => `<rect x="${x}" y="262" width="${w + .5}" height="138" fill="url(#lawn)"/>`), cypress(206, 268), cypress(806, 268), palm(238, 336), palm(812, 340, 130),
+      `<g transform="translate(740 330)"><path d="M0 0 C 2 -18 -4 -26 2 -38" stroke="#7a5a3a" stroke-width="6" fill="none"/><ellipse cx="0" cy="-50" rx="30" ry="18" fill="#7f9a5a"/><ellipse cx="-12" cy="-58" rx="18" ry="12" fill="#93ad6c"/></g>`, bush(280, 336), bush(662, 338), bush(228, 396, '#5aa04b')];
+    case 19: return [...[346, 360, 374, 388, 400].map((y, i) => `<ellipse cx="${322 + (i % 2) * 6}" cy="${y}" rx="14" ry="4.5" fill="#e3dccb" stroke="#c9bfa8"/>`),
+      ...[200, 296, 470, 812].map(x => `<g><path d="M${x} 402 V372" stroke="#2f3438" stroke-width="3"/><circle cx="${x}" cy="370" r="5" fill="#ffe08a"/><circle cx="${x}" cy="370" r="14" fill="#ffe08a" opacity=".25"/></g>`),
+      `<g><rect x="296" y="230" width="6" height="8" fill="#ffe08a"/><rect x="622" y="230" width="6" height="8" fill="#ffe08a"/></g>`];
+    case 20: return [`<g><path d="M350 330 Q 380 346 410 332 Q 440 346 470 330" fill="none" stroke="#333" stroke-width="1"/>${[[362, 336], [380, 340], [398, 336], [422, 337], [440, 340], [458, 335]].map(([x, y]) => `<circle class="s-bulb" cx="${x}" cy="${y}" r="2.5" fill="#ffe08a"/>`).join('')}</g>`,
+      `<rect x="472" y="352" width="302" height="36" fill="#9ff0ff" opacity=".25"/>`,
+      `<g>${[[180, 70, '#f2c94c', ''], [300, 50, '#e8553e', 'b'], [860, 80, '#9b4dbb', 'c']].map(([x, y, c, cl]) => `<g transform="translate(${x} ${y})"><g class="s-fw ${cl}">${Array.from({ length: 10 }, (_, i) => { const a = i / 10 * Math.PI * 2; return `<circle cx="${(Math.cos(a) * 26).toFixed(1)}" cy="${(Math.sin(a) * 26).toFixed(1)}" r="2.6" fill="${c}"/>`; }).join('')}</g></g>`).join('')}</g>`];
+  }
+  return [];
+}
+
+// Scène complète. st = étapes terminées, frac = avancement de l'étape suivante, anim = étape en cours d'animation (0 = aucune)
+function siteSVG(st, frac, anim, projName) {
+  const night = st >= SITE_N;
+  const cur = anim || (st < SITE_N ? st + 1 : 0);           // étape en cours de travaux
+  const layer = k => {
+    if (k === anim) return `<g class="build" data-fx="${SITE_FX[k]}">${siteItems(k, night).map(s => `<g class="bi"${SITE_FX[k] === 'vanish' ? '' : ' style="opacity:0"'}>${s}</g>`).join('')}</g>`;
+    const items = siteItems(k, night);
+    if (k === 3) return st >= 3 ? '' : items.slice(k === st + 1 ? Math.floor(frac * items.length) : 0).join('');
+    if ((k === 1 && st >= 2) || (k === 2 && st >= 6) || (k === 5 && st >= 7)) return '';
+    if (st >= k) return items.join('');
+    if (k === st + 1 && frac > 0) return items.slice(0, Math.floor(frac * items.length)).join('');
+    return '';
+  };
+  const plan = 'fill="none" stroke="#2b6cb0" stroke-width="1.5" stroke-dasharray="7 5" opacity=".55"';
+  const signTxt = st === 0 ? (frac > 0 ? ['SOUS', 'COMPROMIS'] : ['À VENDRE', 'Vue mer']) : st === 1 ? ['À VENDRE', ''] : night ? ['VILLA', projName] : ['CHANTIER', projName];
+  const crane = (st >= 6 && st < 10) || (anim >= 7 && anim <= 10);
+  const scaffold = (st >= 6 && st < 11) || (anim >= 7 && anim <= 11);
+  const vk = cur && SITE_VEH[cur] ? cur : night ? 20 : 0;     // véhicule garé (étape suivante) ou animé
+  const [vspec, vx] = vk ? SITE_VEH[vk] : [];
+  const busy = cur >= 2 && cur <= 19 && (anim || frac > 0);
+  const wk = cur >= 13 && cur <= 16 ? [[492, 404], [760, 404]] : cur >= 17 ? [[260, 404], [700, 404]] : [[300, 342], [630, 342]];
+  return `<svg class="site-scene" viewBox="0 0 960 440" role="img" aria-label="Chantier : étape ${st} sur ${SITE_N}, ${SITE_STEPS[st][0]}">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">${night
-      ? '<stop offset="0" stop-color="#3b3f7a"/><stop offset=".55" stop-color="#e98a6b"/><stop offset="1" stop-color="#fbd5a5"/>'
-      : '<stop offset="0" stop-color="#8fd0f0"/><stop offset="1" stop-color="#e6f5fb"/>'}</linearGradient>
-    <linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fd3f0"/><stop offset="1" stop-color="#1f9cc9"/></linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">${night ? '<stop offset="0" stop-color="#2c2f6b"/><stop offset=".55" stop-color="#d9786a"/><stop offset="1" stop-color="#ffd6a0"/>' : '<stop offset="0" stop-color="#6fbfe9"/><stop offset=".7" stop-color="#cdeefa"/><stop offset="1" stop-color="#fbf3df"/>'}</linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">${night ? '<stop offset="0" stop-color="#5a5f9a"/><stop offset="1" stop-color="#d98a76"/>' : '<stop offset="0" stop-color="#2e86bd"/><stop offset="1" stop-color="#6cc6e2"/>'}</linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${night ? '#7d9a5c' : '#a9cc72'}"/><stop offset="1" stop-color="${night ? '#5d7f45' : '#86b457'}"/></linearGradient>
+    <linearGradient id="dirt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d2a76c"/><stop offset="1" stop-color="#b98a52"/></linearGradient>
+    <linearGradient id="lawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fbf5a"/><stop offset="1" stop-color="#5fa443"/></linearGradient>
+    <linearGradient id="concrete" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8bcc0"/><stop offset="1" stop-color="#959a9f"/></linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ebe5d8"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d2eef8" stop-opacity=".85"/><stop offset="1" stop-color="#6aa9c6" stop-opacity=".85"/></linearGradient>
+    <linearGradient id="glassN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a8" stop-opacity=".8"/><stop offset="1" stop-color="#f3b45c" stop-opacity=".85"/></linearGradient>
+    <pattern id="brick" width="24" height="12" patternUnits="userSpaceOnUse"><rect width="24" height="12" fill="#c8714c"/><path d="M0 .5H24M0 6.5H24M12 0V6M0 6V12M24 6V12" stroke="#ead6c2" stroke-width="1.2"/></pattern>
+    <pattern id="tiles" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#8fd6ea"/><path d="M0 .5H12M.5 0V12" stroke="#cdeef7" stroke-width="1"/></pattern>
   </defs>
-  <rect width="800" height="360" fill="url(#sky)"/>
-  <circle cx="${night ? 660 : 690}" cy="${night ? 210 : 62}" r="${night ? 34 : 26}" fill="${night ? '#ffb15c' : '#ffe27a'}"/>
-  <g fill="#fff" opacity="${night ? .25 : .85}"><ellipse cx="140" cy="60" rx="46" ry="13"/><ellipse cx="175" cy="52" rx="30" ry="12"/><ellipse cx="470" cy="40" rx="38" ry="10"/></g>
-  <path d="M0 238 Q120 196 250 226 T520 214 T800 228 V260 H0Z" fill="${night ? '#6d8a6a' : '#9ccc8a'}"/>
-  <g fill="${night ? '#4f6e4f' : '#6fae5f'}"><circle cx="40" cy="232" r="18"/><circle cx="66" cy="238" r="14"/><circle cx="740" cy="230" r="20"/><circle cx="770" cy="238" r="14"/></g>
-  <rect y="250" width="800" height="110" fill="${night ? '#5f9a4c' : '#86bd62'}"/>
-  <rect x="150" y="256" width="510" height="86" rx="6" fill="${at(10) ? '#6fae4f' : at(2) ? '#c9a36b' : '#7db35a'}"/>
-  ${at(2) && !at(10) ? '<g fill="#b48a55" opacity=".7"><circle cx="200" cy="320" r="3"/><circle cx="330" cy="330" r="2"/><circle cx="580" cy="318" r="3"/><circle cx="460" cy="334" r="2"/></g>' : ''}
-
-  <!-- Panneau -->
-  <g><rect x="96" y="214" width="6" height="56" fill="#7a5532"/><rect x="62" y="186" width="76" height="40" rx="3" fill="${st === 1 ? '#c8323c' : st >= 10 ? '#2f5e4e' : '#fff'}" stroke="#7a5532" stroke-width="2"/>
-    <text x="100" y="203" text-anchor="middle" font-size="12" font-weight="700" font-family="system-ui,sans-serif" fill="${st === 1 || st >= 10 ? '#fff' : '#c8323c'}">${signText}</text>
-    <text x="100" y="218" text-anchor="middle" font-size="8" font-family="system-ui,sans-serif" fill="${st === 1 || st >= 10 ? '#fff' : '#555'}">${signSub}</text></g>
-
-  <!-- Clôture de chantier -->
-  ${at(1) && !at(10) ? `<g ${pop(1)}>${[150, 230, 310, 390, 470, 550, 630, 660].map(x => `<rect x="${x - 2}" y="300" width="4" height="40" fill="#9a7a50"/>`).join('')}<path d="M150 310 H660" stroke="#e8553e" stroke-width="3" stroke-dasharray="14 8"/><path d="M150 310 H660" stroke="#fff" stroke-width="3" stroke-dasharray="8 14" stroke-dashoffset="-14"/></g>` : ''}
-
-  <!-- Plan de l'architecte (pointillés) -->
-  ${at(1) && !at(4) ? `<rect x="230" y="175" width="290" height="85" ${plan}/>` : ''}
-  ${at(1) && !at(5) ? `<rect x="300" y="112" width="262" height="63" ${plan}/>` : ''}
-  ${at(1) && !at(8) ? `<rect x="440" y="278" width="170" height="38" rx="4" ${plan}/>` : ''}
-
-  <!-- Fondations -->
-  ${at(3) ? `<g ${pop(3)}><rect x="220" y="256" width="350" height="12" fill="#9aa0a6"/>${at(4) ? '' : '<g stroke="#5b6168" stroke-width="1.5">' + [240, 280, 320, 360, 400, 440, 480, 520, 560].map(x => `<path d="M${x} 256 v-14"/>`).join('') + '</g>'}</g>` : ''}
-
-  <!-- Rez-de-chaussée -->
-  ${at(4) ? `<g ${pop(4)}><rect x="230" y="175" width="290" height="85" fill="#f4f1ea"/><rect x="230" y="175" width="290" height="85" fill="none" stroke="#d8d2c4"/>
-    <rect x="410" y="175" width="110" height="85" fill="#cdbfa8"/></g>` : ''}
-  <!-- Étage -->
-  ${at(5) ? `<g ${pop(5)}><rect x="300" y="112" width="262" height="63" fill="#fbfaf6"/><rect x="300" y="112" width="262" height="63" fill="none" stroke="#d8d2c4"/>
-    <g stroke="#b07a4a" stroke-width="3">${[512, 522, 532, 542, 552].map(x => `<path d="M${x} 116 v56"/>`).join('')}</g></g>` : ''}
-  <!-- Toits -->
-  ${at(6) ? `<g ${pop(6)}><rect x="222" y="168" width="306" height="9" fill="#3a3f44"/><rect x="292" y="104" width="282" height="10" fill="#3a3f44"/><rect x="292" y="114" width="282" height="3" fill="#b07a4a"/>
-    <path d="M528 168 H562" stroke="#9fb4c0" stroke-width="2"/><g stroke="#9fb4c0" stroke-width="1.5">${[532, 540, 548, 556].map(x => `<path d="M${x} 168 v-10"/>`).join('')}</g><path d="M528 158 H562" stroke="#9fb4c0" stroke-width="2"/></g>` : ''}
-  <!-- Baies vitrées -->
-  ${at(7) ? `<g ${pop(7)}><rect x="248" y="190" width="150" height="66" fill="${glass}"/><g stroke="#2f3438" stroke-width="2"><rect x="248" y="190" width="150" height="66" fill="none"/><path d="M298 190 v66 M348 190 v66"/></g>
-    <rect x="320" y="126" width="180" height="40" fill="${glass}"/><g stroke="#2f3438" stroke-width="2"><rect x="320" y="126" width="180" height="40" fill="none"/><path d="M380 126 v40 M440 126 v40"/></g>
-    <rect x="452" y="200" width="34" height="58" fill="#5a3b24"/><circle cx="480" cy="230" r="2" fill="#e8c27a"/>
-    ${night ? '' : '<path d="M256 196 l30 52 M306 196 l30 52" stroke="#fff" stroke-width="3" opacity=".45"/>'}</g>` : ''}
-  ${night ? '<g fill="#ffe7a8" opacity=".9"><circle cx="300" cy="226" r="18" opacity=".35"/><circle cx="410" cy="148" r="16" opacity=".35"/></g>' : ''}
-
-  <!-- Échafaudage -->
-  ${at(4) && !at(7) ? `<g stroke="#8a6d3b" stroke-width="2" opacity=".85">${[224, 296, 372, 448, 524, 568].map(x => `<path d="M${x} ${x > 290 ? 104 : 170} V258"/>`).join('')}<path d="M224 214 H296 M224 172 H568 M296 140 H568 M224 236 H568"/></g>` : ''}
-
-  <!-- Piscine -->
-  ${at(8) ? `<g ${pop(8)}>${at(9) ? '<rect x="420" y="270" width="210" height="54" rx="4" fill="#c99a62"/><g stroke="#a87a45" stroke-width="1">' + [440, 460, 480, 500, 520, 540, 560, 580, 600].map(x => `<path d="M${x} 270 v54"/>`).join('') + '</g>' : ''}
-    <rect x="440" y="278" width="170" height="38" rx="4" fill="${at(9) ? '#fff' : '#a07a4a'}"/>
-    <rect x="445" y="282" width="160" height="30" rx="3" fill="${at(9) ? 'url(#water)' : '#7a5a34'}"/>
-    ${at(9) ? '<g class="shimmer" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M465 292 q10 -4 20 0 M520 300 q10 -4 20 0 M560 290 q10 -4 20 0"/></g>' : ''}</g>` : ''}
-  ${at(9) ? `<g ${pop(9)}><g fill="#fff" stroke="#c9c2b4"><rect x="330" y="300" width="44" height="9" rx="3"/><rect x="330" y="316" width="44" height="9" rx="3"/></g><path d="M372 300 l8 -10 M372 316 l8 -10" stroke="#c9c2b4" stroke-width="3"/>
-    <path d="M300 320 V276" stroke="#6b5a48" stroke-width="2"/><path d="M276 280 Q300 258 324 280Z" fill="#e8553e"/></g>` : ''}
-
-  <!-- Engins -->
-  ${st === 2 || st === 8 ? `<g ${pop(st)} transform="translate(${st === 8 ? 0 : -40} 0)"><path d="M630 300 q30 -26 62 0z" fill="#a07a4a"/>
-    <rect x="560" y="300" width="70" height="14" rx="7" fill="#333"/><rect x="566" y="270" width="54" height="32" rx="4" fill="#f2b632"/><rect x="598" y="276" width="18" height="16" fill="#bfe3f0"/>
-    <g class="arm" style="transform-origin:570px 280px"><path d="M570 280 L520 240 L490 270" stroke="#e0a21c" stroke-width="8" fill="none" stroke-linejoin="round"/><path d="M482 262 l16 4 l-4 16 l-16 -6z" fill="#555"/></g></g>` : ''}
-  ${st === 3 ? `<g ${pop(3)}><rect x="580" y="292" width="110" height="10" fill="#555"/><circle cx="600" cy="306" r="9" fill="#333"/><circle cx="670" cy="306" r="9" fill="#333"/>
-    <rect x="662" y="266" width="30" height="28" rx="3" fill="#2f6bb5"/><rect x="668" y="272" width="16" height="10" fill="#bfe3f0"/>
-    <g><ellipse cx="620" cy="276" rx="36" ry="18" fill="#e4e4e4" stroke="#999"/><path d="M590 270 l60 12 M592 282 l56 -12" stroke="#e8553e" stroke-width="3"/></g></g>` : ''}
-  ${at(4) && !at(7) ? `<g ${pop(4)}><path d="M640 262 V40" stroke="#f2b632" stroke-width="8"/><g stroke="#e0a21c" stroke-width="1.5">${[60, 90, 120, 150, 180, 210, 240].map(y => `<path d="M636 ${y} l8 15"/>`).join('')}</g>
-    <path d="M360 40 H700" stroke="#f2b632" stroke-width="6"/><rect x="684" y="38" width="22" height="16" fill="#777"/><rect x="630" y="32" width="20" height="14" fill="#e0a21c"/>
-    <g class="hook" style="transform-origin:430px 42px"><path d="M430 42 V120" stroke="#444" stroke-width="1.5"/><rect x="414" y="120" width="32" height="10" fill="#9aa0a6"/></g></g>` : ''}
-
-  <!-- Jardin, lumières, voiture -->
-  ${at(10) ? `<g ${pop(10)}>${palm(190)}${palm(640)}<g fill="#3f8f4a"><circle cx="240" cy="262" r="10"/><circle cx="256" cy="264" r="8"/><circle cx="545" cy="262" r="9"/></g>
-    <path d="M410 260 L392 342 H436 L470 260Z" fill="#d9cdb4" opacity=".9"/>
-    ${[214, 400, 620].map(x => `<g><path d="M${x} 336 v-26" stroke="#333" stroke-width="2"/><circle cx="${x}" cy="308" r="4" fill="#ffe08a"/><circle cx="${x}" cy="308" r="12" fill="#ffe08a" opacity=".3"/></g>`).join('')}
-    <g transform="translate(40 300)"><path d="M0 22 q4 -14 22 -16 l18 -10 q20 -4 40 4 l14 10 q14 2 16 12 v6 H0z" fill="#1d2b36"/><path d="M26 6 l14 -8 h22 l12 8z" fill="#9fc6d8"/><circle cx="24" cy="30" r="8" fill="#222"/><circle cx="92" cy="30" r="8" fill="#222"/><circle cx="24" cy="30" r="3" fill="#bbb"/><circle cx="92" cy="30" r="3" fill="#bbb"/></g></g>` : ''}
+  <rect width="960" height="440" fill="url(#sky)"/>
+  ${night ? '<circle cx="770" cy="212" r="60" fill="#ffb15c" opacity=".25"/><circle cx="770" cy="212" r="38" fill="#ffb15c"/>' : '<circle cx="840" cy="70" r="48" fill="#fff6c2" opacity=".35"/><circle cx="840" cy="70" r="28" fill="#ffe27a"/>'}
+  <g class="s-cloud" opacity="${night ? .35 : .9}" fill="#fff"><ellipse cx="160" cy="70" rx="56" ry="14"/><ellipse cx="196" cy="60" rx="34" ry="14"/><ellipse cx="560" cy="44" rx="44" ry="11"/><ellipse cx="590" cy="38" rx="26" ry="10"/></g>
+  <g class="s-bird" fill="none" stroke="${night ? '#2c2f6b' : '#41545e'}" stroke-width="1.6"><path d="M1000 110 q6 -6 12 0 q6 -6 12 0"/><path d="M1030 124 q5 -5 10 0 q5 -5 10 0"/></g>
+  <path d="M0 196 Q90 160 190 186 T380 178 T560 190 T760 172 T960 186 V214 H0Z" fill="${night ? '#6c6f9c' : '#a7c0cf'}"/>
+  <rect y="208" width="960" height="52" fill="url(#sea)"/>
+  <g stroke="#fff" stroke-width="1.5" stroke-linecap="round"><path class="s-shim" d="M60 222 h22"/><path class="s-shim" d="M240 232 h30"/><path class="s-shim" d="M420 220 h18"/><path class="s-shim" d="M620 236 h26"/><path class="s-shim" d="M820 226 h20"/></g>
+  <g class="s-boat"><path d="M120 236 h36 l-6 7 h-24z" fill="#fff"/><path d="M138 234 V206 L154 232Z" fill="#fff"/><path d="M136 234 V212 L124 232Z" fill="#f2efe6"/></g>
+  <path d="M0 252 Q160 236 330 248 T660 246 T960 250 V440 H0Z" fill="url(#ground)"/>
+  ${cypress(36, 262)}${cypress(58, 266)}${cypress(912, 262)}${bush(880, 268, '#6b9a4a')}
+  <rect x="0" y="404" width="960" height="36" fill="#5d6268"/><path d="M0 422 H960" stroke="#e9e3c9" stroke-width="2" stroke-dasharray="26 18"/>
+  <rect x="190" y="262" width="630" height="138" rx="10" fill="${st >= 4 ? '#c69c62' : '#97c065'}" opacity="${st >= 4 ? 1 : .55}"/>
+  ${layer(4)}${layer(18)}${layer(3)}${layer(16)}${layer(13)}${layer(14)}${layer(15)}${layer(2)}
+  ${st >= 2 && st < 7 && anim !== 7 ? `<rect x="300" y="206" width="320" height="108" ${plan}/>` : ''}
+  ${st >= 2 && st < 9 && anim !== 9 ? `<rect x="380" y="126" width="300" height="68" ${plan}/>` : ''}
+  ${st >= 2 && st < 13 && anim !== 13 ? `<rect x="462" y="342" width="322" height="54" rx="3" ${plan}/>` : ''}
+  ${layer(5)}${layer(6)}${layer(7)}${layer(8)}${layer(9)}${layer(11)}${layer(17)}${layer(12)}${layer(10)}${layer(19)}${layer(20)}
+  ${scaffold ? `<g stroke="#a77b45" stroke-width="2.2">${[294, 372, 452, 532, 626].map(x => `<path d="M${x} 314 V202"/>`).join('')}${st >= 8 || anim >= 9 ? [376, 456, 536, 616, 688].map(x => `<path d="M${x} 194 V120"/>`).join('') : ''}</g>
+    <g fill="#c9a46a"><rect x="290" y="268" width="340" height="4"/><rect x="290" y="232" width="340" height="4"/>${st >= 8 || anim >= 9 ? '<rect x="372" y="160" width="320" height="4"/><rect x="372" y="130" width="320" height="4"/>' : ''}</g>` : ''}
+  ${crane ? `<g><path d="M852 404 V36 M870 404 V36" stroke="#e0a21c" stroke-width="4"/><path d="${Array.from({ length: 12 }, (_, i) => `M852 ${404 - i * 30} L870 ${389 - i * 30} L852 ${374 - i * 30}`).join(' ')}" stroke="#e0a21c" stroke-width="1.6" fill="none"/>
+    <path d="M360 36 H930" stroke="#f2b632" stroke-width="7"/><path d="M360 44 H850" stroke="#e0a21c" stroke-width="2"/><rect x="900" y="34" width="34" height="22" fill="#6b737a"/><rect x="842" y="40" width="34" height="22" rx="2" fill="#e0a21c"/><rect x="848" y="44" width="16" height="10" fill="#cfe8f2"/>
+    <g transform="translate(540 40)"><g class="hook"><path d="M0 0 V96" stroke="#3a3f44" stroke-width="1.6" vector-effect="non-scaling-stroke"/><g class="load"><path d="M-12 96 L0 84 L12 96" stroke="#3a3f44" fill="none"/><rect x="-18" y="96" width="36" height="14" fill="url(#brick)"/></g></g></g></g>` : ''}
+  <g><rect x="117" y="290" width="7" height="114" fill="#7a5532"/><rect x="66" y="246" width="108" height="50" rx="4" fill="${night ? '#2f5e4e' : '#fffdf6'}" stroke="#7a5532" stroke-width="2.5"/>
+    <text x="120" y="268" text-anchor="middle" font-size="14" font-weight="800" fill="${night ? '#fff' : '#c8323c'}" font-family="system-ui,sans-serif">${signTxt[0]}</text>
+    <text x="120" y="285" text-anchor="middle" font-size="10" fill="${night ? '#e6f0ea' : '#555'}" font-family="system-ui,sans-serif">${esc(String(signTxt[1]).slice(0, 18))}</text></g>
+  ${layer(1)}
+  ${busy ? worker(wk[0][0], wk[0][1]) + worker(wk[1][0], wk[1][1], 'b') : ''}
+  ${vspec ? `<g transform="translate(${vx} 434)"><g class="drive ${anim ? '' : 'parked'}">${vehicle(vspec)}</g></g>` : ''}
 </svg>`;
+}
+
+// Joue (ou reprend) l'animation d'une étape : arrivée du véhicule, travaux, départ
+function playSite() {
+  clearTimeout(siteTimer);
+  const svg = document.querySelector('.site-scene');
+  if (!svg) return;
+  const idle = !svg.querySelector('.build');
+  if (idle) {
+    // Ambiance au repos : engins garés qui s'activent doucement
+    svg.querySelectorAll('.parked .arm').forEach(e => e.classList.add('s-idle-arm'));
+    svg.querySelectorAll('.parked .drum').forEach(e => e.classList.add('s-idle-drum'));
+    svg.querySelectorAll('.hook').forEach(e => e.classList.add('s-idle-hook'));
+    return;
+  }
+  const t = Math.min(performance.now() - siteAnim.start, SITE_T - 1);
+  const anims = [], A = (el, kf, o) => { if (el) anims.push(el.animate(kf, { fill: 'both', ...o })) };
+  const drive = svg.querySelector('.drive');
+  A(drive, [{ transform: 'translateX(1100px)' }, { transform: 'translateX(0)', offset: .2, easing: 'ease-in' }, { transform: 'translateX(0)', offset: .8, easing: 'ease-in' }, { transform: 'translateX(-1300px)' }], { duration: SITE_T, easing: 'linear' });
+  drive?.querySelectorAll('.whl').forEach(w => A(w, [{ transform: 'rotate(0)' }, { transform: 'rotate(-1100deg)', offset: .2 }, { transform: 'rotate(-1100deg)', offset: .8 }, { transform: 'rotate(-2400deg)' }], { duration: SITE_T }));
+  const W = { delay: 6000, duration: 3000, iterations: 6, easing: 'ease-in-out' };
+  A(drive?.querySelector('.arm'), [{ transform: 'rotate(0)' }, { transform: 'rotate(-22deg)' }, { transform: 'rotate(8deg)' }, { transform: 'rotate(0)' }], W);
+  A(drive?.querySelector('.drum'), [{ transform: 'translateX(0)' }, { transform: 'translateX(-24px)' }], { delay: 0, duration: 900, iterations: SITE_T / 900 });
+  A(drive?.querySelector('.cargo'), [{ opacity: 1 }, { opacity: 0 }], { delay: 7000, duration: 16000 });
+  A(drive?.querySelector('.veh'), [{ transform: 'translateY(0)' }, { transform: 'translateY(-1.5px)' }], { delay: 6000, duration: 300, iterations: 60, direction: 'alternate' });
+  const load = svg.querySelector('.load');
+  if (load) { A(load, [{ transform: 'translateY(0)' }, { transform: 'translateY(150px)', offset: .45 }, { transform: 'translateY(150px)', offset: .55 }, { transform: 'translateY(0)' }], { delay: 6000, duration: 4500, iterations: 4, easing: 'ease-in-out' });
+    A(svg.querySelector('.hook > path'), [{ transform: 'scaleY(1)' }, { transform: 'scaleY(2.56)', offset: .45 }, { transform: 'scaleY(2.56)', offset: .55 }, { transform: 'scaleY(1)' }], { delay: 6000, duration: 4500, iterations: 4, easing: 'ease-in-out' }) }
+  // Construction des éléments un par un pendant les travaux
+  const build = svg.querySelector('.build'), fx = build.dataset.fx, items = [...build.children];
+  const KF = { drop: [{ opacity: 0, transform: 'translateY(-46px)' }, { opacity: 1, transform: 'translateY(0)' }], rise: [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)' }], fade: [{ opacity: 0 }, { opacity: 1 }], vanish: [{ opacity: 1 }, { opacity: 0, transform: 'translateY(6px)' }] }[fx];
+  items.forEach((el, i) => A(el, KF, { delay: 6500 + i * 16500 / items.length, duration: 1100, easing: 'cubic-bezier(.2,.9,.3,1.15)' }));
+  A(document.querySelector('.run-bar'), [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: SITE_T });
+  anims.forEach(a => { a.currentTime = t });
+  const k = siteAnim.k;
+  siteTimer = setTimeout(() => { siteAnim = null; toast(`Étape terminée : ${SITE_STEPS[k][0]}`, SITE_STEPS[k][1]); render() }, SITE_T - t);
 }
 
 /* ---------- Calendrier de publication ---------- */
@@ -1151,6 +1312,8 @@ document.addEventListener('click', async e => {
     }
     case 'color': readProjDraft(); projDraft.color = id; return renderProjectModal();
     case 'slot-add': return openSlot(id);
+    case 'site-skip': clearTimeout(siteTimer); siteAnim = null; return render();
+    case 'site-replay': { const pr = siteProgress(project(id)); if (pr.stage) siteAnim = { pid: id, k: pr.stage, start: performance.now() }; return render() }
     case 'delete-project': {
       const n = db.tasks.filter(x => x.projectId === projDraft.id).length;
       if (!await ask(`Supprimer « ${projDraft.name} » et ses ${n} tâche(s) ? C'est définitif.`, { ok: 'Supprimer', danger: true })) return;
