@@ -155,33 +155,10 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .site-run span{flex:1;min-width:0}
 .site-run[hidden]{display:none}
 .site-run button{color:#fff;font-weight:600;font-size:12px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px}
-/* Boucles d'ambiance (transform/opacity uniquement) */
-.s-cloud{animation:s-cloud 70s linear infinite alternate}
-@keyframes s-cloud{to{transform:translateX(-140px)}}
-.s-boat{animation:s-boat 90s ease-in-out infinite alternate}
-@keyframes s-boat{to{transform:translateX(220px)}}
-.s-shim{animation:s-shim 4s ease-in-out infinite}
-.s-shim:nth-child(2n){animation-delay:-2s}
-@keyframes s-shim{0%,100%{opacity:.15}50%{opacity:.7}}
-.s-bird{animation:s-bird 40s linear infinite}
-@keyframes s-bird{from{transform:translateX(0)}to{transform:translateX(-1100px)}}
-.site .arm{animation:s-dig 5s ease-in-out infinite}
-@keyframes s-dig{0%,100%{transform:rotate(0)}50%{transform:rotate(-12deg)}}
-.site .hook{animation:s-swing 4s ease-in-out infinite}
-@keyframes s-swing{0%,100%{transform:rotate(2deg)}50%{transform:rotate(-2deg)}}
-.site .drum{animation:s-drum 1.6s linear infinite}
-@keyframes s-drum{to{transform:translateX(-24px)}}
-.s-wk{animation:s-wk .9s ease-in-out infinite alternate}
-.s-wk.b{animation-delay:-.45s}
-@keyframes s-wk{to{transform:translateY(-2px)}}
-.s-fw{animation:s-fw 2.8s ease-out infinite;opacity:0}
-.s-fw.b{animation-delay:-1s}.s-fw.c{animation-delay:-1.9s}
-@keyframes s-fw{0%{opacity:0;transform:scale(.2)}15%{opacity:1}100%{opacity:0;transform:scale(1)}}
-.s-bulb{animation:s-shim 2.4s ease-in-out infinite}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--chip-on);color:var(--chip-on-ink);padding:12px 18px;border-radius:12px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100vw - 32px);animation:toast 4.5s ease both}
 .toast small{display:block;font-weight:500;opacity:.75}
 @keyframes toast{0%{opacity:0;transform:translate(-50%,20px)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,10px)}}
-@media (prefers-reduced-motion:reduce){.s-cloud,.s-boat,.s-shim,.s-bird,.site .arm,.site .hook,.site .drum,.s-wk,.s-fw,.s-bulb,.toast{animation:none}.s-fw{opacity:.8}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
 
 /* Calendrier de publication */
 .cal{border:1px solid var(--line);border-top:4px solid var(--c);background:var(--card);border-radius:var(--radius);padding:16px 14px 14px;margin-bottom:28px}
@@ -817,331 +794,975 @@ function renderProject(p) {
 }
 
 /* ---------- Chantier : la villa se construit avec « 1. Finaliser le manuscrit » ---------- */
+// Moteur Canvas : une seule boucle d'animation (60 images/s), chaque élément est réellement transporté
+// (grue, maçons, pelleteuse, pompe à béton…) avant d'être posé. Rien n'apparaît par magie.
 const SITE_N = 20;
 const SITE_STEPS = [
   ['Terrain à vendre', 'Une parcelle avec vue sur la mer t\'attend'],
-  ['Terrain acheté', 'Signature chez le notaire : le terrain est à toi'],
-  ['Bornage', 'Le géomètre plante les piquets'],
-  ['Débroussaillage', 'Le bulldozer nettoie le terrain'],
-  ['Terrassement', 'La pelleteuse creuse les fondations'],
-  ['Ferraillage', 'Coffrages et fers à béton en place'],
-  ['Dalle', 'La toupie coule la dalle de béton'],
-  ['Murs du rez-de-chaussée', 'Les briques montent rang par rang'],
-  ['Plancher', 'La dalle de l\'étage est coulée'],
-  ['Murs de l\'étage', 'L\'étage s\'élève brique après brique'],
-  ['Toit-terrasse', 'La grue pose la toiture'],
-  ['Façade', 'Enduit blanc, pierre et bardage bois'],
-  ['Baies vitrées', 'Les grandes vitres sont posées'],
-  ['Piscine : terrassement', 'On creuse le bassin'],
-  ['Piscine : carrelage', 'Le bassin est carrelé'],
-  ['Mise en eau', 'La piscine se remplit'],
-  ['Terrasse', 'Terrasse en bois et transats'],
-  ['Intérieurs', 'Les meubles arrivent'],
-  ['Jardin', 'Palmiers, olivier et gazon'],
+  ['Terrain acheté', 'L\'acheteur arrive et le panneau passe à « Vendu »'],
+  ['Bornage', 'Le géomètre plante les piquets et tend les cordeaux'],
+  ['Débroussaillage', 'Le bulldozer pousse les broussailles hors du terrain'],
+  ['Terrassement', 'La pelleteuse creuse et charge la terre dans le camion-benne'],
+  ['Ferraillage', 'Les ouvriers posent coffrages et fers à béton'],
+  ['Dalle', 'La pompe à béton coule la dalle'],
+  ['Murs du rez-de-chaussée', 'La grue livre les palettes, le maçon pose les briques'],
+  ['Plancher', 'La pompe coule la dalle de l\'étage'],
+  ['Murs de l\'étage', 'Les briques montent rang après rang'],
+  ['Toit-terrasse', 'La grue pose les panneaux de toiture'],
+  ['Façade', 'Enduit au rouleau, pierre et bardage bois'],
+  ['Baies vitrées', 'Les vitriers posent les grandes baies'],
+  ['Piscine : terrassement', 'La pelleteuse creuse le bassin'],
+  ['Piscine : carrelage', 'Le carreleur habille le bassin'],
+  ['Mise en eau', 'Le camion-citerne remplit la piscine'],
+  ['Terrasse', 'Les lames de bois sont posées, les transats installés'],
+  ['Intérieurs', 'Les déménageurs installent les meubles'],
+  ['Jardin', 'Gazon déroulé, palmiers et olivier plantés'],
   ['Éclairage', 'Allée, lampadaires et lumières'],
   ['Villa livrée', 'Bienvenue chez toi']
 ];
-// Véhicule de chaque étape et sa position de travail sur la route
-const SITE_VEH = { 1: ['sedan', 170], 2: ['van:GÉOMÈTRE:#3b6fb5', 230], 3: ['bulldozer', 460], 4: ['excavator', 520], 5: ['flatbed:rebar', 600], 6: ['mixer', 600], 7: ['flatbed:bricks', 600], 8: ['mixer', 620], 9: ['flatbed:bricks', 620], 10: ['flatbed:beams', 620], 11: ['van:PEINTURE:#d0582f', 560], 12: ['flatbed:glass', 600], 13: ['excavator', 690], 14: ['van:CARRELAGE:#2a8a9a', 640], 15: ['tanker', 640], 16: ['flatbed:wood', 420], 17: ['box', 470], 18: ['pickup', 660], 19: ['van:ÉLECTRICITÉ:#b5487a', 520], 20: ['sport', 120] };
-const SITE_FX = { 1: 'drop', 2: 'drop', 3: 'vanish', 4: 'fade', 5: 'drop', 6: 'rise', 7: 'drop', 8: 'rise', 9: 'drop', 10: 'drop', 11: 'fade', 12: 'fade', 13: 'fade', 14: 'fade', 15: 'rise', 16: 'drop', 17: 'fade', 18: 'rise', 19: 'drop', 20: 'fade' };
-function toast(title, sub) {
-  document.querySelector('.toast')?.remove();
-  const el = document.createElement('div');
-  el.className = 'toast'; el.setAttribute('role', 'status');
-  el.innerHTML = `${esc(title)}<small>${esc(sub)}</small>`;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 4600);
-}
+const SW = 960, SH = 440, ROAD = 434, LADDER = 288;
+const EZ = {
+  io: t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+  out: t => 1 - Math.pow(1 - t, 3), in: t => t * t * t, lin: t => t,
+  sine: t => -(Math.cos(Math.PI * t) - 1) / 2,
+  back: t => { const c = 1.70158; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2) }
+};
+const lerp = (a, b, t) => a + (b - a) * t, clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const hash = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) };
 
-/* --- Dessin --- */
-const wheel = (x, r = 10, y = -r) => `<g transform="translate(${x} ${y})"><g class="whl"><circle r="${r}" fill="#22272b"/><circle r="${r * .5}" fill="#b9c0c6"/><path d="M${-r * .5} 0H${r * .5}M0 ${-r * .5}V${r * .5}" stroke="#6b737a" stroke-width="1.5"/></g></g>`;
-const shadow = (x, w) => `<ellipse cx="${x}" cy="0" rx="${w}" ry="5" fill="#000" opacity=".16"/>`;
-const cab = (c) => `<path d="M0 -10 V-44 Q0 -54 10 -56 H36 Q44 -56 46 -48 V-10Z" fill="${c}"/><path d="M6 -46 Q6 -51 12 -51 H32 V-38 H6Z" fill="#cfe8f2"/><rect x="2" y="-24" width="10" height="4" rx="2" fill="#ffd36b"/>`;
-function vehicle(spec) {
-  const [type, a, b] = spec.split(':');
-  let body = '', w = 140;
-  if (type === 'sedan' || type === 'sport') {
-    const c = type === 'sport' ? '#c8323c' : '#e9eef2';
-    body = type === 'sport'
-      ? `<path d="M0 -10 Q4 -20 26 -22 L56 -34 Q86 -38 110 -26 L134 -20 Q142 -16 142 -10 V-6 H0Z" fill="${c}"/><path d="M60 -32 L74 -36 H96 L108 -26 H56Z" fill="#1d2b36"/>${wheel(28, 9)}${wheel(114, 9)}`
-      : `<path d="M0 -12 Q2 -24 20 -26 L44 -40 Q76 -46 102 -36 L120 -26 Q130 -24 132 -14 V-6 H0Z" fill="${c}"/><path d="M48 -37 L62 -42 H90 L104 -28 H44Z" fill="#9fc6d8"/>${wheel(26, 9)}${wheel(108, 9)}`;
-  } else if (type === 'van') {
-    body = `<path d="M0 -10 V-36 Q2 -46 14 -50 L30 -62 H134 Q142 -62 142 -54 V-10Z" fill="#f6f6f2"/><path d="M16 -48 L30 -58 H46 V-42 H12Z" fill="#cfe8f2"/><rect x="52" y="-46" width="84" height="16" rx="3" fill="${b}"/><text x="94" y="-34" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">${a}</text>${wheel(28)}${wheel(116)}`;
-    w = 142;
-  } else if (type === 'bulldozer') {
-    body = `<rect x="22" y="-22" width="108" height="22" rx="11" fill="#2f3438"/>${[36, 58, 80, 102, 120].map(x => `<circle cx="${x}" cy="-11" r="6" fill="#59616a"/>`).join('')}
-      <rect x="40" y="-54" width="80" height="34" rx="4" fill="#f2b632"/><rect x="74" y="-86" width="40" height="34" rx="3" fill="#e0a21c"/><rect x="80" y="-80" width="28" height="18" fill="#cfe8f2"/>
-      <path d="M-8 -44 Q2 -24 -8 -2 H8 V-44Z" fill="#8a9097"/><path d="M8 -30 H40" stroke="#555" stroke-width="5"/>`;
-  } else if (type === 'excavator') {
-    body = `<rect x="34" y="-22" width="104" height="22" rx="11" fill="#2f3438"/>${[48, 70, 92, 114, 128].map(x => `<circle cx="${x}" cy="-11" r="6" fill="#59616a"/>`).join('')}
-      <rect x="44" y="-54" width="96" height="32" rx="4" fill="#f2b632"/><rect x="44" y="-88" width="38" height="36" rx="4" fill="#e0a21c"/><rect x="50" y="-82" width="26" height="20" fill="#cfe8f2"/><rect x="112" y="-64" width="28" height="12" fill="#d39a1a"/>
-      <g transform="translate(48 -52)"><g class="arm"><path d="M0 0 L-52 -64 L-98 -14" stroke="#e0a21c" stroke-width="11" fill="none" stroke-linejoin="round" stroke-linecap="round"/><path d="M-108 -24 l24 2 l-6 24 l-24 -8z" fill="#4a4f55"/></g></g>`;
-  } else if (type === 'mixer') {
-    const cid = 'drum' + uid();
-    body = `${cab('#2f6bb5')}<rect x="40" y="-22" width="130" height="10" fill="#3d4247"/>
-      <clipPath id="${cid}"><ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)"/></clipPath>
-      <ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)" fill="#e8e8e6"/>
-      <g clip-path="url(#${cid})"><g class="drum">${[0, 24, 48, 72, 96, 120, 144].map(x => `<path d="M${50 + x} -84 l-30 76" stroke="#e8553e" stroke-width="7"/>`).join('')}</g></g>
-      <ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)" fill="none" stroke="#9aa0a6" stroke-width="2"/>`;
-    body += `${wheel(24)}${wheel(124)}${wheel(150)}`; w = 170;
-  } else if (type === 'tanker') {
-    body = `${cab('#2a8a9a')}<rect x="40" y="-22" width="130" height="10" fill="#3d4247"/><rect x="50" y="-58" width="120" height="38" rx="19" fill="#d9e7ee"/><rect x="50" y="-44" width="120" height="8" fill="#2a8a9a"/>
-      <text x="110" y="-46" text-anchor="middle" font-size="10" font-weight="700" fill="#2a8a9a" font-family="system-ui,sans-serif">EAU</text>${wheel(24)}${wheel(128)}${wheel(152)}`; w = 172;
-  } else if (type === 'box') {
-    body = `${cab('#9b4dbb')}<rect x="48" y="-78" width="130" height="66" rx="3" fill="#f6f4ee"/><rect x="48" y="-78" width="130" height="10" fill="#9b4dbb"/>
-      <text x="113" y="-38" text-anchor="middle" font-size="11" font-weight="700" fill="#9b4dbb" font-family="system-ui,sans-serif">DÉMÉNAGEMENT</text>${wheel(24)}${wheel(136)}${wheel(160)}`; w = 178;
-  } else if (type === 'pickup') {
-    body = `${cab('#2f6b4f')}<rect x="44" y="-30" width="96" height="20" rx="3" fill="#2f6b4f"/><g class="cargo"><rect x="78" y="-46" width="24" height="16" fill="#b5653a"/><path d="M90 -46 C88 -70 94 -84 90 -100" stroke="#8a5a32" stroke-width="5" fill="none"/>
-      <g fill="#2f8a4a"><path d="M90 -100 q-30 -4 -40 16 q18 -14 40 -16z"/><path d="M90 -100 q30 -6 42 12 q-20 -12 -42 -12z"/><path d="M90 -100 q-6 -24 -26 -26 q20 6 26 26z"/><path d="M90 -100 q12 -24 32 -24 q-20 8 -32 24z"/></g></g>${wheel(24)}${wheel(118)}`; w = 140;
-  } else if (type === 'flatbed') {
-    const cargo = {
-      bricks: [56, 96, 136].map(x => `<rect x="${x}" y="-50" width="34" height="26" fill="url(#brick)"/><rect x="${x - 2}" y="-24" width="38" height="4" fill="#a87a45"/>`).join(''),
-      rebar: [0, 3, 6, 9].map(d => `<path d="M48 ${-28 - d} H176" stroke="#7d8389" stroke-width="2"/>`).join('') + '<path d="M174 -40 v14" stroke="#e8553e" stroke-width="3"/>',
-      beams: [0, 8, 16].map(d => `<rect x="50" y="${-30 - d}" width="126" height="6" fill="#59616a"/>`).join(''),
-      glass: `<path d="M110 -24 L94 -70 L126 -70 Z" fill="none" stroke="#7d8389" stroke-width="3"/>${[0, 10, 20].map(d => `<rect x="${60 + d}" y="-66" width="44" height="42" fill="#bfe6f5" opacity=".75" stroke="#7aaac0"/>`).join('')}`,
-      wood: [0, 7, 14, 21].map(d => `<rect x="${52 + (d % 14)}" y="${-30 - d}" width="116" height="6" fill="${d % 14 ? '#b07a4a' : '#c9925a'}"/>`).join('')
-    }[a];
-    body = `${cab('#e0a21c')}<rect x="44" y="-24" width="136" height="10" fill="#5a6066"/><g class="cargo">${cargo}</g>${wheel(24)}${wheel(140)}${wheel(162)}`; w = 180;
+/* --- Éléments de chaque étape (position, type). p = avancement 0..1 de chaque élément --- */
+function siteItemsDef() {
+  const S = {}, add = (k, kind, o = {}) => (S[k] ||= []).push({ k, kind, p: 0, ...o });
+  add(1, 'sold');
+  [[296, 340], [652, 340], [296, 316], [652, 316], [466, 350], [784, 350], [784, 396], [466, 396]].forEach(([x, y]) => add(2, 'stake', { x, y }));
+  add(2, 'string', { pts: [[296, 324], [652, 324], [652, 336], [296, 336], [296, 324]] });
+  add(2, 'string', { pts: [[466, 352], [784, 352], [784, 392], [466, 392], [466, 352]] });
+  [[792, 334], [736, 358], [668, 330], [596, 368], [522, 332], [446, 364], [372, 330], [300, 366], [238, 336]].forEach(([x, y], i) => add(3, 'bush', { x, y, s: .8 + hash(i) * .5 }));
+  for (let i = 0; i < 6; i++) add(4, 'dirt', { x: 190 + i * 105, y: 262, w: 105.5, h: 138 });
+  for (let i = 0; i < 3; i++) add(4, 'trench', { x: 282 + i * 124, y: 314, w: 124.5, h: 24 });
+  [[284, 330, 368, 7], [284, 309, 368, 6], [284, 309, 7, 28], [645, 309, 7, 28]].forEach(([x, y, w, h]) => add(5, 'board', { x, y, w, h }));
+  for (let i = 0; i < 8; i++) add(5, 'rebar', { x: 304 + i * 46, y: 330 });
+  for (let i = 0; i < 4; i++) add(6, 'slab', { x: 284 + i * 92, y: 312, w: 92.5, h: 24 });
+  for (let r = 0; r < 9; r++) add(7, 'row', { x: 300, y: 300 - 12 * r, w: 320, h: 12, r });
+  for (let i = 0; i < 4; i++) add(8, 'slab', { x: 292 + i * 100, y: 192, w: 100.5, h: 12, floor: 1 });
+  for (let r = 0; r < 7; r++) add(9, 'row', { x: 380, y: 182 - 10 * r, w: 300, h: 10, r: r + 1 });
+  for (let i = 0; i < 6; i++) add(10, 'roof', { x: 366 + i * 56.67, y: 108, w: 57.2, h: 14 });
+  add(10, 'fascia', { x: 366, y: 122, w: 340, h: 4 });
+  for (let i = 0; i < 3; i++) add(11, 'paint', { x: 300 + i * 80, y: 204, w: 80.5, h: 108 });
+  add(11, 'stone', { x: 540, y: 204, w: 80, h: 108 });
+  for (let i = 0; i < 2; i++) add(11, 'paint', { x: 380 + i * 130, y: 122, w: 130.5, h: 70 });
+  add(11, 'slats', { x: 640, y: 122, w: 40, h: 70 });
+  add(12, 'pane', { x: 306, y: 248, w: 34, h: 64, door: 1 });
+  for (let i = 0; i < 3; i++) add(12, 'pane', { x: 356 + i * 60, y: 226, w: 60, h: 86 });
+  for (let i = 0; i < 4; i++) add(12, 'pane', { x: 400 + i * 56, y: 136, w: 56, h: 50, up: 1 });
+  add(12, 'pane', { x: 290, y: 176, w: 88, h: 14, rail: 1, up: 1 });
+  for (let i = 0; i < 4; i++) add(13, 'hole', { x: 466 + i * 79.5, y: 344, w: 80, h: 50 });
+  for (let i = 0; i < 3; i++) add(14, 'tiles', { x: 470, y: 352 + i * 12, w: 306, h: 12 });
+  add(14, 'coping', { x: 462, y: 342, w: 322, h: 54 });
+  add(15, 'water', { x: 472, y: 352, w: 302, h: 36 });
+  for (let i = 0; i < 8; i++) add(16, 'plank', { x: 350 + i * 14, y: 340, w: 13, h: 58 });
+  for (let i = 0; i < 2; i++) add(16, 'plank', { x: 786 + i * 14, y: 340, w: 13, h: 58 });
+  add(16, 'lounger', { x: 360, y: 368 }); add(16, 'lounger', { x: 404, y: 368 }); add(16, 'parasol', { x: 452, y: 392 });
+  [['sofa', 362, 312], ['lamp', 452, 312], ['plant', 516, 312], ['art', 420, 170], ['bed', 520, 186], ['pend', 490, 136]].forEach(([f, x, y]) => add(17, 'furn', { f, x, y }));
+  add(18, 'lawn', { x: 190, y: 262, w: 630, h: 138 });
+  [['cypress', 206, 268], ['cypress', 806, 268], ['olive', 740, 330], ['palm', 238, 336], ['palm', 818, 342], ['bush', 280, 338], ['bush', 664, 340], ['bush', 230, 398]].forEach(([t, x, y]) => add(18, 'plant', { t, x, y }));
+  [[322, 346], [328, 360], [322, 374], [328, 388], [322, 400]].forEach(([x, y]) => add(19, 'stonepath', { x, y }));
+  [200, 296, 470, 812].forEach(x => add(19, 'lamp', { x, y: 402 }));
+  add(19, 'wlight', {});
+  add(20, 'night'); add(20, 'bulbs');
+  return S;
+}
+const SITE_COUNT = (() => { const d = siteItemsDef(); return Array.from({ length: SITE_N + 1 }, (_, k) => k ? d[k].length : 0) })();
+
+/* --- Dessin : petites briques de base --- */
+function rr(c, x, y, w, h, r) { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h) }
+function fillRR(c, x, y, w, h, r, f) { rr(c, x, y, w, h, r); c.fillStyle = f; c.fill() }
+function shadow(c, x, y, w, a = .16) { c.fillStyle = `rgba(0,0,0,${a})`; c.beginPath(); c.ellipse(x, y, w, w * .12 + 2, 0, 0, Math.PI * 2); c.fill() }
+function wheel(c, x, y, r, rot) {
+  c.save(); c.translate(x, y); c.fillStyle = '#23272b'; c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill();
+  c.fillStyle = '#b9c0c6'; c.beginPath(); c.arc(0, 0, r * .52, 0, 7); c.fill();
+  c.rotate(rot); c.strokeStyle = '#6b737a'; c.lineWidth = 1.6; c.beginPath();
+  for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3; c.moveTo(Math.cos(a) * r * .5, Math.sin(a) * r * .5); c.lineTo(-Math.cos(a) * r * .5, -Math.sin(a) * r * .5) }
+  c.stroke(); c.restore();
+}
+// Bras à deux segments : on garde toujours la solution dont le coude est le plus haut (comme un vrai bras d'engin)
+function ik(bx, by, L1, L2, tx, ty) {
+  const dx = tx - bx, dy = ty - by, d = Math.max(Math.abs(L1 - L2) + 1, Math.min(L1 + L2 - .5, Math.hypot(dx, dy)));
+  const c2 = Math.max(-1, Math.min(1, (d * d - L1 * L1 - L2 * L2) / (2 * L1 * L2))), base = Math.atan2(dy, dx);
+  let best = null;
+  for (const sgn of [1, -1]) {
+    const a2 = Math.acos(c2) * sgn, a1 = base - Math.atan2(L2 * Math.sin(a2), L1 + L2 * Math.cos(a2)), ey = by + Math.sin(a1) * L1;
+    if (!best || ey < best[2]) best = [a1, a2, ey];
   }
-  return `<g class="veh">${shadow(w / 2, w / 2)}${body}</g>`;
+  return best;
 }
-const worker = (x, y, cls = '') => `<g transform="translate(${x} ${y})"><g class="s-wk ${cls}"><rect x="-4" y="-8" width="3" height="8" fill="#2f3a4a"/><rect x="1" y="-8" width="3" height="8" fill="#2f3a4a"/><rect x="-5" y="-19" width="10" height="12" rx="2" fill="#f07a2a"/><path d="M-5 -14 H5" stroke="#f6e27a" stroke-width="1.5"/><circle cy="-23" r="4" fill="#e7b48f"/><path d="M-5 -24 a5 5 0 0 1 10 0z" fill="#f2c94c"/></g></g>`;
-const palm = (x, y, h = 120) => `<g transform="translate(${x} ${y})"><path d="M0 0 C -6 ${-h * .4} 6 ${-h * .7} -2 ${-h}" stroke="#8a5a32" stroke-width="8" fill="none" stroke-linecap="round"/>
-  <g transform="translate(-2 ${-h})" fill="#2f8a4a"><path d="M0 0 q-40 -8 -58 22 q26 -20 58 -22z"/><path d="M0 0 q40 -10 60 18 q-28 -18 -60 -18z"/><path d="M0 0 q-24 -32 -54 -30 q32 6 54 30z"/><path d="M0 0 q20 -36 52 -36 q-32 12 -52 36z"/><path d="M0 0 q2 -36 -12 -48 q16 18 12 48z"/><path d="M0 0 q-30 4 -44 34 q20 -26 44 -34z" fill="#26763f"/></g></g>`;
-const cypress = (x, y) => `<g transform="translate(${x} ${y})"><ellipse cx="0" cy="-34" rx="9" ry="36" fill="#2e5e3a"/><ellipse cx="2" cy="-30" rx="5" ry="30" fill="#3c7449"/></g>`;
-const bush = (x, y, c = '#4f9a45') => `<g transform="translate(${x} ${y})"><circle cx="-8" cy="-8" r="10" fill="${c}"/><circle cx="6" cy="-10" r="12" fill="${c}"/><circle cx="0" cy="-16" r="9" fill="#6ab35a"/></g>`;
-const segs = (x0, x1, n, f) => Array.from({ length: n }, (_, i) => f(x0 + (x1 - x0) * i / n, (x1 - x0) / n, i));
+function brick(c, x, y, w, h, i) {
+  const t = hash(i); c.fillStyle = `rgb(${196 + t * 22 | 0},${104 + t * 18 | 0},${70 + t * 12 | 0})`;
+  c.fillRect(x + .6, y + .6, w - 1.2, h - 1.2);
+  c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(x + .6, y + .6, w - 1.2, 1.5);
+}
+function cab(c, col) {
+  c.fillStyle = col; c.beginPath(); c.moveTo(0, -10); c.lineTo(0, -44); c.quadraticCurveTo(0, -54, 10, -56); c.lineTo(36, -56); c.quadraticCurveTo(44, -56, 46, -48); c.lineTo(46, -10); c.fill();
+  c.fillStyle = '#cfe8f2'; c.beginPath(); c.moveTo(6, -46); c.quadraticCurveTo(6, -51, 12, -51); c.lineTo(32, -51); c.lineTo(32, -38); c.lineTo(6, -38); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.35)'; c.fillRect(9, -49, 4, 9);
+  c.fillStyle = '#ffd36b'; fillRR(c, 1, -24, 10, 5, 2, '#ffd36b');
+}
 
-// Éléments de chaque étape (dans l'ordre où ils apparaissent)
-function siteItems(k) {
-  const glass = 'url(#glass)', night = false;
-  switch (k) {
-    case 1: return [`<g transform="rotate(-14 120 272)"><rect x="70" y="262" width="100" height="18" fill="#c8323c"/><text x="120" y="275" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="system-ui,sans-serif">VENDU</text></g>`];
-    case 2: return [...[[296, 340], [380, 342], [470, 342], [560, 342], [652, 340], [296, 314], [652, 314], [466, 396], [784, 396], [784, 344]].map(([x, y]) => `<g><rect x="${x - 1.5}" y="${y - 18}" width="3" height="18" fill="#a07a50"/><rect x="${x - 2.5}" y="${y - 20}" width="5" height="4" fill="#e8553e"/></g>`),
-      `<path d="M296 322 H652 V322 M296 340 H652" stroke="#fff" stroke-width="1" opacity=".9"/>`, `<path d="M466 378 H784 M466 378 V396 M784 344 V396" stroke="#fff" stroke-width="1" opacity=".9"/>`];
-    case 3: return [[250, 330], [330, 362], [410, 318], [500, 372], [580, 330], [660, 366], [742, 340], [790, 300]].map(([x, y]) => bush(x, y, '#5c8f3c'));
-    case 4: return [...segs(190, 820, 8, (x, w) => `<rect x="${x}" y="262" width="${w + .5}" height="138" fill="url(#dirt)"/>`), `<rect x="282" y="314" width="372" height="24" rx="3" fill="#8f6a3f"/>`];
-    case 5: return [`<rect x="284" y="330" width="368" height="8" fill="#c08a4e"/>`, `<rect x="284" y="310" width="368" height="6" fill="#b07a40"/>`, `<rect x="284" y="310" width="6" height="28" fill="#b07a40"/>`, `<rect x="646" y="310" width="6" height="28" fill="#b07a40"/>`,
-      ...segs(300, 640, 8, x => `<path d="M${x + 20} 330 V292 M${x + 26} 330 V296" stroke="#6b7177" stroke-width="2"/>`)];
-    case 6: return segs(284, 652, 8, (x, w) => `<g><rect x="${x}" y="312" width="${w + .5}" height="24" fill="url(#concrete)"/><rect x="${x}" y="312" width="${w + .5}" height="3" fill="#d4d7da"/></g>`);
-    case 7: return Array.from({ length: 9 }, (_, r) => segs(300, 620, 3, (x, w) => `<rect x="${x}" y="${300 - 12 * r}" width="${w + .5}" height="12.5" fill="url(#brick)"/>`)).flat();
-    case 8: return segs(292, 692, 8, (x, w) => `<g><rect x="${x}" y="194" width="${w + .5}" height="14" fill="url(#concrete)"/><rect x="${x}" y="194" width="${w + .5}" height="2" fill="#d4d7da"/></g>`);
-    case 9: return Array.from({ length: 7 }, (_, r) => segs(380, 680, 3, (x, w) => `<rect x="${x}" y="${184 - 10 * r}" width="${w + .5}" height="10.5" fill="url(#brick)"/>`)).flat();
-    case 10: return [...segs(366, 706, 8, (x, w) => `<rect x="${x}" y="112" width="${w + .5}" height="14" fill="#2f3438"/>`), `<rect x="366" y="126" width="340" height="5" fill="#b07a4a"/>`, `<rect x="286" y="190" width="94" height="6" fill="#2f3438"/>`];
-    case 11: return [...segs(300, 540, 3, (x, w) => `<rect x="${x}" y="206" width="${w + .5}" height="108" fill="url(#wall)"/>`),
-      `<g><rect x="540" y="206" width="80" height="108" fill="#d9cdb6"/><g stroke="#bfae92" stroke-width="1.2" fill="none">${[220, 236, 252, 268, 284, 300].map((y, i) => `<path d="M540 ${y} H620 M${556 + (i % 2) * 16} ${y - 16} V${y} M${590 + (i % 2) * 12} ${y - 16} V${y}"/>`).join('')}</g></g>`,
-      ...segs(380, 640, 2, (x, w) => `<rect x="${x}" y="126" width="${w + .5}" height="68" fill="url(#wall)"/>`),
-      `<g><rect x="640" y="126" width="40" height="68" fill="#a8743f"/>${[646, 654, 662, 670].map(x => `<path d="M${x} 128 V192" stroke="#8a5a2c" stroke-width="2"/>`).join('')}</g>`];
-    case 12: return [...[356, 416, 476].map(x => `<g><rect x="${x}" y="226" width="60" height="88" fill="${glass}"/><rect x="${x}" y="226" width="60" height="88" fill="none" stroke="#2b3136" stroke-width="3"/>${night ? '' : `<path d="M${x + 10} 234 l22 40 M${x + 22} 234 l22 40" stroke="#fff" stroke-width="3" opacity=".35"/>`}</g>`),
-      `<g><rect x="306" y="248" width="34" height="66" fill="#6b4428"/><rect x="306" y="248" width="34" height="66" fill="none" stroke="#2b3136" stroke-width="2"/><rect x="332" y="278" width="3" height="12" rx="1" fill="#e2c07a"/></g>`,
-      ...[400, 456, 512, 568].map(x => `<g><rect x="${x}" y="140" width="56" height="50" fill="${glass}"/><rect x="${x}" y="140" width="56" height="50" fill="none" stroke="#2b3136" stroke-width="3"/>${night ? '' : `<path d="M${x + 8} 146 l18 32" stroke="#fff" stroke-width="3" opacity=".35"/>`}</g>`),
-      `<g><rect x="290" y="174" width="88" height="16" fill="#bfe6f5" opacity=".55"/><path d="M290 174 H378" stroke="#7d8389" stroke-width="2"/></g>`];
-    case 13: return [...segs(466, 784, 6, (x, w) => `<rect x="${x}" y="344" width="${w + .5}" height="48" fill="#7a5636"/>`), `<path d="M466 344 H784 L776 352 H474Z" fill="#5e4128"/>`];
-    case 14: return [`<rect x="470" y="352" width="306" height="36" fill="url(#tiles)"/>`, `<rect x="462" y="342" width="322" height="10" rx="2" fill="#f3f1ea"/>`, `<rect x="462" y="388" width="322" height="8" rx="2" fill="#f3f1ea"/>`, `<rect x="462" y="342" width="10" height="54" fill="#f3f1ea"/>`, `<rect x="774" y="342" width="10" height="54" fill="#f3f1ea"/>`];
-    case 15: return [...['#1a8fbf', '#2aa3cf', '#3cb6da', '#4fc6e2', '#62d3ea'].map((c, i) => `<rect x="472" y="${382 - 6 * i}" width="302" height="${6.5 + (i ? 0 : 0)}" fill="${c}"/>`),
-      `<g><rect x="472" y="352" width="302" height="6" fill="#74ddf0"/><g stroke="#fff" stroke-width="2" stroke-linecap="round">${[[500, 362], [560, 374], [620, 360], [690, 372], [740, 362]].map(([x, y]) => `<path class="s-shim" d="M${x} ${y} q8 -4 16 0"/>`).join('')}</g></g>`];
-    case 16: return [...segs(350, 462, 8, (x, w, i) => `<rect x="${x}" y="340" width="${w - .8}" height="58" fill="${i % 2 ? '#bf8850' : '#c9925a'}"/>`),
-      ...[784, 798].map((x, i) => `<rect x="${x}" y="340" width="13" height="58" fill="${i % 2 ? '#bf8850' : '#c9925a'}"/>`),
-      ...[360, 404].map(x => `<g><rect x="${x}" y="364" width="38" height="8" rx="3" fill="#fff" stroke="#d8d0c0"/><path d="M${x + 34} 364 l8 -12" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M${x + 4} 372 v6 M${x + 32} 372 v6" stroke="#9a9a9a" stroke-width="2"/></g>`),
-      `<g><path d="M452 392 V330" stroke="#6b5a48" stroke-width="2.5"/><path d="M424 336 Q452 310 480 336Z" fill="#f2efe6"/><path d="M424 336 Q438 330 452 336 Q466 330 480 336" fill="none" stroke="#d8d0c0"/></g>`];
-    case 17: return [`<g><rect x="362" y="290" width="70" height="22" rx="6" fill="#8d8f93"/><rect x="362" y="282" width="70" height="12" rx="5" fill="#a3a6aa"/></g>`, `<g><path d="M452 312 V262" stroke="#333" stroke-width="2"/><path d="M442 262 h20 l-5 -12 h-10z" fill="#f6e3b0"/></g>`,
-      `<g><rect x="508" y="296" width="18" height="16" fill="#c9925a"/><circle cx="512" cy="288" r="8" fill="#3f8f4a"/><circle cx="522" cy="284" r="9" fill="#4f9a55"/></g>`, `<rect x="420" y="150" width="34" height="22" fill="#e8b65c" stroke="#5a4630" stroke-width="2"/>`,
-      `<g><rect x="520" y="174" width="90" height="16" rx="3" fill="#f2efe6"/><rect x="520" y="166" width="16" height="10" rx="3" fill="#d8d0c0"/></g>`, `<g><path d="M490 140 V156" stroke="#333"/><path d="M482 156 h16 l-3 6 h-10z" fill="#f2c94c"/></g>`];
-    case 18: return [...segs(190, 820, 6, (x, w) => `<rect x="${x}" y="262" width="${w + .5}" height="138" fill="url(#lawn)"/>`), cypress(206, 268), cypress(806, 268), palm(238, 336), palm(812, 340, 130),
-      `<g transform="translate(740 330)"><path d="M0 0 C 2 -18 -4 -26 2 -38" stroke="#7a5a3a" stroke-width="6" fill="none"/><ellipse cx="0" cy="-50" rx="30" ry="18" fill="#7f9a5a"/><ellipse cx="-12" cy="-58" rx="18" ry="12" fill="#93ad6c"/></g>`, bush(280, 336), bush(662, 338), bush(228, 396, '#5aa04b')];
-    case 19: return [...[346, 360, 374, 388, 400].map((y, i) => `<ellipse cx="${322 + (i % 2) * 6}" cy="${y}" rx="14" ry="4.5" fill="#e3dccb" stroke="#c9bfa8"/>`),
-      ...[200, 296, 470, 812].map(x => `<g><path d="M${x} 402 V372" stroke="#2f3438" stroke-width="3"/><circle cx="${x}" cy="370" r="5" fill="#ffe08a"/><circle cx="${x}" cy="370" r="14" fill="#ffe08a" opacity=".25"/></g>`),
-      `<g><rect x="296" y="230" width="6" height="8" fill="#ffe08a"/><rect x="622" y="230" width="6" height="8" fill="#ffe08a"/></g>`];
-    case 20: return [`<g><path d="M350 330 Q 380 346 410 332 Q 440 346 470 330" fill="none" stroke="#333" stroke-width="1"/>${[[362, 336], [380, 340], [398, 336], [422, 337], [440, 340], [458, 335]].map(([x, y]) => `<circle class="s-bulb" cx="${x}" cy="${y}" r="2.5" fill="#ffe08a"/>`).join('')}</g>`,
-      `<rect x="472" y="352" width="302" height="36" fill="#9ff0ff" opacity=".25"/>`,
-      `<g>${[[180, 70, '#f2c94c', ''], [300, 50, '#e8553e', 'b'], [860, 80, '#9b4dbb', 'c']].map(([x, y, c, cl]) => `<g transform="translate(${x} ${y})"><g class="s-fw ${cl}">${Array.from({ length: 10 }, (_, i) => { const a = i / 10 * Math.PI * 2; return `<circle cx="${(Math.cos(a) * 26).toFixed(1)}" cy="${(Math.sin(a) * 26).toFixed(1)}" r="2.6" fill="${c}"/>`; }).join('')}</g></g>`).join('')}</g>`];
+/* --- Personnages --- */
+function drawWorker(c, w, t) {
+  if (w.a <= 0) return;
+  c.save(); c.globalAlpha = w.a; c.translate(w.x, w.y); c.scale(1.35, 1.35); if (w.dir > 0) c.scale(-1, 1);
+  const sw = w.moving ? Math.sin(w.step) * 4 : 0, bob = w.moving ? Math.abs(Math.sin(w.step)) * 1.2 : Math.sin(t * 2 + w.seed) * .4;
+  shadow(c, 0, 0, 7, .12);
+  c.translate(0, -bob);
+  c.strokeStyle = '#2f3a4a'; c.lineWidth = 3; c.lineCap = 'round';
+  if (w.pose === 'kneel') { c.beginPath(); c.moveTo(-2, -9); c.lineTo(-6, -2); c.lineTo(2, -1); c.moveTo(2, -9); c.lineTo(6, -3); c.stroke() }
+  else { c.beginPath(); c.moveTo(-2, -10); c.lineTo(-2 + sw, 0); c.moveTo(2, -10); c.lineTo(2 - sw, 0); c.stroke() }
+  const ky = w.pose === 'kneel' ? 5 : 0;
+  c.translate(0, ky);
+  fillRR(c, -5, -23, 10, 13, 3, w.vest || '#f07a2a');
+  c.fillStyle = '#f6e27a'; c.fillRect(-5, -18, 10, 1.6);
+  c.fillStyle = '#e7b48f'; c.beginPath(); c.arc(0, -27, 4.2, 0, 7); c.fill();
+  c.fillStyle = w.hat || '#f2c94c'; c.beginPath(); c.arc(0, -28, 5, Math.PI, 0); c.fill(); c.fillRect(-6, -28.5, 12, 1.6);
+  // bras : porter, marteler, rouler
+  c.strokeStyle = '#e7b48f'; c.lineWidth = 2.4;
+  const arm = w.pose === 'hammer' ? Math.sin(t * 14) * .9 - .6 : w.pose === 'reach' ? -1.2 + Math.sin(t * 6) * .2 : w.carry ? -1.9 : (w.moving ? Math.sin(w.step) * .5 : .2);
+  c.beginPath(); c.moveTo(-1, -21); c.lineTo(-1 - Math.sin(arm) * 8, -21 + Math.cos(arm) * 8); c.stroke();
+  if (w.pose === 'hammer') { c.save(); c.translate(-1 - Math.sin(arm) * 8, -21 + Math.cos(arm) * 8); c.rotate(-arm); c.fillStyle = '#5a4630'; c.fillRect(-1, -8, 2, 9); c.fillStyle = '#555'; c.fillRect(-3, -9, 6, 3); c.restore() }
+  if (w.carry) { c.save(); c.translate(0, -34); w.carry(c); c.restore() }
+  c.restore();
+}
+
+/* --- Véhicules (tournés vers la gauche, origine à l'avant, au sol) --- */
+function drawVehicle(c, v, t, S) {
+  c.save(); c.translate(v.x, v.y);
+  const L = { sedan: 132, sport: 142, van: 142, bulldozer: 130, excavator: 140, flatbed: 182, dump: 176, mixer: 176, tanker: 176, box: 180, pickup: 142 }[v.type];
+  shadow(c, L / 2, 0, L / 2);
+  const bob = v.moving ? Math.sin(t * 30) * .5 : 0; c.translate(0, bob);
+  const wr = v.rot || 0;
+  switch (v.type) {
+    case 'sedan': case 'sport': {
+      const red = v.type === 'sport';
+      c.fillStyle = red ? '#c8323c' : '#e9eef2'; c.beginPath();
+      if (red) { c.moveTo(0, -10); c.quadraticCurveTo(4, -20, 26, -22); c.lineTo(56, -34); c.quadraticCurveTo(86, -38, 110, -26); c.lineTo(134, -20); c.quadraticCurveTo(142, -16, 142, -10); c.lineTo(142, -6); c.lineTo(0, -6) }
+      else { c.moveTo(0, -12); c.quadraticCurveTo(2, -24, 20, -26); c.lineTo(44, -40); c.quadraticCurveTo(76, -46, 102, -36); c.lineTo(120, -26); c.quadraticCurveTo(130, -24, 132, -14); c.lineTo(132, -6); c.lineTo(0, -6) }
+      c.fill();
+      c.fillStyle = red ? '#1d2b36' : '#9fc6d8'; c.beginPath();
+      if (red) { c.moveTo(60, -32); c.lineTo(74, -36); c.lineTo(96, -36); c.lineTo(108, -26); c.lineTo(56, -26) } else { c.moveTo(48, -37); c.lineTo(62, -42); c.lineTo(90, -42); c.lineTo(104, -28); c.lineTo(44, -28) }
+      c.fill(); fillRR(c, 1, -16, 7, 4, 2, '#ffd36b');
+      wheel(c, 26, -9, 9, wr); wheel(c, red ? 114 : 106, -9, 9, wr); break;
+    }
+    case 'van': {
+      c.fillStyle = '#f6f6f2'; c.beginPath(); c.moveTo(0, -10); c.lineTo(0, -36); c.quadraticCurveTo(2, -46, 14, -50); c.lineTo(30, -62); c.lineTo(134, -62); c.quadraticCurveTo(142, -62, 142, -54); c.lineTo(142, -10); c.fill();
+      c.fillStyle = '#cfe8f2'; c.beginPath(); c.moveTo(16, -48); c.lineTo(30, -58); c.lineTo(46, -58); c.lineTo(46, -42); c.lineTo(12, -42); c.fill();
+      fillRR(c, 52, -46, 84, 16, 3, v.color); c.fillStyle = '#fff'; c.font = '700 10px system-ui,sans-serif'; c.textAlign = 'center'; c.fillText(v.label, 94, -34);
+      wheel(c, 28, -10, 10, wr); wheel(c, 116, -10, 10, wr); break;
+    }
+    case 'bulldozer': {
+      fillRR(c, 22, -22, 108, 22, 11, '#2f3438'); for (let i = 0; i < 5; i++) wheel(c, 36 + i * 21, -11, 6, wr);
+      fillRR(c, 40, -54, 80, 34, 4, '#f2b632'); fillRR(c, 74, -86, 40, 34, 3, '#e0a21c'); c.fillStyle = '#cfe8f2'; c.fillRect(80, -80, 28, 18);
+      c.strokeStyle = '#555'; c.lineWidth = 5; c.beginPath(); c.moveTo(8, -30); c.lineTo(40, -30); c.stroke();
+      c.fillStyle = '#8a9097'; c.beginPath(); c.moveTo(-8, -46); c.quadraticCurveTo(4, -24, -8, -2); c.lineTo(8, -2); c.lineTo(8, -46); c.fill(); break;
+    }
+    case 'excavator': {
+      fillRR(c, 34, -22, 104, 22, 11, '#2f3438'); for (let i = 0; i < 5; i++) wheel(c, 48 + i * 21, -11, 6, wr);
+      fillRR(c, 44, -54, 96, 32, 4, '#f2b632'); fillRR(c, 44, -88, 38, 36, 4, '#e0a21c'); c.fillStyle = '#cfe8f2'; c.fillRect(50, -82, 26, 20); fillRR(c, 112, -64, 28, 12, 2, '#d39a1a');
+      // bras articulé (cinématique inverse vers la cible v.tx, v.ty en coordonnées du monde)
+      const bx = 46, by = -50, tx = (v.tx ?? v.x - 70) - v.x, ty = (v.ty ?? v.y - 40) - v.y - bob;
+      const [a1, a2] = ik(bx, by, 98, 86, tx, ty);
+      const ex = bx + Math.cos(a1) * 98, ey = by + Math.sin(a1) * 98, hx = ex + Math.cos(a1 + a2) * 86, hy = ey + Math.sin(a1 + a2) * 86;
+      c.lineCap = 'round'; c.strokeStyle = '#e0a21c'; c.lineWidth = 11; c.beginPath(); c.moveTo(bx, by); c.lineTo(ex, ey); c.stroke();
+      c.lineWidth = 8; c.beginPath(); c.moveTo(ex, ey); c.lineTo(hx, hy); c.stroke();
+      c.strokeStyle = '#9aa0a6'; c.lineWidth = 3; c.beginPath(); c.moveTo(bx + 6, by - 6); c.lineTo((bx + ex) / 2, (by + ey) / 2 - 6); c.stroke();
+      c.save(); c.translate(hx, hy); c.rotate(v.bucketA || 0);
+      c.fillStyle = '#4a4f55'; c.beginPath(); c.moveTo(-4, -6); c.lineTo(14, -4); c.lineTo(10, 14); c.lineTo(-10, 8); c.fill();
+      if (v.load) { c.fillStyle = '#9b7146'; c.beginPath(); c.ellipse(2, -6, 11, 5, 0, 0, 7); c.fill() }
+      c.restore(); break;
+    }
+    case 'flatbed': case 'pickup': {
+      cab(c, v.type === 'pickup' ? '#2f6b4f' : '#e0a21c');
+      if (v.type === 'pickup') fillRR(c, 44, -30, 98, 20, 3, '#2f6b4f'); else fillRR(c, 44, -24, 138, 10, 2, '#5a6066');
+      drawCargo(c, v, S);
+      if (v.type === 'pickup') { wheel(c, 24, -10, 10, wr); wheel(c, 118, -10, 10, wr) } else { wheel(c, 24, -10, 10, wr); wheel(c, 140, -10, 10, wr); wheel(c, 162, -10, 10, wr) }
+      break;
+    }
+    case 'dump': {
+      cab(c, '#2f6bb5'); fillRR(c, 44, -22, 132, 10, 2, '#3d4247');
+      c.fillStyle = '#d9a032'; c.beginPath(); c.moveTo(52, -24); c.lineTo(48, -58); c.lineTo(176, -58); c.lineTo(170, -24); c.fill();
+      c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(48, -58, 128, 4);
+      const f = clamp01(v.fill || 0);
+      if (f > 0) { c.fillStyle = '#9b7146'; c.beginPath(); c.moveTo(52, -58); c.quadraticCurveTo(112, -58 - 30 * f, 172, -58); c.fill() }
+      wheel(c, 24, -10, 10, wr); wheel(c, 138, -10, 10, wr); wheel(c, 160, -10, 10, wr); break;
+    }
+    case 'mixer': {
+      cab(c, '#2f6bb5'); fillRR(c, 40, -22, 136, 10, 2, '#3d4247');
+      c.save(); c.translate(104, -48); c.rotate(-.17);
+      c.fillStyle = '#e8e8e6'; c.beginPath(); c.ellipse(0, 0, 50, 24, 0, 0, 7); c.fill();
+      c.save(); c.beginPath(); c.ellipse(0, 0, 50, 24, 0, 0, 7); c.clip();
+      c.strokeStyle = '#e8553e'; c.lineWidth = 7; const ph = ((v.drum || 0) % 24);
+      for (let x = -80; x < 80; x += 24) { c.beginPath(); c.moveTo(x + ph, -30); c.lineTo(x + ph - 26, 30); c.stroke() }
+      c.restore(); c.strokeStyle = '#9aa0a6'; c.lineWidth = 2; c.beginPath(); c.ellipse(0, 0, 50, 24, 0, 0, 7); c.stroke(); c.restore();
+      // flèche de pompe à béton (2 bras, cinématique inverse)
+      const bx = 150, by = -62; fillRR(c, 140, -70, 22, 14, 3, '#3d4247');
+      const tx = (v.tx ?? v.x + 60) - v.x, ty = (v.ty ?? v.y - 140) - v.y - bob;
+      const [a1, a2] = ik(bx, by, 120, 108, tx, ty - 18);
+      const ex = bx + Math.cos(a1) * 120, ey = by + Math.sin(a1) * 120, hx = ex + Math.cos(a1 + a2) * 108, hy = ey + Math.sin(a1 + a2) * 108;
+      c.lineCap = 'round'; c.strokeStyle = '#d33f3f'; c.lineWidth = 7; c.beginPath(); c.moveTo(bx, by); c.lineTo(ex, ey); c.stroke();
+      c.lineWidth = 5; c.beginPath(); c.moveTo(ex, ey); c.lineTo(hx, hy); c.stroke();
+      c.strokeStyle = '#2f3438'; c.lineWidth = 3; c.beginPath(); c.moveTo(hx, hy); c.lineTo(hx, hy + 18); c.stroke();
+      v.noz = [v.x + hx, v.y + hy + 18];
+      wheel(c, 24, -10, 10, wr); wheel(c, 126, -10, 10, wr); wheel(c, 150, -10, 10, wr); break;
+    }
+    case 'tanker': {
+      cab(c, '#2a8a9a'); fillRR(c, 40, -22, 136, 10, 2, '#3d4247'); fillRR(c, 50, -60, 124, 40, 20, '#d9e7ee'); c.fillStyle = '#2a8a9a'; c.fillRect(50, -45, 124, 8);
+      c.fillStyle = '#2a8a9a'; c.font = '700 10px system-ui,sans-serif'; c.textAlign = 'center'; c.fillText('EAU', 112, -48);
+      wheel(c, 24, -10, 10, wr); wheel(c, 130, -10, 10, wr); wheel(c, 154, -10, 10, wr); break;
+    }
+    case 'box': {
+      cab(c, '#9b4dbb'); fillRR(c, 48, -80, 132, 68, 3, '#f6f4ee'); c.fillStyle = '#9b4dbb'; c.fillRect(48, -80, 132, 10);
+      c.font = '700 11px system-ui,sans-serif'; c.textAlign = 'center'; c.fillText('DÉMÉNAGEMENT', 114, -40);
+      wheel(c, 24, -10, 10, wr); wheel(c, 138, -10, 10, wr); wheel(c, 162, -10, 10, wr); break;
+    }
   }
-  return [];
+  c.restore();
+}
+// Chargement des camions : il diminue à mesure que les ouvriers ou la grue se servent
+function drawCargo(c, v, S) {
+  const n = v.cargo || 0;
+  for (let i = 0; i < n; i++) {
+    const col = i % 4, lay = Math.floor(i / 4), x = 52 + col * 32, y = -24 - (lay + 1) * (v.cargoKind === 'bricks' ? 16 : 7);
+    if (lay > 2) break;
+    switch (v.cargoKind) {
+      case 'bricks': PALLET(c, x + 14, y + 16, 1); break;
+      case 'roof': c.fillStyle = '#2f3438'; c.fillRect(48, -30 - i * 6, 128, 5); break;
+      case 'glass': c.fillStyle = 'rgba(191,230,245,.8)'; c.strokeStyle = '#7aaac0'; c.lineWidth = 1; c.fillRect(56 + i * 9, -70, 40, 46); c.strokeRect(56 + i * 9, -70, 40, 46); break;
+      case 'wood': c.fillStyle = i % 2 ? '#bf8850' : '#c9925a'; c.fillRect(50, -29 - i * 5, 126, 4.5); break;
+      case 'rebar': c.strokeStyle = '#7d8389'; c.lineWidth = 2; c.beginPath(); c.moveTo(48, -28 - i * 2.5); c.lineTo(178, -28 - i * 2.5); c.stroke(); break;
+      case 'boards': c.fillStyle = '#c08a4e'; c.fillRect(50, -29 - i * 5, 126, 4.5); break;
+      case 'palm': PLANT(c, 'palm', 92, -30, .55, 0); break;
+      case 'tiles': fillRR(c, 54 + col * 30, y + 2, 26, 14, 2, '#8fd6ea'); break;
+    }
+  }
+}
+function PALLET(c, x, y, f) {
+  c.fillStyle = '#a87a45'; c.fillRect(x - 15, y - 3, 30, 3);
+  const n = Math.ceil(f * 6);
+  for (let i = 0; i < n; i++) brick(c, x - 14 + (i % 2) * 14, y - 3 - 6 * (Math.floor(i / 2) + 1), 14, 6, i + 3);
+}
+function PLANT(c, t, x, y, s, sway) {
+  c.save(); c.translate(x, y); c.scale(s, s);
+  if (t === 'palm') {
+    c.strokeStyle = '#8a5a32'; c.lineWidth = 8; c.lineCap = 'round'; c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(-6, -50, 6, -84, -2 + sway * 4, -120); c.stroke();
+    c.translate(-2 + sway * 4, -120); c.rotate(sway * .05);
+    [[-58, 22, '#2f8a4a'], [60, 18, '#2f8a4a'], [-54, -30, '#3a9a52'], [52, -36, '#3a9a52'], [-12, -48, '#2f8a4a'], [-44, 34, '#26763f'], [40, 30, '#26763f']].forEach(([dx, dy, col]) => {
+      c.fillStyle = col; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(dx * .5, dy * .5 - 16, dx, dy); c.quadraticCurveTo(dx * .45, dy * .45 - 4, 0, 0); c.fill();
+    });
+  } else if (t === 'cypress') {
+    c.fillStyle = '#2e5e3a'; c.beginPath(); c.ellipse(0, -34, 9, 36, sway * .02, 0, 7); c.fill(); c.fillStyle = '#3c7449'; c.beginPath(); c.ellipse(2, -30, 5, 30, 0, 0, 7); c.fill();
+  } else if (t === 'olive') {
+    c.strokeStyle = '#7a5a3a'; c.lineWidth = 6; c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(2, -18, -4, -26, 2, -38); c.stroke();
+    c.fillStyle = '#7f9a5a'; c.beginPath(); c.ellipse(sway * 2, -50, 30, 18, 0, 0, 7); c.fill(); c.fillStyle = '#93ad6c'; c.beginPath(); c.ellipse(-12 + sway * 2, -58, 18, 12, 0, 0, 7); c.fill();
+  } else {
+    c.fillStyle = '#4f9a45'; c.beginPath(); c.arc(-8, -8, 10, 0, 7); c.arc(6, -10, 12, 0, 7); c.fill(); c.fillStyle = '#6ab35a'; c.beginPath(); c.arc(0, -16, 9, 0, 7); c.fill();
+    c.fillStyle = '#e8a0c0'; [[-6, -14], [6, -18], [10, -8]].forEach(([a, b]) => { c.beginPath(); c.arc(a, b, 2, 0, 7); c.fill() });
+  }
+  c.restore();
 }
 
-// Scène complète, dessinée une fois : tous les éléments sont présents, leur visibilité dépend de l'avancement D (en étapes, ex. 7,4).
-// Les transitions animent seulement ce qui change : rien ne « saute » d'une image à l'autre.
-const SITE_COUNT = Array.from({ length: SITE_N + 1 }, (_, k) => k ? siteItems(k).length : 0);
-const WK_GROUP = k => k >= 17 ? 'wkG' : k >= 13 ? 'wkP' : 'wkH';
+/* --- La scène --- */
+class SiteScene {
+  constructor(canvas, name) {
+    this.cv = canvas; this.c = canvas.getContext('2d'); this.name = name;
+    this.items = siteItemsDef(); this.anims = []; this.parts = []; this.vehicles = []; this.workers = [];
+    this.crane = { a: 0, tx: 640, hy: 140, load: null }; this.scafGF = 0; this.scafUp = 0; this.pile = 0;
+    this.t = 0; this.last = 0; this.skip = false; this.running = false;
+    this.clouds = [[160, 70, 1], [560, 44, .8], [820, 96, .6]];
+    this.birds = Array.from({ length: 3 }, (_, i) => ({ x: 1000 + i * 40, y: 100 + i * 14, ph: i }));
+    this.resize(); this.loop = this.loop.bind(this);
+  }
+  resize() {
+    const r = this.cv.parentElement.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+    const w = Math.max(320, r.width || 800);
+    this.cv.width = Math.round(w * dpr); this.cv.height = Math.round(w * SH / SW * dpr);
+    this.scale = this.cv.width / SW; this.bg = null;
+  }
+  start() { if (!this.running) { this.running = true; this.last = performance.now(); requestAnimationFrame(this.loop) } }
+  loop(now) {
+    if (!this.cv.isConnected) { this.running = false; return }
+    const dt = Math.min(.05, (now - this.last) / 1000); this.last = now; this.t += dt;
+    for (const a of [...this.anims]) {
+      a.e += dt * 1000 * (this.rate || 1); const p = clamp01(a.e / a.ms); a.fn(a.ease(p), p);
+      if (p >= 1) { this.anims.splice(this.anims.indexOf(a), 1); a.res() }
+    }
+    this.update(dt);
+    if (!document.hidden) this.draw();
+    requestAnimationFrame(this.loop);
+  }
+  // Outils de chorégraphie
+  anim(ms, fn, ease = EZ.io) { return new Promise(res => { if (this.skip || ms <= 0) { fn(1, 1); return res() } this.anims.push({ ms, fn, ease, e: 0, res }) }) }
+  wait(ms) { return this.anim(ms, () => {}) }
+  tween(o, to, ms, ease = EZ.io) { const from = {}; for (const k in to) from[k] = o[k] ?? 0; return this.anim(ms, e => { for (const k in to) o[k] = lerp(from[k], to[k], e) }, ease) }
+  finishAll() { this.skip = true; for (const a of this.anims.splice(0)) { a.fn(1, 1); a.res() } }
+  emit(n, x, y, o) {
+    for (let i = 0; i < n && this.parts.length < 420; i++) this.parts.push({ x: x + rnd(-(o.sx || 2), o.sx || 2), y: y + rnd(-(o.sy || 2), o.sy || 2), vx: rnd(o.vx[0], o.vx[1]), vy: rnd(o.vy[0], o.vy[1]), g: o.g ?? 300, life: rnd(o.life * .7, o.life), max: o.life, r: rnd(o.r[0], o.r[1]), col: o.col, fade: o.fade ?? 1, shrink: o.shrink, floor: o.floor });
+  }
+  update(dt) {
+    this.parts = this.parts.filter(p => (p.life -= dt) > 0);
+    for (const p of this.parts) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.floor && p.y > p.floor) { p.y = p.floor; p.vy *= -.2; p.vx *= .6 } }
+    for (const v of this.vehicles) {
+      if (v.moving && Math.random() < dt * 14) this.emit(1, v.x + (v.type === 'sedan' || v.type === 'sport' || v.type === 'van' ? v.L || 140 : 176), v.y - 10, { vx: [20, 40], vy: [-30, -14], g: -10, life: 1.2, r: [3, 6], col: '200,200,200', fade: .5 });
+      if (v.type === 'mixer') v.drum = (v.drum || 0) + dt * 30;
+    }
+    for (const b of this.birds) { b.x -= dt * 26; b.ph += dt * 7; if (b.x < -60) b.x = 1000 + Math.random() * 400 }
+    for (const cl of this.clouds) { cl[0] -= dt * 4 * cl[2]; if (cl[0] < -120) cl[0] = 1080 }
+  }
+  // Un véhicule part de la droite et vient se garer
+  async drive(v, x, ms, ease = EZ.io, y) {
+    const x0 = v.x, y0 = v.y; v.moving = true;
+    await this.anim(ms, e => { v.x = lerp(x0, x, e); if (y != null) v.y = lerp(y0, y, e); v.rot = (v.rot0 || 0) + (v.x - x0) / 10; }, ease);
+    v.rot0 = v.rot; v.moving = false;
+  }
+  // Un ouvrier marche (par l'échelle s'il change d'étage)
+  async walk(w, x, y, speed = 70) {
+    const go = async (tx, ty) => {
+      const d = Math.hypot(tx - w.x, ty - w.y); if (d < 1) return;
+      const x0 = w.x, y0 = w.y, s0 = w.step; w.moving = true; w.dir = tx > w.x ? 1 : -1;
+      await this.anim(d / speed * 1000, e => { w.x = lerp(x0, tx, e); w.y = lerp(y0, ty, e); w.step = s0 + d * e / 5 }, EZ.lin);
+      w.moving = false;
+    };
+    if (Math.abs(y - w.y) > 6 && (y < 330 || w.y < 330)) { await go(LADDER, w.y >= 330 ? 336 : w.y); await go(LADDER, y >= 330 ? 336 : y) }
+    await go(x, y);
+  }
+  worker(x, y, o = {}) { const w = { x, y, a: 0, step: 0, seed: Math.random() * 9, dir: -1, ...o }; this.workers.push(w); return w }
+  /* ---------- Dessin ---------- */
+  drawBg() {
+    const off = document.createElement('canvas'); off.width = this.cv.width; off.height = this.cv.height;
+    const c = off.getContext('2d'); c.scale(this.scale, this.scale);
+    const mk = night => {
+      c.clearRect(0, 0, SW, SH);
+      let g = c.createLinearGradient(0, 0, 0, 260);
+      (night ? [[0, '#2c2f6b'], [.55, '#d9786a'], [1, '#ffd6a0']] : [[0, '#6fbfe9'], [.7, '#cdeefa'], [1, '#fbf3df']]).forEach(([o, col]) => g.addColorStop(o, col));
+      c.fillStyle = g; c.fillRect(0, 0, SW, 262);
+      const [sx, sy, sr] = night ? [770, 214, 38] : [840, 70, 28];
+      const sg = c.createRadialGradient(sx, sy, sr * .4, sx, sy, sr * 3); sg.addColorStop(0, night ? 'rgba(255,177,92,.6)' : 'rgba(255,246,194,.7)'); sg.addColorStop(1, 'rgba(255,246,194,0)');
+      c.fillStyle = sg; c.fillRect(sx - sr * 3, sy - sr * 3, sr * 6, sr * 6);
+      c.fillStyle = night ? '#ffb15c' : '#ffe27a'; c.beginPath(); c.arc(sx, sy, sr, 0, 7); c.fill();
+      c.fillStyle = night ? '#6c6f9c' : '#a7c0cf'; c.beginPath(); c.moveTo(0, 196); c.quadraticCurveTo(90, 160, 190, 186); c.quadraticCurveTo(290, 206, 380, 178); c.quadraticCurveTo(470, 152, 560, 190); c.quadraticCurveTo(660, 222, 760, 172); c.quadraticCurveTo(860, 124, 960, 186); c.lineTo(960, 214); c.lineTo(0, 214); c.fill();
+      g = c.createLinearGradient(0, 208, 0, 260); (night ? [[0, '#5a5f9a'], [1, '#d98a76']] : [[0, '#2e86bd'], [1, '#6cc6e2']]).forEach(([o, col]) => g.addColorStop(o, col));
+      c.fillStyle = g; c.fillRect(0, 208, SW, 54);
+      g = c.createLinearGradient(0, 250, 0, 440); (night ? [[0, '#7d9a5c'], [1, '#55743f']] : [[0, '#a9cc72'], [1, '#86b457']]).forEach(([o, col]) => g.addColorStop(o, col));
+      c.fillStyle = g; c.beginPath(); c.moveTo(0, 252); c.quadraticCurveTo(160, 236, 330, 248); c.quadraticCurveTo(500, 260, 660, 246); c.quadraticCurveTo(810, 234, 960, 250); c.lineTo(960, 440); c.lineTo(0, 440); c.fill();
+      PLANT(c, 'cypress', 36, 262, 1, 0); PLANT(c, 'cypress', 58, 266, 1, 0); PLANT(c, 'cypress', 912, 262, 1, 0); PLANT(c, 'bush', 880, 268, 1, 0);
+      c.fillStyle = '#5d6268'; c.fillRect(0, 404, SW, 36); c.fillStyle = '#6d7278'; c.fillRect(0, 404, SW, 3);
+      c.strokeStyle = '#e9e3c9'; c.lineWidth = 2; c.setLineDash([26, 18]); c.beginPath(); c.moveTo(0, 424); c.lineTo(SW, 424); c.stroke(); c.setLineDash([]);
+      const img = document.createElement('canvas'); img.width = off.width; img.height = off.height; img.getContext('2d').drawImage(off, 0, 0); return img;
+    };
+    this.bg = { day: mk(false), night: mk(true) };
+  }
+  P(k, i) { return this.items[k][i].p }
+  prog(k) { const a = this.items[k]; return a.reduce((s, x) => s + x.p, 0) / a.length }
+  draw() {
+    const c = this.c, t = this.t;
+    if (!this.bg) this.drawBg();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    const night = this.items[20][0].p;
+    c.drawImage(this.bg.day, 0, 0);
+    if (night > 0) { c.globalAlpha = night; c.drawImage(this.bg.night, 0, 0); c.globalAlpha = 1 }
+    c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+    // Ambiance : nuages, voilier, reflets, oiseaux
+    c.fillStyle = `rgba(255,255,255,${.85 - night * .55})`;
+    for (const [x, y, s] of this.clouds) { c.beginPath(); c.ellipse(x, y, 56 * s, 14 * s, 0, 0, 7); c.ellipse(x + 34 * s, y - 9 * s, 32 * s, 13 * s, 0, 0, 7); c.fill() }
+    c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1.5;
+    for (let i = 0; i < 9; i++) { const x = (i * 113 + 40) % 960, y = 216 + (i * 37) % 38, a = .2 + .5 * Math.max(0, Math.sin(t * 1.6 + i * 1.7)); c.globalAlpha = a; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 18 + (i % 3) * 6, y); c.stroke() }
+    c.globalAlpha = 1;
+    const bx = 120 + Math.sin(t * .07) * 90, by = Math.sin(t * 1.4) * 1.2;
+    c.fillStyle = '#fff'; c.beginPath(); c.moveTo(bx, 236 + by); c.lineTo(bx + 36, 236 + by); c.lineTo(bx + 30, 243 + by); c.lineTo(bx + 6, 243 + by); c.fill();
+    c.beginPath(); c.moveTo(bx + 18, 234 + by); c.lineTo(bx + 18, 206 + by); c.lineTo(bx + 34, 232 + by); c.fill(); c.fillStyle = '#f2efe6'; c.beginPath(); c.moveTo(bx + 16, 234 + by); c.lineTo(bx + 16, 212 + by); c.lineTo(bx + 4, 232 + by); c.fill();
+    c.strokeStyle = night > .5 ? '#2c2f6b' : '#41545e'; c.lineWidth = 1.6;
+    for (const b of this.birds) { const f = Math.sin(b.ph) * 4; c.beginPath(); c.moveTo(b.x, b.y); c.quadraticCurveTo(b.x + 6, b.y - 4 - f, b.x + 12, b.y); c.quadraticCurveTo(b.x + 18, b.y - 4 - f, b.x + 24, b.y); c.stroke() }
+    this.drawSite(c, t, night);
+    for (const v of this.vehicles) drawVehicle(c, v, t, this);
+    if (this.hose) { const v = this.hose; c.strokeStyle = '#2f3438'; c.lineWidth = 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(v.x + 150, v.y - 58); c.bezierCurveTo(v.x + 140, v.y - 120, 806, 300, 776, 348); c.stroke() }
+    for (const w of this.workers) drawWorker(c, w, t);
+    this.drawCrane(c, t);
+    // Lumière du soir sur toute la scène, puis les sources lumineuses par-dessus
+    if (night > 0) { c.fillStyle = `rgba(40,30,90,${.22 * night})`; c.fillRect(0, 262, SW, 178); this.drawLights(c, t, night) }
+    for (const p of this.parts) {
+      const a = clamp01(p.life / p.max) * p.fade, r = p.shrink ? p.r * clamp01(p.life / p.max) : p.r;
+      c.fillStyle = `rgba(${p.col},${a})`; c.beginPath(); c.arc(p.x, p.y, r, 0, 7); c.fill();
+    }
+  }
+  drawSite(c, t, night) {
+    const I = this.items, sway = Math.sin(t * 1.3);
+    // Terrain
+    c.globalAlpha = .55; fillRR(c, 190, 262, 630, 138, 10, '#97c065'); c.globalAlpha = 1;
+    for (const d of I[4]) if (d.kind === 'dirt' && d.p > 0) { const g = c.createLinearGradient(0, 262, 0, 400); g.addColorStop(0, '#d2a76c'); g.addColorStop(1, '#b98a52'); c.fillStyle = g; c.fillRect(d.x, d.y, d.w, d.h * d.p) }
+    const lawn = I[18][0];
+    if (lawn.p > 0) {
+      const w = lawn.w * lawn.p, g = c.createLinearGradient(0, 262, 0, 400); g.addColorStop(0, '#7fbf5a'); g.addColorStop(1, '#5fa443');
+      c.fillStyle = g; c.fillRect(lawn.x, lawn.y, w, lawn.h);
+      c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 6; for (let x = lawn.x + 10; x < lawn.x + w; x += 24) { c.beginPath(); c.moveTo(x, 262); c.lineTo(x, 400); c.stroke() }
+      if (lawn.p < 1) { c.fillStyle = '#6aaf4c'; rr(c, lawn.x + w - 8, 262, 16, 138, 8); c.fill(); c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(lawn.x + w + 6, 262, 3, 138) }
+    }
+    // Tas de déblais
+    if (this.pile > 0) { c.fillStyle = '#9b7146'; c.beginPath(); c.ellipse(800, 398, 40 * this.pile, 22 * this.pile, 0, Math.PI, 0); c.fill() }
+    // Plantes du jardin (derrière la maison)
+    for (const it of I[18]) if (it.kind === 'plant' && it.p > 0) PLANT(c, it.t, it.x, it.y, EZ.back(clamp01(it.p)), sway * (it.t === 'palm' ? 1 : .5));
+    // Broussailles
+    for (const b of I[3]) if (b.p < 1) { c.save(); c.globalAlpha = 1 - b.p; c.translate(b.x - b.p * 60, b.y + b.p * 6); c.rotate(-b.p * .8); PLANT(c, 'bush', 0, 0, b.s * (1 - b.p * .5), 0); c.restore() }
+    // Tranchée
+    for (const d of I[4]) if (d.kind === 'trench' && d.p > 0) { c.fillStyle = '#7d5a34'; c.fillRect(d.x, d.y + d.h * (1 - d.p), d.w, d.h * d.p); c.fillStyle = '#5e4128'; c.fillRect(d.x, d.y + d.h * (1 - d.p), d.w, 3) }
+    // Piscine
+    for (const d of I[13]) if (d.p > 0) { const h = d.h * d.p; c.fillStyle = '#7a5636'; c.fillRect(d.x, d.y, d.w, h); c.fillStyle = '#5e4128'; c.fillRect(d.x, d.y, d.w, 4) }
+    for (const d of I[14]) if (d.kind === 'tiles' && d.p > 0) {
+      const cols = 26, n = Math.ceil(cols * d.p);
+      for (let i = 0; i < n; i++) { const q = clamp01(d.p * cols - i); c.globalAlpha = q; c.fillStyle = (i + d.y) % 2 ? '#8fd6ea' : '#9fdcef'; c.fillRect(d.x + i * d.w / cols + .5, d.y + .5, d.w / cols - 1, d.h - 1) }
+      c.globalAlpha = 1;
+    }
+    const cop = I[14][3];
+    if (cop.p > 0) { c.strokeStyle = '#f3f1ea'; c.lineWidth = 9; c.lineJoin = 'round'; const per = 2 * (cop.w + cop.h), L = per * cop.p; c.setLineDash([L, per]); c.strokeRect(cop.x + 4, cop.y + 4, cop.w - 8, cop.h - 8); c.setLineDash([]) }
+    const wat = I[15][0];
+    if (wat.p > 0) {
+      const h = wat.h * wat.p, top = wat.y + wat.h - h, g = c.createLinearGradient(0, top, 0, wat.y + wat.h); g.addColorStop(0, '#6fe0f5'); g.addColorStop(1, '#1a8fbf');
+      c.fillStyle = g; c.beginPath(); c.moveTo(wat.x, wat.y + wat.h); c.lineTo(wat.x, top);
+      for (let x = 0; x <= wat.w; x += 10) c.lineTo(wat.x + x, top + Math.sin(x / 18 + t * 3) * (wat.p < 1 ? 1.5 : .8));
+      c.lineTo(wat.x + wat.w, wat.y + wat.h); c.fill();
+      if (wat.p >= 1) { c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 2; for (let i = 0; i < 5; i++) { const x = wat.x + 24 + i * 60 + Math.sin(t + i) * 6, y = top + 10 + (i % 2) * 12; c.globalAlpha = .3 + .4 * Math.abs(Math.sin(t * 1.5 + i)); c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + 8, y - 4, x + 16, y); c.stroke() } c.globalAlpha = 1 }
+    }
+    // Terrasse
+    for (const d of I[16]) if (d.kind === 'plank' && d.p > 0) { c.fillStyle = (d.x / 14 | 0) % 2 ? '#bf8850' : '#c9925a'; c.fillRect(d.x, d.y + (1 - d.p) * -20, d.w, d.h) }
+    // Piquets et cordeaux
+    if (this.P(2, 0) > 0 || this.prog(2) > 0) {
+      const hide = this.prog(6) >= 1 ? 1 - clamp01(this.prog(7) * 3) : 1;
+      c.globalAlpha = hide;
+      for (const s of I[2]) if (s.kind === 'stake' && s.p > 0) { const h = 18 * Math.min(1, s.p * 1.4), dy = (1 - s.p) * -14; c.fillStyle = '#a07a50'; c.fillRect(s.x - 1.5, s.y - h + dy, 3, h); c.fillStyle = '#e8553e'; c.fillRect(s.x - 2.5, s.y - h - 3 + dy, 5, 4) }
+      for (const s of I[2]) if (s.kind === 'string' && s.p > 0) {
+        let L = 0; const seg = s.pts.slice(1).map((q, i) => { const d = Math.hypot(q[0] - s.pts[i][0], q[1] - s.pts[i][1]); L += d; return d });
+        let left = L * s.p; c.strokeStyle = '#fff'; c.lineWidth = 1; c.beginPath(); c.moveTo(...s.pts[0]);
+        for (let i = 0; i < seg.length && left > 0; i++) { const f = Math.min(1, left / seg[i]); c.lineTo(lerp(s.pts[i][0], s.pts[i + 1][0], f), lerp(s.pts[i][1], s.pts[i + 1][1], f)); left -= seg[i] }
+        c.stroke();
+      }
+      c.globalAlpha = 1;
+    }
+    // Plans de l'architecte (pointillés), qui s'effacent à mesure que l'on construit
+    const st = this.prog(2) >= 1;
+    if (st) {
+      c.strokeStyle = '#2b6cb0'; c.lineWidth = 1.5; c.setLineDash([7, 5]);
+      [[300, 204, 320, 108, 7], [380, 122, 300, 70, 9], [462, 342, 322, 54, 13]].forEach(([x, y, w, h, k]) => { const a = .55 * (1 - this.prog(k)); if (a > .01) { c.globalAlpha = a; c.strokeRect(x, y, w, h) } });
+      c.setLineDash([]); c.globalAlpha = 1;
+    }
+    // Coffrages et fers
+    if (this.prog(7) < 1) for (const b of I[5]) if (b.p > 0) {
+      c.globalAlpha = 1 - clamp01(this.prog(7) * 3);
+      if (b.kind === 'board') { c.fillStyle = '#c08a4e'; c.fillRect(b.x, b.y - (1 - b.p) * 30, b.w, b.h) }
+      else { c.strokeStyle = '#6b7177'; c.lineWidth = 2; c.beginPath(); const h = 36 * b.p; c.moveTo(b.x, b.y); c.lineTo(b.x, b.y - h); c.moveTo(b.x + 6, b.y); c.lineTo(b.x + 6, b.y - h + 4); c.stroke() }
+      c.globalAlpha = 1;
+    }
+    // Dalles (le béton frais est plus sombre puis sèche)
+    for (const k of [6, 8]) for (const d of I[k]) if (d.p > 0) {
+      const w = d.w * d.p, dry = d.dry ?? 1;
+      c.fillStyle = `rgb(${lerp(120, 176, dry) | 0},${lerp(124, 180, dry) | 0},${lerp(128, 184, dry) | 0})`; c.fillRect(d.x, d.y, w, d.h);
+      c.fillStyle = 'rgba(255,255,255,.35)'; c.fillRect(d.x, d.y, w, 2.5); c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(d.x, d.y + d.h - 3, w, 3);
+    }
+    // Murs en briques
+    for (const k of [7, 9]) for (const r of I[k]) if (r.p > 0) this.drawRow(c, r);
+    // Façade
+    for (const d of I[11]) if (d.p > 0) {
+      if (d.kind === 'paint') { const h = d.h * d.p, g = c.createLinearGradient(d.x, d.y, d.x + d.w, d.y + d.h); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#ebe5d8'); c.fillStyle = g; c.fillRect(d.x, d.y, d.w, h); if (d.p < 1) { c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(d.x, d.y + h - 2, d.w, 3) } }
+      else if (d.kind === 'stone') { const rows = 6, n = Math.ceil(rows * d.p); c.save(); c.beginPath(); c.rect(d.x, d.y, d.w, d.h); c.clip(); for (let i = 0; i < n; i++) { const y = d.y + d.h - (i + 1) * 18; c.globalAlpha = clamp01(d.p * rows - i); for (let j = 0; j < 4; j++) { c.fillStyle = ['#d9cdb6', '#cfc1a6', '#e0d5bf'][(i + j) % 3]; c.fillRect(d.x + j * 27 - (i % 2) * 13 + 1, y + 1, 26, 16) } } c.restore() }
+      else { const n = Math.ceil(5 * d.p); c.fillStyle = '#a8743f'; c.fillRect(d.x, d.y + d.h * (1 - d.p), d.w, d.h * d.p); c.strokeStyle = '#8a5a2c'; c.lineWidth = 2.4; for (let i = 0; i < n; i++) { c.beginPath(); c.moveTo(d.x + 5 + i * 8, d.y + d.h - 2); c.lineTo(d.x + 5 + i * 8, d.y + d.h * (1 - clamp01(d.p * 5 - i)) + 2); c.stroke() } }
+    }
+    // Intérieurs (derrière les vitres)
+    for (const f of I[17]) if (f.p > 0) { c.globalAlpha = f.p; this.drawFurn(c, f); c.globalAlpha = 1 }
+    // Vitres, porte, garde-corps
+    for (const d of I[12]) if (d.p > 0) this.drawPane(c, d, night);
+    // Toiture
+    for (const d of I[10]) if (d.p > 0) { if (d.kind === 'roof') { fillRR(c, d.x, d.y, d.w, d.h, 1, '#2f3438'); c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(d.x, d.y, d.w, 2) } else { c.fillStyle = '#b07a4a'; c.fillRect(d.x, d.y, d.w * d.p, d.h) } }
+    // Échafaudages
+    this.drawScaffold(c);
+    // Allée, lampadaires
+    for (const s of I[19]) if (s.kind === 'stonepath' && s.p > 0) { c.fillStyle = '#e3dccb'; c.strokeStyle = '#c9bfa8'; c.beginPath(); c.ellipse(s.x, s.y - (1 - s.p) * 18, 14, 4.5, 0, 0, 7); c.fill(); c.stroke() }
+    for (const s of I[19]) if (s.kind === 'lamp' && s.p > 0) { const h = 30 * clamp01(s.p * 2); c.strokeStyle = '#2f3438'; c.lineWidth = 3; c.beginPath(); c.moveTo(s.x, s.y); c.lineTo(s.x, s.y - h); c.stroke(); if (s.p > .5) { const on = clamp01((s.p - .5) * 2); c.fillStyle = `rgba(255,224,138,${.4 + .6 * on})`; c.beginPath(); c.arc(s.x, s.y - h - 2, 5, 0, 7); c.fill() } }
+    // Transats et parasol
+    for (const d of I[16]) if (d.kind === 'lounger' && d.p > 0) { c.globalAlpha = d.p; fillRR(c, d.x, d.y, 38, 8, 3, '#fff'); c.strokeStyle = '#fff'; c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(d.x + 34, d.y); c.lineTo(d.x + 42, d.y - 12); c.stroke(); c.strokeStyle = '#9a9a9a'; c.lineWidth = 2; c.beginPath(); c.moveTo(d.x + 4, d.y + 8); c.lineTo(d.x + 4, d.y + 14); c.moveTo(d.x + 32, d.y + 8); c.lineTo(d.x + 32, d.y + 14); c.stroke(); c.globalAlpha = 1 }
+    const par = I[16][12];
+    if (par.p > 0) { const o = EZ.back(clamp01(par.p)); c.strokeStyle = '#6b5a48'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(par.x, par.y); c.lineTo(par.x, par.y - 62); c.stroke(); c.fillStyle = '#f2efe6'; c.beginPath(); c.moveTo(par.x - 28 * o, par.y - 56 + 8 * (1 - o)); c.quadraticCurveTo(par.x, par.y - 82, par.x + 28 * o, par.y - 56 + 8 * (1 - o)); c.fill() }
+    // Panneau
+    this.drawSign(c);
+  }
+  drawRow(c, r) {
+    const bw = 24, off = r.r % 2 ? 12 : 0, nb = Math.ceil((r.w + off) / bw), done = r.p * nb, n = Math.floor(done);
+    c.save(); c.beginPath(); c.rect(r.x, r.y - 30, r.w, r.h + 30); c.clip();
+    for (let i = 0; i < n; i++) brick(c, r.x - off + i * bw, r.y, bw, r.h, i + r.r * 31);
+    // la brique en cours de pose suit un petit arc depuis la palette
+    if (n < nb && r.src && done - n > 0) {
+      const q = EZ.out(done - n), sx = r.src[0], sy = r.src[1], tx = r.x - off + n * bw, ty = r.y;
+      c.restore(); c.save(); brick(c, lerp(sx, tx, q), lerp(sy, ty, q) - Math.sin(q * Math.PI) * 26, bw, r.h, n + r.r * 31);
+    }
+    c.restore();
+    c.fillStyle = 'rgba(234,214,194,.5)'; c.fillRect(r.x, r.y + r.h - 1, r.w * Math.min(1, n / nb), 1);
+    if (r.src && r.p < 1) PALLET(c, r.src[0] + 12, r.src[1] + 10, 1 - r.p);
+  }
+  drawPane(c, d, night) {
+    const s = clamp01(d.p), slide = (1 - EZ.out(s)) * 30;
+    c.save(); c.globalAlpha = s; c.translate(0, -slide);
+    if (d.door) { fillRR(c, d.x, d.y, d.w, d.h, 1, '#6b4428'); c.strokeStyle = '#2b3136'; c.lineWidth = 2; c.strokeRect(d.x, d.y, d.w, d.h); c.fillStyle = '#e2c07a'; c.fillRect(d.x + 26, d.y + 30, 3, 12) }
+    else if (d.rail) { c.fillStyle = 'rgba(191,230,245,.55)'; c.fillRect(d.x, d.y, d.w, d.h); c.strokeStyle = '#7d8389'; c.lineWidth = 2; c.beginPath(); c.moveTo(d.x, d.y); c.lineTo(d.x + d.w, d.y); c.stroke() }
+    else {
+      const g = c.createLinearGradient(d.x, d.y, d.x + d.w, d.y + d.h);
+      g.addColorStop(0, `rgba(${lerp(210, 255, night) | 0},${lerp(238, 231, night) | 0},${lerp(248, 168, night) | 0},.85)`); g.addColorStop(1, `rgba(${lerp(106, 243, night) | 0},${lerp(169, 180, night) | 0},${lerp(198, 92, night) | 0},.85)`);
+      c.fillStyle = g; c.fillRect(d.x, d.y, d.w, d.h); c.strokeStyle = '#2b3136'; c.lineWidth = 3; c.strokeRect(d.x, d.y, d.w, d.h);
+      c.strokeStyle = `rgba(255,255,255,${.35 * (1 - night)})`; c.lineWidth = 3; c.beginPath(); c.moveTo(d.x + 10, d.y + 8); c.lineTo(d.x + d.w * .5, d.y + d.h * .55); c.stroke();
+    }
+    c.restore();
+  }
+  drawFurn(c, f) {
+    const { x, y } = f;
+    if (f.f === 'sofa') { fillRR(c, x, y - 22, 70, 22, 6, '#8d8f93'); fillRR(c, x, y - 30, 70, 12, 5, '#a3a6aa') }
+    if (f.f === 'lamp') { c.strokeStyle = '#333'; c.lineWidth = 2; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - 50); c.stroke(); c.fillStyle = '#f6e3b0'; c.beginPath(); c.moveTo(x - 10, y - 50); c.lineTo(x + 10, y - 50); c.lineTo(x + 5, y - 62); c.lineTo(x - 5, y - 62); c.fill() }
+    if (f.f === 'plant') { c.fillStyle = '#c9925a'; c.fillRect(x - 8, y - 16, 18, 16); PLANT(c, 'bush', x + 1, y - 14, .6, 0) }
+    if (f.f === 'art') { c.fillStyle = '#e8b65c'; c.fillRect(x, y - 20, 34, 22); c.strokeStyle = '#5a4630'; c.lineWidth = 2; c.strokeRect(x, y - 20, 34, 22) }
+    if (f.f === 'bed') { fillRR(c, x, y - 12, 90, 12, 3, '#f2efe6'); fillRR(c, x, y - 20, 16, 10, 3, '#d8d0c0') }
+    if (f.f === 'pend') { c.strokeStyle = '#333'; c.lineWidth = 1; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 16); c.stroke(); c.fillStyle = '#f2c94c'; c.beginPath(); c.moveTo(x - 8, y + 22); c.lineTo(x + 8, y + 22); c.lineTo(x + 5, y + 16); c.lineTo(x - 5, y + 16); c.fill() }
+  }
+  drawScaffold(c) {
+    const g = this.scafGF, u = this.scafUp;
+    c.lineWidth = 2.2; c.strokeStyle = '#a77b45'; c.fillStyle = '#c9a46a';
+    if (g > 0) {
+      const top = lerp(336, 200, g);
+      [LADDER + 6, 372, 452, 532, 630].forEach(x => { c.beginPath(); c.moveTo(x, 336); c.lineTo(x, top); c.stroke() });
+      [272, 232].forEach(y => { if (y > top) c.fillRect(LADDER + 4, y, 340, 4) });
+      // échelle
+      c.strokeStyle = '#8a6d3b'; c.beginPath(); c.moveTo(LADDER - 5, 336); c.lineTo(LADDER - 5, Math.max(top, 192)); c.moveTo(LADDER + 5, 336); c.lineTo(LADDER + 5, Math.max(top, 192));
+      for (let y = 330; y > Math.max(top, 192); y -= 10) { c.moveTo(LADDER - 5, y); c.lineTo(LADDER + 5, y) } c.stroke();
+    }
+    if (u > 0) {
+      const top = lerp(192, 118, u); c.strokeStyle = '#a77b45';
+      [376, 456, 536, 616, 690].forEach(x => { c.beginPath(); c.moveTo(x, 192); c.lineTo(x, top); c.stroke() });
+      [160].forEach(y => { if (y > top) c.fillRect(372, y, 322, 4) });
+    }
+  }
+  drawCrane(c, t) {
+    const k = this.crane; if (k.a <= 0) return;
+    const H = 370 * k.a, base = 404, top = base - H;
+    c.strokeStyle = '#e0a21c'; c.lineWidth = 4; c.beginPath(); c.moveTo(852, base); c.lineTo(852, top); c.moveTo(870, base); c.lineTo(870, top); c.stroke();
+    c.lineWidth = 1.6; c.beginPath(); for (let y = base; y > top + 15; y -= 30) { c.moveTo(852, y); c.lineTo(870, y - 15); c.lineTo(852, y - 30) } c.stroke();
+    if (k.a < 1) return;
+    c.strokeStyle = '#f2b632'; c.lineWidth = 7; c.beginPath(); c.moveTo(360, 36); c.lineTo(930, 36); c.stroke();
+    c.strokeStyle = '#e0a21c'; c.lineWidth = 2; c.beginPath(); c.moveTo(360, 44); c.lineTo(850, 44); c.stroke();
+    c.fillStyle = '#6b737a'; c.fillRect(900, 34, 34, 22); fillRR(c, 842, 40, 34, 22, 2, '#e0a21c'); c.fillStyle = '#cfe8f2'; c.fillRect(848, 44, 16, 10);
+    const sw = this.busyCrane ? 0 : Math.sin(t * 1.2) * 3;
+    fillRR(c, k.tx - 10, 40, 20, 8, 2, '#59616a');
+    c.strokeStyle = '#3a3f44'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(k.tx, 48); c.lineTo(k.tx + sw, k.hy); c.stroke();
+    c.fillStyle = '#3a3f44'; c.beginPath(); c.moveTo(k.tx - 5 + sw, k.hy); c.lineTo(k.tx + 5 + sw, k.hy); c.lineTo(k.tx + sw, k.hy + 7); c.fill();
+    if (k.load) { c.save(); c.translate(k.tx + sw, k.hy + 7); c.strokeStyle = '#3a3f44'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, 0); c.lineTo(-14, 10); c.moveTo(0, 0); c.lineTo(14, 10); c.stroke(); k.load(c); c.restore() }
+  }
+  drawSign(c) {
+    const s = this.items, sold = s[1][0].p, chantier = this.prog(2) > 0 || this.prog(3) > 0, villa = s[20][0].p >= 1;
+    c.fillStyle = '#7a5532'; c.fillRect(117, 290, 7, 114);
+    const draw = (txt, sub, bg, fg) => { fillRR(c, 66, 246, 108, 50, 4, bg); c.strokeStyle = '#7a5532'; c.lineWidth = 2.5; c.strokeRect(66, 246, 108, 50); c.fillStyle = fg; c.textAlign = 'center'; c.font = '800 14px system-ui,sans-serif'; c.fillText(txt, 120, 268); c.font = '10px system-ui,sans-serif'; c.fillText(sub.slice(0, 18), 120, 285) };
+    if (villa) draw('VILLA', this.name, '#2f5e4e', '#fff');
+    else if (chantier && sold >= 1) draw('CHANTIER', this.name, '#fffdf6', '#c8323c');
+    else {
+      draw('À VENDRE', 'Vue mer', '#fffdf6', '#c8323c');
+      if (sold > 0) { c.save(); c.translate(120, 272); c.rotate(-.24); c.scale(EZ.back(clamp01(sold)), 1); fillRR(c, -54, -10, 108, 20, 2, '#c8323c'); c.fillStyle = '#fff'; c.font = '800 13px system-ui,sans-serif'; c.textAlign = 'center'; c.fillText('VENDU', 0, 5); c.restore() }
+    }
+  }
+  drawLights(c, t, night) {
+    const I = this.items;
+    if (I[12][1].p > 0) { const glow = c.createRadialGradient(446, 270, 10, 446, 270, 160); glow.addColorStop(0, `rgba(255,214,140,${.35 * night})`); glow.addColorStop(1, 'rgba(255,214,140,0)'); c.fillStyle = glow; c.fillRect(280, 120, 340, 260) }
+    for (const s of I[19]) if (s.kind === 'lamp' && s.p > .5) { const g = c.createRadialGradient(s.x, s.y - 32, 1, s.x, s.y - 32, 22); g.addColorStop(0, `rgba(255,224,138,${.7 * night})`); g.addColorStop(1, 'rgba(255,224,138,0)'); c.fillStyle = g; c.fillRect(s.x - 22, s.y - 54, 44, 44) }
+    if (I[15][0].p >= 1) { c.fillStyle = `rgba(160,240,255,${.25 * night})`; c.fillRect(472, 352, 302, 36) }
+    const bulbs = I[20][1].p;
+    if (bulbs > 0) {
+      c.strokeStyle = '#333'; c.lineWidth = 1; c.beginPath(); c.moveTo(350, 330); c.quadraticCurveTo(380, 346, 410, 332); c.quadraticCurveTo(440, 346, 470, 330); c.stroke();
+      [[362, 337], [380, 340], [398, 336], [422, 337], [440, 340], [458, 335]].forEach(([x, y], i) => { if (bulbs * 6 > i) { const a = .6 + .4 * Math.sin(t * 3 + i); c.fillStyle = `rgba(255,224,138,${a})`; c.beginPath(); c.arc(x, y, 2.6, 0, 7); c.fill(); c.fillStyle = `rgba(255,224,138,${.2 * a})`; c.beginPath(); c.arc(x, y, 8, 0, 7); c.fill() } });
+    }
+    // feux d'artifice en boucle une fois la villa livrée
+    if (night >= 1 && Math.random() < .025) { const x = rnd(140, 860), y = rnd(50, 130), col = ['242,201,76', '232,85,62', '155,77,187', '111,224,245'][Math.random() * 4 | 0]; this.emit(36, x, y, { vx: [-90, 90], vy: [-90, 70], g: 60, life: 1.6, r: [1.4, 2.4], col, sx: 1, sy: 1, shrink: 1 }) }
+  }
+}
 
-function siteState(D) {
+/* --- État affiché pour un avancement D (en étapes, ex. 7,4) : sans animation --- */
+function siteApply(S, D) {
   const s = D >= SITE_N - 1e-9 ? SITE_N : Math.floor(D + 1e-9), f = s >= SITE_N ? 0 : Math.max(0, D - s);
-  const on = {};
-  for (let k = 1; k <= SITE_N; k++) for (let i = 0; i < SITE_COUNT[k]; i++) {
-    const built = Math.floor(f * SITE_COUNT[k] + 1e-9);
-    let v;
-    if (k === 3) v = s < 3 && (k !== s + 1 || i >= built);
-    else if ((k === 1 && s >= 2) || (k === 2 && s >= 6) || (k === 5 && s >= 7)) v = false;
-    else v = s >= k || (k === s + 1 && i < built);
-    on[`it${k}_${i}`] = v;
+  for (let k = 1; k <= SITE_N; k++) {
+    const its = S.items[k], n = its.length;
+    its.forEach((it, i) => { it.p = k <= s ? 1 : k === s + 1 ? (CONT_PARTIAL.has(it.kind) ? clamp01(f * n - i) : (f * n - i >= 1 ? 1 : 0)) : 0; it.src = null; it.dry = 1 });
   }
-  Object.assign(on, {
-    bp7: s >= 2 && s < 7, bp9: s >= 2 && s < 9, bp13: s >= 2 && s < 13,
-    scaf: s >= 6 && s < 11, scafU: s >= 8 && s < 11, crane: s >= 6 && s < 10, night: s >= SITE_N,
-    signA: s <= 1 && !(s === 0 && f > 0), signB: s === 0 && f > 0, signC: s >= 2 && s < SITE_N, signD: s >= SITE_N
-  });
-  for (let k = 1; k <= SITE_N; k++) on['veh' + k] = (k === s + 1 && f > 0) || (k === SITE_N && s >= SITE_N);
-  ['wkH', 'wkP', 'wkG'].forEach(g => { on[g] = f > 0 && s + 1 >= 2 && s + 1 <= 19 && WK_GROUP(s + 1) === g });
-  return on;
+  S.crane.a = s >= 6 && s < 10 ? 1 : 0; S.crane.tx = 640; S.crane.hy = 140; S.crane.load = null;
+  S.scafGF = s >= 6 && s < 12 ? 1 : 0;
+  S.scafUp = s >= 8 && s < 12 ? 1 : 0;
+  S.pile = 0;
+  S.vehicles = []; S.workers = []; S.parts = [];
+  // Engins et ouvriers garés pendant une étape en cours
+  const k = s + 1;
+  if (k <= SITE_N && f > 0) { const job = SITE_JOBS[k]; if (job.park) job.park(S) }
+  if (s >= SITE_N) S.vehicles.push(mkVeh('sport', 140));
+}
+const CONT_PARTIAL = new Set(['string', 'dirt', 'trench', 'slab', 'row', 'paint', 'stone', 'slats', 'hole', 'tiles', 'coping', 'water', 'lawn', 'night', 'bulbs']);
+
+function mkVeh(type, x, o = {}) { return { type, x, y: ROAD, rot: 0, rot0: 0, ...o } }
+const IN = 1180; // position hors champ à droite
+
+/* --- Chorégraphies des 20 étapes ---
+   Chaque étape : vehicles() crée ses engins, park() les place au repos, work(S, todo) anime les éléments à poser.
+   todo = liste des éléments (dans l'ordre) avec leur avancement cible. */
+async function walkTo(S, w, x, y) { await S.walk(w, x, y) }
+async function bringIn(S, specs) {
+  const vs = specs.map(([type, x, o]) => { const v = mkVeh(type, IN + (o?.gap || 0), o); v.park = x; S.vehicles.push(v); return v });
+  await Promise.all(vs.map(v => S.drive(v, v.park, 4200 + (v.x - IN) * 6, EZ.out)));
+  return vs;
+}
+async function crew(S, v, n, o = {}) {
+  const ws = [];
+  for (let i = 0; i < n; i++) { const w = S.worker(v.x + 70 + i * 16, ROAD - 2, o); ws.push(w); S.tween(w, { a: 1 }, 400) }
+  await S.wait(400);
+  return ws;
+}
+async function leaveAll(S) {
+  const ws = S.workers.filter(w => w.a > 0);
+  await Promise.all(ws.map(async w => { const v = S.vehicles.find(x => x.type !== 'sport'); if (v) await S.walk(w, v.x + 60, ROAD - 2, 90); await S.tween(w, { a: 0 }, 300) }));
+  S.workers = [];
+  await Promise.all(S.vehicles.filter(v => v.type !== 'sport').map((v, i) => S.wait(i * 500).then(() => S.drive(v, -260, 4200, EZ.in))));
+  S.vehicles = S.vehicles.filter(v => v.type === 'sport');
+}
+// Ouvrier qui va chercher un élément sur le camion et vient le poser
+async function fetchPlace(S, w, v, it, place, carry, spot) {
+  await S.walk(w, v.x + 80 + Math.random() * 60, ROAD - 2, 90);
+  w.carry = carry; if (v.cargo) v.cargo--;
+  await S.walk(w, spot[0], spot[1], 70);
+  w.carry = null; w.pose = 'reach';
+  await place();
+  w.pose = null;
+}
+// Deux équipes se partagent la liste
+async function teams(S, ws, todo, fn) { await Promise.all(ws.map((w, i) => (async () => { for (let j = i; j < todo.length; j += ws.length) await fn(w, todo[j]) })())) }
+// La grue va chercher une charge au point (fx, fy) et la dépose en (tx, ty)
+async function craneMove(S, fx, fy, tx, ty, load, onDrop, off = 33) {
+  const k = S.crane; S.busyCrane = true;
+  await S.tween(k, { hy: 80 }, 600); await S.tween(k, { tx: fx }, Math.abs(k.tx - fx) * 2.6 + 300); await S.tween(k, { hy: fy - off }, 900, EZ.out);
+  await S.wait(180); k.load = load(); await S.wait(150);
+  await S.tween(k, { hy: Math.min(fy, ty) - 80 }, 800);
+  await S.tween(k, { tx }, Math.abs(k.tx - tx) * 2.6 + 400); await S.tween(k, { hy: ty - off }, 900, EZ.out);
+  k.load = null; if (onDrop) onDrop();
+  S.tween(k, { hy: Math.max(60, ty - 90) }, 600).then(() => { S.busyCrane = false });
+}
+async function digWith(S, ex, dump, tx, ty, onScoop) {
+  // descendre dans le sol, racler, remonter, vider dans la benne
+  await S.tween(ex, { tx: tx + 30, ty: ty - 40 }, 700); await S.tween(ex, { tx, ty }, 600, EZ.in);
+  S.emit(10, tx, ty, { vx: [-30, 30], vy: [-90, -30], life: .8, r: [1.5, 3], col: '155,113,70' });
+  await S.anim(500, e => { ex.tx = tx + 26 * e; ex.bucketA = -e * 1.2 }); ex.load = true; onScoop();
+  if (dump) { const bx = dump.x + 104, by = dump.y - 72; await S.tween(ex, { tx: bx, ty: by }, 1300); await S.anim(450, e => { ex.bucketA = -1.2 + e * 2.2 }); ex.load = false;
+    S.emit(14, bx, by + 4, { vx: [-25, 25], vy: [0, 40], life: .7, r: [1.6, 3.2], col: '155,113,70', floor: dump.y - 48 }); dump.fill = Math.min(1, (dump.fill || 0) + .12); ex.bucketA = 0 }
+  else { await S.tween(ex, { tx: 800, ty: 380 }, 1200); ex.load = false; S.emit(12, 800, 384, { vx: [-20, 20], vy: [-10, 30], life: .7, r: [1.6, 3], col: '155,113,70', floor: 398 }); S.pile = Math.min(1, S.pile + .08); ex.bucketA = 0 }
+}
+const C = { // petits objets portés
+  stake: c => { c.fillStyle = '#a07a50'; c.fillRect(-6, 2, 12, 3) },
+  board: c => { c.fillStyle = '#c08a4e'; c.fillRect(-16, 2, 32, 4) },
+  rebar: c => { c.strokeStyle = '#6b7177'; c.lineWidth = 2; c.beginPath(); c.moveTo(-18, 3); c.lineTo(18, 3); c.stroke() },
+  glass: c => { c.fillStyle = 'rgba(191,230,245,.85)'; c.fillRect(-10, -14, 20, 22); c.strokeStyle = '#2b3136'; c.strokeRect(-10, -14, 20, 22) },
+  plank: c => { c.fillStyle = '#c9925a'; c.fillRect(-18, 2, 36, 4) },
+  box: c => { fillRR(c, -9, -8, 18, 14, 2, '#c99a62'); c.strokeStyle = '#a87a45'; c.beginPath(); c.moveTo(-9, -3); c.lineTo(9, -3); c.stroke() },
+  stone: c => { c.fillStyle = '#e3dccb'; c.beginPath(); c.ellipse(0, 2, 9, 3, 0, 0, 7); c.fill() },
+  lounger: c => { fillRR(c, -14, 0, 28, 5, 2, '#fff') },
+  tile: c => { fillRR(c, -7, 0, 14, 6, 1, '#8fd6ea') }
+};
+const SITE_JOBS = {
+  1: { // L'acheteur arrive, retourne le panneau « Vendu »
+    async work(S, todo) {
+      const [car] = await bringIn(S, [['sedan', 200]]);
+      const b = S.worker(car.x + 50, ROAD - 2, { vest: '#3b55b5', hat: '#e7b48f' }); await S.tween(b, { a: 1 }, 400);
+      await S.walk(b, 150, 404, 60); b.pose = 'reach'; await S.wait(400);
+      await S.anim(1200, e => { todo[0].it.p = e }, EZ.out); b.pose = null;
+      S.emit(18, 120, 262, { vx: [-60, 60], vy: [-120, -40], g: 160, life: 1.2, r: [1.5, 2.5], col: '242,201,76' });
+      await S.wait(500); await S.walk(b, car.x + 50, ROAD - 2, 60);
+    }
+  },
+  2: { // Le géomètre plante les piquets et tend les cordeaux
+    park(S) { S.vehicles.push(mkVeh('van', 250, { label: 'GÉOMÈTRE', color: '#3b6fb5' })); S.worker(330, 344).a = 1 },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'van'), w = S.workers[0];
+      if (!v) { [v] = await bringIn(S, [['van', 250, { label: 'GÉOMÈTRE', color: '#3b6fb5' }]]); [w] = await crew(S, v, 1) }
+      for (const { it, to } of todo) {
+        if (it.kind === 'stake') {
+          w.carry = C.stake; await S.walk(w, it.x + 8, it.y + 4, 80); w.carry = null; w.pose = 'hammer';
+          for (let h = 0; h < 3; h++) { await S.anim(260, e => { it.p = Math.max(it.p, (h + e) / 3) }); S.emit(3, it.x, it.y, { vx: [-20, 20], vy: [-40, -10], life: .4, r: [1, 2], col: '160,122,80' }) }
+          w.pose = null;
+        } else { const [x0, y0] = it.pts[0]; await S.walk(w, x0, y0 + 6, 80); await S.anim(2600, e => { it.p = e; const q = it.p; }, EZ.sine) }
+        it.p = to;
+      }
+    }
+  },
+  3: { // Le bulldozer pousse les broussailles
+    park(S) { S.vehicles.push(mkVeh('bulldozer', 860, { y: 398 })) },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'bulldozer');
+      if (!v) { [v] = await bringIn(S, [['bulldozer', 860]]); await S.drive(v, 840, 1000, EZ.io, 398) }
+      for (const { it } of todo) {
+        await S.drive(v, it.x + 14, Math.abs(v.x - it.x) * 9 + 300, EZ.io);
+        v.moving = true; S.emit(12, it.x, it.y, { vx: [-60, 0], vy: [-60, -10], life: .9, r: [2, 4], col: '170,140,90', fade: .7 });
+        const x0 = v.x; await S.anim(900, e => { it.p = e; v.x = x0 - 34 * e; v.rot = (v.rot0 || 0) - 3.4 * e }, EZ.in); v.rot0 = v.rot; v.moving = false;
+      }
+    }
+  },
+  4: { // Terrassement : la pelleteuse décape puis creuse la tranchée, la terre part dans le camion-benne
+    park(S) { S.vehicles.push(mkVeh('dump', 640, { fill: .4 }), mkVeh('excavator', 540, { tx: 470, ty: 360 })) },
+    async work(S, todo) {
+      let ex = S.vehicles.find(x => x.type === 'excavator'), du = S.vehicles.find(x => x.type === 'dump');
+      if (!ex) [du, ex] = await bringIn(S, [['dump', 640, { fill: 0, gap: 120 }], ['excavator', 540, { tx: 470, ty: 360 }]]);
+      for (const { it, to } of todo) {
+        const cx = it.x + it.w / 2;
+        if (Math.abs(ex.x - (cx + 40)) > 30) { const nx = Math.max(300, Math.min(700, cx + 40)); await Promise.all([S.drive(ex, nx, 1600), S.drive(du, nx + 100, 1600)]) }
+        if (it.kind === 'dirt') { const p0 = it.p; await digWith(S, ex, du, cx - 10, it.y + 60, () => { it.p = to }); await S.anim(700, e => { it.p = lerp(p0, to, e) }) }
+        else { const p0 = it.p; for (let s = 0; s < 2; s++) await digWith(S, ex, du, cx - 30 + s * 40, it.y + 18, () => { it.p = Math.min(to, p0 + (to - p0) * (s + 1) / 2) }) }
+      }
+      await S.tween(ex, { tx: ex.x - 40, ty: ex.y - 120 }, 800);
+    }
+  },
+  5: { // Coffrages et fers à béton portés depuis le camion
+    park(S) { S.vehicles.push(mkVeh('flatbed', 700, { cargoKind: 'boards', cargo: 6 })); S.worker(400, 344).a = 1; S.worker(560, 344).a = 1 },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'flatbed'), ws = S.workers;
+      if (!v) { [v] = await bringIn(S, [['flatbed', 700, { cargoKind: 'boards', cargo: 12 }]]); ws = await crew(S, v, 2) }
+      await teams(S, ws, todo, (w, { it }) => fetchPlace(S, w, v, it, () => S.anim(700, e => { it.p = e }, EZ.out), it.kind === 'board' ? C.board : C.rebar, [it.x + (it.kind === 'board' ? it.w / 2 : 0), 346]));
+    }
+  },
+  6: { // La pompe à béton coule la dalle
+    park(S) { S.vehicles.push(mkVeh('mixer', 690, { tx: 750, ty: 374 })) },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'mixer');
+      if (!v) [v] = await bringIn(S, [['mixer', 690, { tx: 860, ty: 300 }]]);
+      for (const { it, to } of todo) await pour(S, v, it, to);
+      await S.tween(v, { tx: v.x + 60, ty: v.y - 60 }, 1400);
+    },
+    async finish(S) {
+      // la grue se monte et l'échafaudage se dresse pour la suite du chantier
+      await S.anim(3200, e => { S.crane.a = e }, EZ.out);
+      await S.anim(2400, e => { S.scafGF = e }, EZ.out);
+    }
+  },
+  7: { async work(S, todo) { await brickStage(S, todo) }, park(S) { parkBricks(S) } },
+  8: {
+    park(S) { S.vehicles.push(mkVeh('mixer', 700, { tx: 760, ty: 374 })) },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'mixer');
+      if (!v) [v] = await bringIn(S, [['mixer', 700, { tx: 860, ty: 260 }]]);
+      for (const { it, to } of todo) await pour(S, v, it, to);
+      await S.tween(v, { tx: v.x + 60, ty: v.y - 60 }, 1400);
+    },
+    async finish(S) { await S.anim(2400, e => { S.scafUp = e }, EZ.out) }
+  },
+  9: { async work(S, todo) { await brickStage(S, todo) }, park(S) { parkBricks(S) } },
+  10: { // Panneaux de toit à la grue
+    park(S) { S.vehicles.push(mkVeh('flatbed', 720, { cargoKind: 'roof', cargo: 4 })) },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'flatbed');
+      if (!v) [v] = await bringIn(S, [['flatbed', 720, { cargoKind: 'roof', cargo: 7 }]]);
+      for (const { it } of todo) {
+        if (it.kind === 'fascia') { await S.anim(1800, e => { it.p = e }); continue }
+        await craneMove(S, v.x + 110, v.y - 30 - (v.cargo || 1) * 6, it.x + it.w / 2, it.y, () => { if (v.cargo) v.cargo--; return c => fillRR(c, -it.w / 2, 10, it.w, it.h, 1, '#2f3438') }, () => { it.p = 1; S.emit(8, it.x + it.w / 2, it.y + 14, { vx: [-40, 40], vy: [-30, 0], life: .5, r: [1, 2], col: '120,120,120' }) }, 17);
+      }
+    },
+    async finish(S) {
+      // la grue est démontée
+      await S.tween(S.crane, { tx: 640, hy: 60 }, 900); await S.anim(3000, e => { S.crane.a = 1 - e * .999 }, EZ.in); S.crane.a = 0;
+    }
+  },
+  11: { // Façade : peintre au rouleau, pierre, bardage
+    park(S) { S.vehicles.push(mkVeh('van', 600, { label: 'PEINTURE', color: '#d0582f' })); S.worker(340, 272, { vest: '#f6f6f2', hat: '#f6f6f2' }).a = 1 },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'van'), w = S.workers[0];
+      if (!v) { [v] = await bringIn(S, [['van', 600, { label: 'PEINTURE', color: '#d0582f' }]]); [w] = await crew(S, v, 1, { vest: '#f6f6f2', hat: '#f6f6f2' }) }
+      for (const { it, to } of todo) {
+        const up = it.y < 190, floorY = up ? 192 : 336;
+        await S.walk(w, it.x + it.w / 2, floorY, 80); w.pose = 'reach';
+        const p0 = it.p;
+        await S.anim(2600 * (to - p0) + 300, e => {
+          it.p = lerp(p0, to, e); w.x = it.x + it.w / 2 + Math.sin(e * 18) * (it.w / 2 - 8);
+          if (it.kind === 'paint' && Math.random() < .3) S.emit(1, w.x - 8, it.y + it.h * it.p, { vx: [-10, 10], vy: [0, 20], g: 200, life: .6, r: [1, 1.6], col: '255,255,255' });
+        }, EZ.lin);
+        w.pose = null;
+      }
+    }
+  },
+  12: { // Les vitriers portent chaque baie depuis le camion et la glissent dans son cadre
+    park(S) { S.vehicles.push(mkVeh('flatbed', 680, { cargoKind: 'glass', cargo: 3 })); S.worker(380, 344).a = 1; S.worker(500, 344).a = 1 },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'flatbed'), ws = S.workers;
+      if (!v) { [v] = await bringIn(S, [['flatbed', 680, { cargoKind: 'glass', cargo: 6 }]]); ws = await crew(S, v, 2) }
+      await teams(S, ws, todo, (w, { it }) => fetchPlace(S, w, v, it, () => S.anim(900, e => { it.p = e }, EZ.out), it.door ? C.board : C.glass, [it.x + it.w / 2, it.up ? 192 : 336]));
+    },
+    async finish(S) {
+      for (const w of S.workers) await S.walk(w, 420, 344, 90);
+      await S.anim(2600, e => { S.scafUp = Math.min(S.scafUp, 1 - e); S.scafGF = 1 - e }, EZ.in);
+    }
+  },
+  13: { // Creusement du bassin
+    park(S) { S.vehicles.push(mkVeh('excavator', 660, { tx: 600, ty: 360 })); S.pile = .3 },
+    async work(S, todo) {
+      let ex = S.vehicles.find(x => x.type === 'excavator');
+      if (!ex) [ex] = await bringIn(S, [['excavator', 660, { tx: 600, ty: 340 }]]);
+      for (const { it, to } of todo) {
+        const cx = it.x + it.w / 2;
+        await S.drive(ex, Math.max(560, Math.min(700, cx + 60)), 1200);
+        const p0 = it.p; for (let s = 0; s < 2; s++) await digWith(S, ex, null, cx - 20 + s * 30, it.y + 8 + s * 14, () => { it.p = Math.min(to, p0 + (to - p0) * (s + 1) / 2) });
+      }
+      await S.tween(ex, { tx: ex.x - 40, ty: ex.y - 120 }, 800);
+    }
+  },
+  14: { // Carreleur
+    park(S) { S.vehicles.push(mkVeh('van', 650, { label: 'CARRELAGE', color: '#2a8a9a' })); const w = S.worker(500, 400); w.a = 1; w.pose = 'kneel' },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'van'), w = S.workers[0];
+      if (!v) { [v] = await bringIn(S, [['van', 650, { label: 'CARRELAGE', color: '#2a8a9a' }]]); [w] = await crew(S, v, 1) }
+      for (const { it, to } of todo) {
+        w.carry = C.tile; await S.walk(w, it.x + 10, 400, 80); w.carry = null; w.pose = 'kneel';
+        const p0 = it.p; await S.anim(3200 * (to - p0) + 200, e => { it.p = lerp(p0, to, e); w.x = (it.kind === 'coping' ? it.x : it.x) + it.w * it.p }, EZ.lin);
+        w.pose = null;
+      }
+    }
+  },
+  15: { // Le camion-citerne remplit la piscine
+    park(S) { S.vehicles.push(mkVeh('tanker', 700)) },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'tanker');
+      if (!v) [v] = await bringIn(S, [['tanker', 700]]);
+      const it = todo[0].it, to = todo[0].to, p0 = it.p;
+      S.hose = v;
+      await S.anim(9000 * (to - p0) + 600, e => {
+        it.p = lerp(p0, to, e);
+        if (Math.random() < .9) S.emit(2, 772, 350, { vx: [-120, -70], vy: [-40, 10], g: 420, life: .5, r: [1.4, 2.4], col: '120,210,240', floor: it.y + it.h - it.h * it.p });
+        if (Math.random() < .2) S.emit(2, rnd(600, 720), it.y + it.h - it.h * it.p, { vx: [-20, 20], vy: [-30, -10], g: 200, life: .4, r: [1, 1.6], col: '255,255,255' });
+      }, EZ.lin);
+      S.hose = null;
+    }
+  },
+  16: { // Terrasse en bois, transats, parasol
+    park(S) { S.vehicles.push(mkVeh('flatbed', 520, { cargoKind: 'wood', cargo: 4 })); S.worker(400, 400).a = 1; S.worker(780, 400).a = 1 },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'flatbed'), ws = S.workers;
+      if (!v) { [v] = await bringIn(S, [['flatbed', 520, { cargoKind: 'wood', cargo: 8 }]]); ws = await crew(S, v, 2) }
+      await teams(S, ws, todo, (w, { it }) => fetchPlace(S, w, v, it, () => S.anim(it.kind === 'parasol' ? 1400 : 700, e => { it.p = e }, it.kind === 'parasol' ? EZ.lin : EZ.out), it.kind === 'lounger' ? C.lounger : C.plank, [it.x + (it.w || 30) / 2, 400]));
+    }
+  },
+  17: { // Les déménageurs installent les meubles
+    park(S) { S.vehicles.push(mkVeh('box', 470)); S.worker(360, 336, { vest: '#9b4dbb' }).a = 1 },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'box'), ws = S.workers;
+      if (!v) { [v] = await bringIn(S, [['box', 470]]); ws = await crew(S, v, 2, { vest: '#9b4dbb' }) }
+      await teams(S, ws, todo, async (w, { it }) => {
+        await S.walk(w, v.x + 120, ROAD - 2, 90); w.carry = C.box;
+        await S.walk(w, 323, 336, 70); await S.tween(w, { a: .2 }, 300); w.carry = null;
+        await S.anim(900, e => { it.p = e }); await S.tween(w, { a: 1 }, 300);
+      });
+    }
+  },
+  18: { // Jardin : gazon en rouleau puis plantations
+    park(S) { S.vehicles.push(mkVeh('pickup', 660, { cargoKind: 'palm', cargo: 1 })); S.worker(300, 400, { vest: '#2f8a4a' }).a = 1 },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'pickup'), w = S.workers[0];
+      if (!v) { [v] = await bringIn(S, [['pickup', 660, { cargoKind: 'palm', cargo: 1 }]]); [w] = await crew(S, v, 1, { vest: '#2f8a4a' }) }
+      for (const { it, to } of todo) {
+        if (it.kind === 'lawn') { await S.walk(w, it.x + it.w * it.p, 400, 80); const p0 = it.p; await S.anim(6000 * (to - p0) + 300, e => { it.p = lerp(p0, to, e); w.x = it.x + it.w * it.p + 12; w.dir = 1; w.moving = true; w.step += .3; S.pile = Math.max(0, S.pile - .004) }, EZ.lin); w.moving = false; continue }
+        if (it.t === 'palm' && v.cargo) { v.cargo = 0; w.carry = c => PLANT(c, 'palm', 0, 6, .3, 0) }
+        await S.walk(w, it.x + 14, Math.min(400, it.y + 4), 80); w.carry = null; w.pose = 'hammer'; await S.wait(500); w.pose = null;
+        S.emit(8, it.x, it.y, { vx: [-30, 30], vy: [-50, -10], life: .6, r: [1.5, 2.5], col: '120,90,60' });
+        await S.anim(1300, e => { it.p = e }, EZ.lin);
+      }
+    }
+  },
+  19: { // Électricien et allée
+    park(S) { S.vehicles.push(mkVeh('van', 560, { label: 'ÉLECTRICITÉ', color: '#b5487a' })); S.worker(300, 400).a = 1 },
+    async work(S, todo) {
+      let v = S.vehicles.find(x => x.type === 'van'), w = S.workers[0];
+      if (!v) { [v] = await bringIn(S, [['van', 560, { label: 'ÉLECTRICITÉ', color: '#b5487a' }]]); [w] = await crew(S, v, 1) }
+      for (const { it } of todo) {
+        if (it.kind === 'stonepath') { w.carry = C.stone; await S.walk(w, it.x + 14, Math.min(400, it.y + 2), 80); w.carry = null; await S.anim(500, e => { it.p = e }, EZ.out); continue }
+        if (it.kind === 'wlight') { await S.anim(800, e => { it.p = e }); continue }
+        await S.walk(w, it.x + 12, 404, 80); w.pose = 'reach';
+        await S.anim(900, e => { it.p = e * .5 }, EZ.out); await S.wait(300);
+        for (let f = 0; f < 3; f++) { it.p = .75; await S.wait(90); it.p = .5; await S.wait(70) }
+        it.p = 1; S.emit(10, it.x, it.y - 32, { vx: [-50, 50], vy: [-60, 20], g: 80, life: .6, r: [1, 2], col: '255,224,138' }); w.pose = null;
+      }
+    }
+  },
+  20: { // Livraison : coucher de soleil, guirlande, voiture du propriétaire, feux d'artifice
+    async work(S, todo) {
+      const car = mkVeh('sport', IN); S.vehicles.push(car);
+      const night = S.items[20][0], bulbs = S.items[20][1];
+      await Promise.all([S.drive(car, 140, 5000, EZ.out), S.anim(7000, e => { night.p = e }, EZ.sine)]);
+      await S.anim(2400, e => { bulbs.p = e }, EZ.lin);
+      for (let i = 0; i < 5; i++) { S.emit(40, rnd(160, 820), rnd(50, 130), { vx: [-100, 100], vy: [-100, 80], g: 60, life: 1.7, r: [1.4, 2.6], col: ['242,201,76', '232,85,62', '155,77,187', '111,224,245', '255,255,255'][i], sx: 1, sy: 1, shrink: 1 }); await S.wait(600) }
+    }
+  }
+};
+function parkBricks(S) { S.vehicles.push(mkVeh('flatbed', 700, { cargoKind: 'bricks', cargo: 4 })); S.worker(470, 272).a = 1 }
+// Coulage : le bras de pompe balaie la dalle, le béton tombe et la dalle avance, puis sèche
+async function pour(S, v, it, to) {
+  const y = it.y - 6, p0 = it.p;
+  await S.tween(v, { tx: it.x + it.w * p0, ty: y - 40 }, 1300);
+  it.dry = 0;
+  await S.anim(3200 * (to - p0) + 300, e => {
+    it.p = lerp(p0, to, e); v.tx = it.x + it.w * it.p; v.ty = y - 40;
+    if (v.noz) S.emit(3, v.noz[0], v.noz[1], { vx: [-10, 10], vy: [40, 90], g: 500, life: .35, r: [2, 3.4], col: '125,128,132', floor: it.y + 2 });
+  }, EZ.lin);
+  S.anim(2500, e => { it.dry = e });
+}
+// Murs : la grue dépose une palette sur l'échafaudage, le maçon pose les briques une à une
+async function brickStage(S, todo) {
+  let v = S.vehicles.find(x => x.type === 'flatbed'), w = S.workers[0];
+  if (!v) { [v] = await bringIn(S, [['flatbed', 700, { cargoKind: 'bricks', cargo: Math.min(12, todo.length + 1) }]]); [w] = await crew(S, v, 1) }
+  if (S.crane.a < 1) await S.anim(3000, e => { S.crane.a = e }, EZ.out);
+  for (const { it, to } of todo) {
+    const feet = it.y < 190 ? (it.y + it.h > 160 ? 192 : 160) : (it.y + it.h > 272 ? 336 : it.y + it.h > 232 ? 272 : 232);
+    const palX = it.x + it.w / 2 + 20, palY = feet;
+    const walking = S.walk(w, palX - 40, feet, 80);
+    if (!it.src) await craneMove(S, v.x + 110, v.y - 40, palX, palY, () => { if (v.cargo) v.cargo--; return c => PALLET(c, 0, 26, 1) }, () => { it.src = [palX - 12, palY - 10] });
+    await walking;
+    const p0 = it.p, nb = Math.ceil((it.w + 12) / 24);
+    await S.anim((to - p0) * nb * 240 + 200, e => { it.p = lerp(p0, to, e); w.x = it.x + it.w * it.p - 6; w.pose = 'reach' }, EZ.lin);
+    w.pose = null; if (to >= 1) it.src = null;
+  }
 }
 
-function siteSVG(D, projName) {
-  const on = siteState(D);
-  const sv = (key, inner, extra = '') => `<g data-sv="${key}"${extra} style="opacity:${on[key] ? 1 : 0}">${inner}</g>`;
-  const layer = k => siteItems(k).map((s, i) => sv(`it${k}_${i}`, s)).join('');
-  const plan = 'fill="none" stroke="#2b6cb0" stroke-width="1.5" stroke-dasharray="7 5" opacity=".55"';
-  const board = (txt, sub, bg, fg) => `<rect x="66" y="246" width="108" height="50" rx="4" fill="${bg}" stroke="#7a5532" stroke-width="2.5"/>
-    <text x="120" y="268" text-anchor="middle" font-size="14" font-weight="800" fill="${fg}" font-family="system-ui,sans-serif">${txt}</text>
-    <text x="120" y="285" text-anchor="middle" font-size="10" fill="${fg === '#fff' ? '#e6f0ea' : '#555'}" font-family="system-ui,sans-serif">${esc(String(sub).slice(0, 18))}</text>`;
-  const veh = k => { const [spec, x] = SITE_VEH[k]; return `<g transform="translate(${x} 434)"><g data-sv="veh${k}" class="drive" style="transform:translateX(${on['veh' + k] ? 0 : 1300}px)">${vehicle(spec)}</g></g>` };
-  return `<svg class="site-scene" viewBox="0 0 960 440" role="img" aria-label="Chantier du livre">
-  <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fbfe9"/><stop offset=".7" stop-color="#cdeefa"/><stop offset="1" stop-color="#fbf3df"/></linearGradient>
-    <linearGradient id="skyN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2f6b"/><stop offset=".55" stop-color="#d9786a"/><stop offset="1" stop-color="#ffd6a0"/></linearGradient>
-    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e86bd"/><stop offset="1" stop-color="#6cc6e2"/></linearGradient>
-    <linearGradient id="seaN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a5f9a"/><stop offset="1" stop-color="#d98a76"/></linearGradient>
-    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9cc72"/><stop offset="1" stop-color="#86b457"/></linearGradient>
-    <linearGradient id="dirt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d2a76c"/><stop offset="1" stop-color="#b98a52"/></linearGradient>
-    <linearGradient id="lawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fbf5a"/><stop offset="1" stop-color="#5fa443"/></linearGradient>
-    <linearGradient id="concrete" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8bcc0"/><stop offset="1" stop-color="#959a9f"/></linearGradient>
-    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ebe5d8"/></linearGradient>
-    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d2eef8" stop-opacity=".85"/><stop offset="1" stop-color="#6aa9c6" stop-opacity=".85"/></linearGradient>
-    <linearGradient id="glassN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a8"/><stop offset="1" stop-color="#f3b45c"/></linearGradient>
-    <pattern id="brick" width="24" height="12" patternUnits="userSpaceOnUse"><rect width="24" height="12" fill="#c8714c"/><path d="M0 .5H24M0 6.5H24M12 0V6M0 6V12M24 6V12" stroke="#ead6c2" stroke-width="1.2"/></pattern>
-    <pattern id="tiles" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#8fd6ea"/><path d="M0 .5H12M.5 0V12" stroke="#cdeef7" stroke-width="1"/></pattern>
-  </defs>
-  <rect width="960" height="440" fill="url(#sky)"/>
-  <circle cx="840" cy="70" r="48" fill="#fff6c2" opacity=".35"/><circle cx="840" cy="70" r="28" fill="#ffe27a"/>
-  ${sv('night', '<rect width="960" height="260" fill="url(#skyN)"/><circle cx="770" cy="212" r="60" fill="#ffb15c" opacity=".25"/><circle cx="770" cy="212" r="38" fill="#ffb15c"/>')}
-  <g class="s-cloud" fill="#fff" opacity=".85"><ellipse cx="160" cy="70" rx="56" ry="14"/><ellipse cx="196" cy="60" rx="34" ry="14"/><ellipse cx="560" cy="44" rx="44" ry="11"/><ellipse cx="590" cy="38" rx="26" ry="10"/></g>
-  <g class="s-bird" fill="none" stroke="#41545e" stroke-width="1.6"><path d="M1000 110 q6 -6 12 0 q6 -6 12 0"/><path d="M1030 124 q5 -5 10 0 q5 -5 10 0"/></g>
-  <path d="M0 196 Q90 160 190 186 T380 178 T560 190 T760 172 T960 186 V214 H0Z" fill="#a7c0cf"/>
-  <rect y="208" width="960" height="52" fill="url(#sea)"/>
-  ${sv('night', '<path d="M0 196 Q90 160 190 186 T380 178 T560 190 T760 172 T960 186 V214 H0Z" fill="#6c6f9c"/><rect y="208" width="960" height="52" fill="url(#seaN)"/>')}
-  <g stroke="#fff" stroke-width="1.5" stroke-linecap="round"><path class="s-shim" d="M60 222 h22"/><path class="s-shim" d="M240 232 h30"/><path class="s-shim" d="M420 220 h18"/><path class="s-shim" d="M620 236 h26"/><path class="s-shim" d="M820 226 h20"/></g>
-  <g class="s-boat"><path d="M120 236 h36 l-6 7 h-24z" fill="#fff"/><path d="M138 234 V206 L154 232Z" fill="#fff"/><path d="M136 234 V212 L124 232Z" fill="#f2efe6"/></g>
-  <path d="M0 252 Q160 236 330 248 T660 246 T960 250 V440 H0Z" fill="url(#ground)"/>
-  ${cypress(36, 262)}${cypress(58, 266)}${cypress(912, 262)}${bush(880, 268, '#6b9a4a')}
-  <rect x="0" y="404" width="960" height="36" fill="#5d6268"/><path d="M0 422 H960" stroke="#e9e3c9" stroke-width="2" stroke-dasharray="26 18"/>
-  <rect x="190" y="262" width="630" height="138" rx="10" fill="#97c065" opacity=".55"/>
-  ${layer(4)}${layer(18)}${layer(3)}${layer(16)}${layer(13)}${layer(14)}${layer(15)}${layer(2)}
-  ${sv('bp7', `<rect x="300" y="206" width="320" height="108" ${plan}/>`)}${sv('bp9', `<rect x="380" y="126" width="300" height="68" ${plan}/>`)}${sv('bp13', `<rect x="462" y="342" width="322" height="54" rx="3" ${plan}/>`)}
-  ${layer(5)}${layer(6)}${layer(7)}${layer(8)}${layer(9)}${layer(11)}${layer(17)}${layer(12)}
-  ${sv('night', '<g fill="url(#glassN)" opacity=".85"><rect x="356" y="226" width="180" height="88"/><rect x="400" y="140" width="224" height="50"/></g>')}
-  ${layer(10)}${layer(19)}${layer(20)}
-  ${sv('scaf', `<g stroke="#a77b45" stroke-width="2.2">${[294, 372, 452, 532, 626].map(x => `<path d="M${x} 314 V202"/>`).join('')}</g><g fill="#c9a46a"><rect x="290" y="268" width="340" height="4"/><rect x="290" y="232" width="340" height="4"/></g>`)}
-  ${sv('scafU', `<g stroke="#a77b45" stroke-width="2.2">${[376, 456, 536, 616, 688].map(x => `<path d="M${x} 194 V120"/>`).join('')}</g><g fill="#c9a46a"><rect x="372" y="160" width="320" height="4"/><rect x="372" y="130" width="320" height="4"/></g>`)}
-  ${sv('crane', `<path d="M852 404 V36 M870 404 V36" stroke="#e0a21c" stroke-width="4"/><path d="${Array.from({ length: 12 }, (_, i) => `M852 ${404 - i * 30} L870 ${389 - i * 30} L852 ${374 - i * 30}`).join(' ')}" stroke="#e0a21c" stroke-width="1.6" fill="none"/>
-    <path d="M360 36 H930" stroke="#f2b632" stroke-width="7"/><path d="M360 44 H850" stroke="#e0a21c" stroke-width="2"/><rect x="900" y="34" width="34" height="22" fill="#6b737a"/><rect x="842" y="40" width="34" height="22" rx="2" fill="#e0a21c"/><rect x="848" y="44" width="16" height="10" fill="#cfe8f2"/>
-    <g transform="translate(540 40)"><g class="hook"><path class="cable" d="M0 0 V96" stroke="#3a3f44" stroke-width="1.6" vector-effect="non-scaling-stroke"/><g class="load"><path d="M-12 96 L0 84 L12 96" stroke="#3a3f44" fill="none"/><rect x="-18" y="96" width="36" height="14" fill="url(#brick)"/></g></g></g>`)}
-  <rect x="117" y="290" width="7" height="114" fill="#7a5532"/>
-  ${sv('signA', board('À VENDRE', 'Vue mer', '#fffdf6', '#c8323c'))}${sv('signB', board('SOUS', 'COMPROMIS', '#fffdf6', '#c8323c'))}
-  ${sv('signC', board('CHANTIER', projName, '#fffdf6', '#c8323c'))}${sv('signD', board('VILLA', projName, '#2f5e4e', '#fff'))}
-  ${layer(1)}
-  ${sv('wkH', worker(300, 342) + worker(630, 342, 'b'))}${sv('wkP', worker(492, 404) + worker(760, 404, 'b'))}${sv('wkG', worker(260, 404) + worker(700, 404, 'b'))}
-  ${Array.from({ length: SITE_N }, (_, i) => veh(i + 1)).join('')}
-</svg>`;
-}
-
-/* --- Animation : on fait évoluer la scène existante de l'avancement affiché vers l'avancement réel --- */
+/* --- Contrôle : on fait avancer la scène de l'avancement affiché vers l'avancement réel --- */
 const siteCtl = {};
-const qa = (svg, key) => [...svg.querySelectorAll(`[data-sv="${key}"]`)];
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-function tween(el, from, to, o = {}) {
-  if (!el) return Promise.resolve();
-  const a = el.animate([from, to], { duration: o.d || 1000, delay: o.delay || 0, easing: o.e || 'ease-out', fill: 'both' });
-  return a.finished.then(() => { Object.assign(el.style, to); a.cancel() }, () => {});
-}
-const SHOW = { drop: { opacity: 0, transform: 'translateY(-46px)' }, rise: { opacity: 0, transform: 'translateY(14px)' }, fade: { opacity: 0 }, vanish: { opacity: 0 } };
-const fadeKey = (svg, key, show, d = 1400) => Promise.all(qa(svg, key).map(el => show
-  ? tween(el, { opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0px)' }, { d })
-  : tween(el, { opacity: 1, transform: 'translateY(0px)' }, { opacity: 0, transform: 'translateY(6px)' }, { d })));
-
-// Fait apparaître / disparaître tout ce qui diffère entre deux états (hors éléments d'étape et véhicules)
-function morphExtras(svg, a, b, d) {
-  return Promise.all(Object.keys(b).filter(k => !k.startsWith('it') && !k.startsWith('veh') && a[k] !== b[k]).map(k => fadeKey(svg, k, b[k], k === 'night' ? 4000 : d)));
-}
-
-function drive(svg, k, inOut, d) {
-  const el = qa(svg, 'veh' + k)[0];
-  if (!el) return Promise.resolve();
-  const [from, to] = inOut === 'in' ? ['translateX(1300px)', 'translateX(0px)'] : ['translateX(0px)', 'translateX(-1400px)'];
-  el.querySelectorAll('.whl').forEach(w => w.animate([{ transform: 'rotate(0)' }, { transform: `rotate(${inOut === 'in' ? -1500 : -1600}deg)` }], { duration: d, easing: inOut === 'in' ? 'ease-out' : 'ease-in' }));
-  return tween(el, { transform: from }, { transform: to }, { d, e: inOut === 'in' ? 'cubic-bezier(.2,.6,.3,1)' : 'cubic-bezier(.6,0,.8,.4)' });
-}
-
-// Mouvements de travail du véhicule (et de la grue) pendant une durée donnée
-function workMotion(svg, k, d) {
-  const v = qa(svg, 'veh' + k)[0], n = Math.max(1, Math.round(d / 3000));
-  const A = (el, kf, o) => el && el.animate(kf, { duration: d / n, iterations: n, easing: 'ease-in-out', ...o });
-  A(v?.querySelector('.arm'), [{ transform: 'rotate(0)' }, { transform: 'rotate(-22deg)' }, { transform: 'rotate(8deg)' }, { transform: 'rotate(0)' }]);
-  A(v?.querySelector('.veh'), [{ transform: 'translateY(0)' }, { transform: 'translateY(-1.5px)' }, { transform: 'translateY(0)' }], { iterations: n * 8, duration: d / (n * 8) });
-  if (k >= 7 && k <= 10) {
-    A(svg.querySelector('.load'), [{ transform: 'translateY(0)' }, { transform: 'translateY(150px)', offset: .45 }, { transform: 'translateY(150px)', offset: .55 }, { transform: 'translateY(0)' }]);
-    A(svg.querySelector('.cable'), [{ transform: 'scaleY(1)' }, { transform: 'scaleY(2.56)', offset: .45 }, { transform: 'scaleY(2.56)', offset: .55 }, { transform: 'scaleY(1)' }]);
-  }
-  const cargo = v?.querySelector('.cargo');
-  if (cargo && SITE_STEPS[k]) cargo.animate([{ opacity: 1 }, { opacity: .25 }], { duration: d, fill: 'forwards' });
-}
-
-// Travaux d'une étape k, de l'avancement f0 à f1 (f1 = 1 : étape terminée)
-async function workStage(ctl, k, f0, f1, fast) {
-  const svg = ctl.svg, n = SITE_COUNT[k], sc = fast ? .55 : 1;
-  const D0 = k - 1 + f0, D1 = k - 1 + f1;
-  const i0 = Math.floor(f0 * n + 1e-9), i1 = f1 >= 1 - 1e-9 ? n : Math.floor(f1 * n + 1e-9);
+async function siteStage(ctl, k, f0, f1, fast) {
+  const S = ctl.S, its = S.items[k], n = its.length;
   setRun(ctl, k);
-  // Le véhicule de l'étape arrive s'il n'est pas déjà sur place
-  if (f0 <= 1e-9) {
-    await Promise.all([drive(svg, k, 'in', 5000 * sc), morphExtras(svg, siteState(D0), siteState(k - 1 + 1e-6), 1200)]);
-    if (ctl.skip) return;
-  }
-  // Pose des éléments un par un
-  const count = i1 - i0;
-  if (count > 0) {
-    const total = (f1 >= 1 - 1e-9 ? Math.min(16000, Math.max(7000, count * 900)) : Math.min(6000, Math.max(1200, count * 800))) * sc;
-    workMotion(svg, k, total);
-    const fx = SITE_FX[k], step = total / count;
-    await Promise.all(Array.from({ length: count }, (_, j) => {
-      const el = qa(svg, `it${k}_${i0 + j}`)[0];
-      return fx === 'vanish'
-        ? tween(el, { opacity: 1, transform: 'translateY(0px)' }, { opacity: 0, transform: 'translateY(8px)' }, { d: 900, delay: j * step })
-        : tween(el, SHOW[fx], { opacity: 1, transform: 'translateY(0px)' }, { d: 1100, delay: j * step, e: 'cubic-bezier(.2,.9,.3,1.15)' });
-    }));
-    if (ctl.skip) return;
-  }
-  await morphExtras(svg, siteState(Math.max(D0, k - 1 + 1e-6)), siteState(D1), 1600);
-  // Étape terminée : on range le chantier de cette étape et l'engin repart
-  if (f1 >= 1 - 1e-9) {
+  const todo = [];
+  its.forEach((it, i) => {
+    const to = CONT_PARTIAL.has(it.kind) ? clamp01(f1 * n - i) : (f1 * n - i >= 1 - 1e-9 ? 1 : 0);
+    if (to > it.p + 1e-6) todo.push({ it, to });
+  });
+  const done = f1 >= 1 - 1e-9;
+  S.rate = fast ? 2.2 : 1;
+  if (todo.length) await SITE_JOBS[k].work(S, todo);
+  if (done) {
+    if (SITE_JOBS[k].finish) await SITE_JOBS[k].finish(S);
     toast(`Étape terminée : ${SITE_STEPS[k][0]}`, SITE_STEPS[k][1]);
-    if (k < SITE_N) { await sleep(600 * sc); await drive(svg, k, 'out', 5000 * sc) }
+    if (k < SITE_N) await leaveAll(S);
   }
 }
-
 function setRun(ctl, k) {
   const run = ctl.el.querySelector('.site-run');
   run.hidden = !k;
   if (k) run.querySelector('b').textContent = `${SITE_STEPS[k][0]} — ${SITE_STEPS[k][1]}`;
 }
-
-function snapSite(ctl) {
-  ctl.D = ctl.target;
-  ctl.svg.outerHTML = siteSVG(ctl.D, ctl.name);
-  ctl.svg = ctl.el.querySelector('.site-scene');
-}
-
+function snapSite(ctl) { ctl.D = ctl.target; ctl.S.skip = false; siteApply(ctl.S, ctl.D) }
 async function siteRun(ctl) {
   if (ctl.busy) return;
   ctl.busy = true;
   while (!ctl.skip && ctl.target > ctl.D + 1e-9) {
-    const s = Math.floor(ctl.D + 1e-9), k = s + 1, f0 = ctl.D - s;
-    const end = Math.min(ctl.target, k);
-    await workStage(ctl, k, f0, end - s, ctl.target - ctl.D > 1.2);
+    const s = Math.floor(ctl.D + 1e-9), k = s + 1, f0 = ctl.D - s, end = Math.min(ctl.target, k);
+    await siteStage(ctl, k, f0, end - s, ctl.target - ctl.D > 1.2);
     if (ctl.skip) break;
     ctl.D = end; saveShown(ctl);
   }
-  if (ctl.skip || ctl.target < ctl.D - 1e-9) { ctl.svg.getAnimations({ subtree: true }).forEach(a => a.cancel()); snapSite(ctl); saveShown(ctl) }
-  ctl.busy = false; ctl.skip = false; setRun(ctl, 0);
+  if (ctl.skip || ctl.target < ctl.D - 1e-9) { snapSite(ctl); saveShown(ctl) }
+  ctl.busy = false; ctl.skip = false; ctl.S.skip = false; setRun(ctl, 0);
 }
 function saveShown(ctl) { const p = project(ctl.pid); if (p) { p.siteShown = ctl.D; save() } }
 
@@ -1157,7 +1778,6 @@ function siteProgress() {
   const need = stage >= SITE_N ? 0 : Math.max(1, Math.ceil((stage + 1) / SITE_N * total - 1e-9) - done);
   return { total, done, ratio, D, stage, frac, need };
 }
-
 function siteInfo(pr) {
   const [name, line] = SITE_STEPS[pr.stage], next = SITE_STEPS[pr.stage + 1], pct = Math.round(pr.ratio * 100);
   return `<div class="site-top"><h2>Chantier du manuscrit</h2>${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div>
@@ -1166,7 +1786,6 @@ function siteInfo(pr) {
     <div class="site-steps">${SITE_STEPS.slice(1).map((_, i) => `<i class="${i < pr.stage ? 'on' : i === pr.stage ? 'cur' : ''}" style="--f:${Math.round(pr.frac * 100)}%" title="${SITE_STEPS[i + 1][0]}"></i>`).join('')}</div>
     <div class="site-next">${next ? `« 1. Finaliser le manuscrit » : ${pr.done} / ${pr.total} sous-objectifs. Encore <b>${plural(pr.need, 'case')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>.` : `${pr.total} / ${pr.total} sous-objectifs. Le manuscrit est terminé, la villa aussi !`}</div>`;
 }
-
 function attachSite() {
   const slot = app.querySelector('.site-slot'), t = siteTask();
   if (!slot || !t) return;
@@ -1177,17 +1796,20 @@ function attachSite() {
     const D = Math.min(p.siteShown ?? pr.D, pr.D);
     const el = document.createElement('section');
     el.className = 'site';
-    el.innerHTML = `<div class="site-wrap">${siteSVG(D, p.name)}<div class="site-run" hidden><span>Travaux en cours · <b></b></span><button data-action="site-skip">Passer</button></div></div><div class="site-info"></div>`;
-    ctl = siteCtl[p.id] = { pid: p.id, el, svg: el.querySelector('.site-scene'), D, target: pr.D, name: p.name, busy: false, skip: false, compact: false, sentinel: document.createElement('div') };
+    el.innerHTML = `<div class="site-wrap"><canvas class="site-scene" role="img" aria-label="Chantier de la villa, qui avance avec le manuscrit"></canvas><div class="site-run" hidden><span>Travaux en cours · <b></b></span><button data-action="site-skip">Passer</button></div></div><div class="site-info"></div>`;
+    ctl = siteCtl[p.id] = { pid: p.id, el, D, target: pr.D, busy: false, skip: false, compact: false, sentinel: document.createElement('div') };
   }
   slot.replaceWith(ctl.sentinel, ctl.el);
   siteLayout();
+  if (!ctl.S) { ctl.S = new SiteScene(ctl.el.querySelector('canvas'), p.name); siteApply(ctl.S, ctl.D) }
+  ctl.S.start();
   ctl.el.querySelector('.site-info').innerHTML = siteInfo(pr);
   ctl.target = pr.D;
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { if (ctl.D !== ctl.target) { snapSite(ctl); saveShown(ctl) } return }
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { if (ctl.D !== ctl.target && !ctl.busy) { snapSite(ctl); saveShown(ctl) } return }
   if (ctl.target > ctl.D + 1e-9) siteRun(ctl);
   else if (ctl.target < ctl.D - 1e-9 && !ctl.busy) { snapSite(ctl); saveShown(ctl) }
 }
+function siteSkip() { const c = Object.values(siteCtl).find(c => c.busy); if (c) { c.skip = true; c.S.finishAll() } }
 
 // Taille de la scène : pleine largeur en haut de page, réduite et collée en haut dès qu'on fait défiler
 function siteLayout() {
@@ -1196,9 +1818,10 @@ function siteLayout() {
   const top = ctl.sentinel.getBoundingClientRect().top;
   ctl.compact = ctl.compact ? top < -10 : top < -60;
   ctl.el.classList.toggle('compact', ctl.compact);
-  const W = ctl.sentinel.offsetWidth, h = ctl.compact ? (W < 560 ? 96 : 140) : W * 440 / 960;
+  const W = ctl.sentinel.offsetWidth, h = ctl.compact ? (W < 560 ? 96 : 140) : W * SH / SW;
   const wrap = ctl.el.querySelector('.site-wrap');
-  wrap.style.height = h + 'px'; wrap.style.width = (ctl.compact ? h * 960 / 440 : W) + 'px';
+  wrap.style.height = h + 'px'; wrap.style.width = (ctl.compact ? h * SW / SH : W) + 'px';
+  if (ctl.S && Math.abs(ctl.S.cv.width / Math.min(2, devicePixelRatio || 1) - W) > 40 && !ctl.compact) ctl.S.resize();
 }
 let siteRaf = 0;
 const siteLayoutSoon = () => { if (!siteRaf) siteRaf = requestAnimationFrame(() => { siteRaf = 0; siteLayout() }) };
@@ -1210,8 +1833,17 @@ function replaySite() {
   const ctl = siteCtl[t.projectId]; if (!ctl || ctl.busy) return;
   const s = Math.floor(ctl.target + 1e-9); if (!s) return;
   // On revient au début de la dernière étape franchie, puis on rejoue la construction
-  ctl.D = s - 1; ctl.svg.outerHTML = siteSVG(ctl.D, ctl.name); ctl.svg = ctl.el.querySelector('.site-scene');
+  ctl.D = s - 1; siteApply(ctl.S, ctl.D);
   siteRun(ctl);
+}
+
+function toast(title, sub) {
+  document.querySelector('.toast')?.remove();
+  const el = document.createElement('div');
+  el.className = 'toast'; el.setAttribute('role', 'status');
+  el.innerHTML = `${esc(title)}<small>${esc(sub)}</small>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4600);
 }
 
 /* ---------- Calendrier de publication ---------- */
@@ -1516,7 +2148,7 @@ document.addEventListener('click', async e => {
     }
     case 'color': readProjDraft(); projDraft.color = id; return renderProjectModal();
     case 'slot-add': return openSlot(id);
-    case 'site-skip': { const c = Object.values(siteCtl).find(c => c.busy); if (c) { c.skip = true; c.svg.getAnimations({ subtree: true }).forEach(a => a.cancel()) } return }
+    case 'site-skip': return siteSkip();
     case 'site-replay': return replaySite();
     case 'delete-project': {
       const n = db.tasks.filter(x => x.projectId === projDraft.id).length;
