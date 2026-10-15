@@ -125,9 +125,17 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .footer{margin-top:60px;display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:11px}
 
 /* Chantier (villa) */
-.site{border:1px solid var(--line);background:var(--card);border-radius:var(--radius);overflow:hidden;margin-bottom:28px}
-.site-wrap{position:relative}
-.site-scene{display:block;width:100%;height:auto;aspect-ratio:960/440;background:#bfe6f7}
+.site{border:1px solid var(--line);background:var(--card);border-radius:var(--radius);overflow:hidden;margin-bottom:28px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20;transition:box-shadow .3s}
+.site-wrap{position:relative;flex:none;transition:width .35s ease,height .35s ease}
+.site-scene{display:block;width:100%;height:100%;background:#bfe6f7}
+/* Mode compact : la villa reste visible en haut pendant qu'on fait défiler les tâches */
+.site.compact{display:flex;align-items:center;box-shadow:0 10px 28px rgba(0,0,0,.16)}
+.site.compact .site-info{flex:1;min-width:0;padding:8px 12px;gap:5px}
+.site.compact .site-steps,.site.compact .site-next,.site.compact .site-top .linkbtn,.site.compact .site-run{display:none}
+.site.compact .site-top h2{font-size:14px}
+.site.compact .site-stage{font-size:12px;line-height:1.3}
+.site.compact .site-bar{height:7px}
+@media (max-width:560px){.site.compact .site-top{display:none}.site.compact .site-stage span{display:none}}
 .site-info{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px}
 .site-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px}
 .site-top h2{margin:0;font-size:19px}
@@ -1084,15 +1092,32 @@ function attachSite() {
     const el = document.createElement('section');
     el.className = 'site';
     el.innerHTML = `<div class="site-wrap">${siteSVG(D, p.name)}<div class="site-run" hidden><span>Travaux en cours · <b></b></span><button data-action="site-skip">Passer</button></div></div><div class="site-info"></div>`;
-    ctl = siteCtl[p.id] = { pid: p.id, el, svg: el.querySelector('.site-scene'), D, target: pr.D, name: p.name, busy: false, skip: false };
+    ctl = siteCtl[p.id] = { pid: p.id, el, svg: el.querySelector('.site-scene'), D, target: pr.D, name: p.name, busy: false, skip: false, compact: false, sentinel: document.createElement('div') };
   }
-  slot.replaceWith(ctl.el);
+  slot.replaceWith(ctl.sentinel, ctl.el);
+  siteLayout();
   ctl.el.querySelector('.site-info').innerHTML = siteInfo(pr);
   ctl.target = pr.D;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { if (ctl.D !== ctl.target) { snapSite(ctl); saveShown(ctl) } return }
   if (ctl.target > ctl.D + 1e-9) siteRun(ctl);
   else if (ctl.target < ctl.D - 1e-9 && !ctl.busy) { snapSite(ctl); saveShown(ctl) }
 }
+
+// Taille de la scène : pleine largeur en haut de page, réduite et collée en haut dès qu'on fait défiler
+function siteLayout() {
+  const ctl = Object.values(siteCtl).find(c => c.el.isConnected);
+  if (!ctl) return;
+  const top = ctl.sentinel.getBoundingClientRect().top;
+  ctl.compact = ctl.compact ? top < -10 : top < -60;
+  ctl.el.classList.toggle('compact', ctl.compact);
+  const W = ctl.sentinel.offsetWidth, h = ctl.compact ? (W < 560 ? 96 : 140) : W * 440 / 960;
+  const wrap = ctl.el.querySelector('.site-wrap');
+  wrap.style.height = h + 'px'; wrap.style.width = (ctl.compact ? h * 960 / 440 : W) + 'px';
+}
+let siteRaf = 0;
+const siteLayoutSoon = () => { if (!siteRaf) siteRaf = requestAnimationFrame(() => { siteRaf = 0; siteLayout() }) };
+addEventListener('scroll', siteLayoutSoon, { passive: true });
+addEventListener('resize', siteLayoutSoon);
 
 function replaySite() {
   const t = siteTask(); if (!t) return;
