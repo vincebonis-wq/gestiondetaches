@@ -548,6 +548,15 @@ if (!db.livreSerpents) {
     try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
   }
 }
+// Ajout ponctuel : l'illustration des corps subtils du chapitre 24. Une seule fois.
+if (!db.livreCorpsSubtils) {
+  const illus = db.tasks.find(t => /^15\. Illustrations/.test(t.title));
+  if (illus) {
+    illus.subgoals.push({ id: uid(), title: 'Chapitre 24 : les sept corps subtils modernes autour d\'une silhouette, chacun relié à son chakra', due: null, est: 0, done: false });
+    db.livreCorpsSubtils = true;
+    try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+  }
+}
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
 try { Object.assign(ui, JSON.parse(localStorage.getItem(KEY + '.ui')) || {}, { editObjective: false }) } catch (e) {}
 if (!db.projects.some(p => p.id === ui.project)) ui.project = db.projects[0]?.id || null;
@@ -1336,7 +1345,7 @@ document.addEventListener('click', async e => {
       try {
         const data = JSON.parse(txt);
         if (!Array.isArray(data.projects) || !Array.isArray(data.tasks)) throw new Error();
-        db = { v: 2, livreChapitres: data.livreChapitres, livreMeditations: data.livreMeditations, livreIllustrations: data.livreIllustrations, livreVincent: data.livreVincent, livreMassages: data.livreMassages, livreRenumerotation: data.livreRenumerotation, livreChapitre21: data.livreChapitre21, livreChapitresManquants: data.livreChapitresManquants, livrePlancheCentres: data.livrePlancheCentres, livreMeditation7: data.livreMeditation7, livreCarnetPdf: data.livreCarnetPdf, livreMeditations15: data.livreMeditations15, leadQuestionnaire: data.leadQuestionnaire, livreSerpents: data.livreSerpents, projects: data.projects, themes: data.themes || [], tasks: data.tasks };
+        db = { v: 2, livreChapitres: data.livreChapitres, livreMeditations: data.livreMeditations, livreIllustrations: data.livreIllustrations, livreVincent: data.livreVincent, livreMassages: data.livreMassages, livreRenumerotation: data.livreRenumerotation, livreChapitre21: data.livreChapitre21, livreChapitresManquants: data.livreChapitresManquants, livrePlancheCentres: data.livrePlancheCentres, livreMeditation7: data.livreMeditation7, livreCarnetPdf: data.livreCarnetPdf, livreMeditations15: data.livreMeditations15, leadQuestionnaire: data.leadQuestionnaire, livreSerpents: data.livreSerpents, livreCorpsSubtils: data.livreCorpsSubtils, projects: data.projects, themes: data.themes || [], tasks: data.tasks };
         ui.project = db.projects[0]?.id || null; ui.view = null; commit();
       } catch { ask("Ce texte n'est pas une sauvegarde valide. Utilise le texte complet donné par « Exporter ».", { ok: 'OK', cancel: false }) }
       return;
