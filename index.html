@@ -564,6 +564,92 @@ if (!db.livreCorpsSubtils) {
     try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
   }
 }
+// Correction ponctuelle : les chapitres 24 et 25 fusionnent en un seul chapitre 24 (canaux, corps et aura) ; les pierres passent au 25, les dieux au 26. Une seule fois.
+if (!db.livreFusion24) {
+  const fix = x => x.replace('20, 21, 22, 25, 26', '20, 21, 22, 24, 25')
+    .replace('Anatomie subtile avancée', 'L\'anatomie subtile : canaux, corps et aura')
+    .replace(/\b([Cc]h(?:apitre)?\.? ?)(2[5-7])(?!\d)/g, (m, p, n) => p + (Number(n) - 1));
+  db.tasks.forEach(t => {
+    if (t.subgoals) t.subgoals = t.subgoals.filter(s => !/Ch\. 25 — Les chakras et les couches de l'aura/.test(s.title));
+    t.title = fix(t.title); (t.subgoals || []).forEach(s => { s.title = fix(s.title) });
+  });
+  db.livreFusion24 = true;
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+}
+// Correction ponctuelle : méditations hors du livre (annexes renumérotées), images réduites au nécessaire, annexes et bibliographie ajoutées. Une seule fois.
+if (!db.livreAnnexesImages) {
+  const manuscrit = db.tasks.find(t => t.title === '1. Finaliser le manuscrit');
+  if (manuscrit) {
+    // Images seulement là où le livre en a vraiment besoin
+    const UTILES = /^Images — (Ouverture|Ch\. (1[0-6]|18|20|23|24) —)/;
+    manuscrit.subgoals = manuscrit.subgoals.filter(s => !/^Images — /.test(s.title) || s.done || UTILES.test(s.title));
+    manuscrit.subgoals.forEach(s => { s.title = s.title.replace('Les dieux des chakras', 'Les archétypes des chakras') });
+    const AJOUTS = ['Annexe A — Tableaux comparatifs', 'Annexe B — Ton carnet de pratique', 'Glossaire', 'Bibliographie', 'Notes et sources'];
+    let i = manuscrit.subgoals.map(s => /^Réécriture — /.test(s.title)).lastIndexOf(true) + 1;
+    AJOUTS.forEach(a => { if (!manuscrit.subgoals.some(s => s.title === 'Réécriture — ' + a)) manuscrit.subgoals.splice(i++, 0, { id: uid(), title: 'Réécriture — ' + a, due: null, est: 0, done: false }) });
+  }
+  db.tasks.forEach(t => {
+    if (t.subgoals) t.subgoals = t.subgoals.filter(s => !/Méditation 0 — L'axe/.test(s.title));
+    (t.subgoals || []).forEach(s => {
+      s.title = s.title
+        .replace('Relire et valider les 9 scripts (annexe A)', 'Relire et valider les 8 scripts (hors livre)')
+        .replace('Raccourcir les 9 scripts', 'Raccourcir les 8 scripts')
+        .replace('les 9 méditations audio', 'les 8 méditations audio')
+        .replace("Insérer le QR code et son lien court en tête de l'annexe A", 'Insérer le QR code des méditations dans les chapitres 10 à 16')
+        .replace('Relire les 9 scripts de méditation (annexe A)', 'Relire les 8 scripts de méditation')
+        .replace("l'insérer dans l'annexe C", "l'insérer dans l'annexe B");
+    });
+  });
+  db.livreAnnexesImages = true;
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+}
+// Correction ponctuelle : le carnet devient l'annexe A, les tableaux l'annexe B ; illustrations des systèmes historiques en Partie I. Une seule fois.
+if (!db.livreAnnexesBis) {
+  db.tasks.forEach(t => (t.subgoals || []).forEach(s => {
+    s.title = s.title
+      .replace('Réécriture — Annexe A — Tableaux comparatifs', 'Réécriture — Annexe B — Les sept centres en tableaux')
+      .replace('Réécriture — Annexe B — Ton carnet de pratique', 'Réécriture — Annexe A — Ton carnet de pratique')
+      .replace("l'insérer dans l'annexe B", "l'insérer dans l'annexe A");
+  }));
+  const manuscrit = db.tasks.find(t => t.title === '1. Finaliser le manuscrit');
+  if (manuscrit) {
+    const PARTIE1 = ['Ch. 2 — La naissance des chakras dans les Tantras', 'Ch. 3 — Le texte de 1577 et le haṭha yoga', 'Ch. 4 — Le grand voyage vers l\'Occident', 'Ch. 5 — Les autres cartes du corps subtil'];
+    let i = manuscrit.subgoals.findIndex(s => /^Images — Ouverture/.test(s.title));
+    if (i < 0) i = manuscrit.subgoals.findIndex(s => /correcteur/i.test(s.title));
+    PARTIE1.forEach(c => { if (!manuscrit.subgoals.some(s => s.title === 'Images — ' + c)) manuscrit.subgoals.splice(i < 0 ? manuscrit.subgoals.length : i++, 0, { id: uid(), title: 'Images — ' + c, due: null, est: 0, done: false }) });
+  }
+  const illus = db.tasks.find(t => /^15\. Illustrations/.test(t.title));
+  if (illus) illus.subgoals.push(...[
+    'Partie I : les premiers systèmes des Tantras (5 centres, ch. 2)',
+    'Partie I : la carte des six lotus du texte de 1577, d\'après les planches d\'Avalon (domaine public, ch. 3)',
+    'Partie I : la gravure de Gichtel (1696) et une planche de Leadbeater (1927) (ch. 4)',
+    'Partie I : les centres à travers les traditions, Chine, Tibet, Kabbale (ch. 5)'
+  ].map(x => ({ id: uid(), title: x, due: null, est: 0, done: false })));
+  db.livreAnnexesBis = true;
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+}
+// Correction ponctuelle : les images des mouvements, centre par centre, avec la liste des mouvements à illustrer. Une seule fois.
+if (!db.livreMouvements) {
+  const illus = db.tasks.find(t => /^15\. Illustrations/.test(t.title));
+  if (illus) {
+    const MVT = [
+      ['Racine', 10, 'le salut aux orteils, les jambes levées, le pont fessier, les squats respirés'],
+      ['Sacré', 11, 'l\'enroulement du bassin, la chute de jambes en alternance, le repli de jambes, le rocher pelvien'],
+      ['Plexus solaire', 12, 'le cheval dynamique, la respiration piston, la poussée d\'énergie, couper du bois'],
+      ['Cœur', 13, 'le redressement McKenzie, l\'ouverture épaule et colonne, le cobra, le poisson'],
+      ['Gorge', 14, 'le cou contre un ballon ou la main, les rotations de la tête, la mobilisation thoracique, l\'horloge de l\'épaule'],
+      ['Troisième œil', 15, 'la respiration alternée, les roulements des yeux, la marche croisée, le réveil du visage'],
+      ['Sommet', 16, 'l\'étirement vers le ciel, l\'arbre, la marche lente, la posture du cadavre']
+    ];
+    MVT.forEach(([c, n, liste]) => {
+      const titre = `Images des mouvements — ${c} (ch. ${n}) : ${liste} (2 ou 3 étapes chacun)`;
+      const s = illus.subgoals.find(x => x.title.startsWith('Claude : mouvements, étape par étape — ' + c + ' ('));
+      if (s) s.title = titre; else illus.subgoals.push({ id: uid(), title: titre, due: null, est: 0, done: false });
+    });
+  }
+  db.livreMouvements = true;
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+}
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
 try { Object.assign(ui, JSON.parse(localStorage.getItem(KEY + '.ui')) || {}, { editObjective: false }) } catch (e) {}
 if (!db.projects.some(p => p.id === ui.project)) ui.project = db.projects[0]?.id || null;
@@ -1454,7 +1540,7 @@ document.addEventListener('click', async e => {
       try {
         const data = JSON.parse(txt);
         if (!Array.isArray(data.projects) || !Array.isArray(data.tasks)) throw new Error();
-        db = { v: 2, livreChapitres: data.livreChapitres, livreMeditations: data.livreMeditations, livreIllustrations: data.livreIllustrations, livreVincent: data.livreVincent, livreMassages: data.livreMassages, livreRenumerotation: data.livreRenumerotation, livreChapitre21: data.livreChapitre21, livreChapitresManquants: data.livreChapitresManquants, livrePlancheCentres: data.livrePlancheCentres, livreMeditation7: data.livreMeditation7, livreCarnetPdf: data.livreCarnetPdf, livreMeditations15: data.livreMeditations15, leadQuestionnaire: data.leadQuestionnaire, livreSerpents: data.livreSerpents, livreCorpsSubtils: data.livreCorpsSubtils, projects: data.projects, themes: data.themes || [], tasks: data.tasks };
+        db = { v: 2, livreChapitres: data.livreChapitres, livreMeditations: data.livreMeditations, livreIllustrations: data.livreIllustrations, livreVincent: data.livreVincent, livreMassages: data.livreMassages, livreRenumerotation: data.livreRenumerotation, livreChapitre21: data.livreChapitre21, livreChapitresManquants: data.livreChapitresManquants, livrePlancheCentres: data.livrePlancheCentres, livreMeditation7: data.livreMeditation7, livreCarnetPdf: data.livreCarnetPdf, livreMeditations15: data.livreMeditations15, leadQuestionnaire: data.leadQuestionnaire, livreSerpents: data.livreSerpents, livreCorpsSubtils: data.livreCorpsSubtils, livreFusion24: data.livreFusion24, livreAnnexesImages: data.livreAnnexesImages, livreAnnexesBis: data.livreAnnexesBis, livreMouvements: data.livreMouvements, projects: data.projects, themes: data.themes || [], tasks: data.tasks };
         ui.project = db.projects[0]?.id || null; ui.view = null; commit();
       } catch { ask("Ce texte n'est pas une sauvegarde valide. Utilise le texte complet donné par « Exporter ».", { ok: 'OK', cancel: false }) }
       return;
