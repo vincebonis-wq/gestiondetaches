@@ -122,6 +122,9 @@ h2.section .n,.theme-h .n{color:var(--muted);font-weight:500;font-size:14px}
 .group-title{font-weight:600;font-size:14px;margin:22px 0 10px;display:flex;align-items:center;gap:8px}
 .group-title .dot{width:10px;height:10px;border-radius:50%}
 details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margin:30px 0 10px}
+.footer #sync-state::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:1px}
+.footer #sync-state[data-state=ok]::before{background:var(--primary)}
+.footer #sync-state[data-state=error]::before{background:var(--danger)}
 .footer{margin-top:60px;display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:11px}
 
 /* Chantier (villa) */
@@ -258,6 +261,9 @@ function seed() {
 let db;
 try { db = JSON.parse(localStorage.getItem(KEY)) } catch (e) { db = null }
 if (!db || !db.projects) db = seed();
+const LIVRE_THEME = 'Livre offert — Amazon & Lulu';
+// Mises à jour ponctuelles des données (chacune ne s'applique qu'une fois, grâce à son drapeau)
+function runMigrations() {
 // v2 : retire les tâches d'exemple créées par la première version
 if (!db.v) {
   const SAMPLES = ['Gérer les travaux au studio', 'Renégocier le loyer de Gabriel', 'Offre de shooting vidéo PREMIUM avec vidéaste pro', 'Offre de shooting photo PREMIUM avec Sarah', 'Proposer le studio à des coachs pour créer du contenu', 'Proposer le studio à louer à des profs de Yoga / Pilates / autres', 'Renégocier le loyer de Clara', 'Société de ménage récurrente'];
@@ -265,7 +271,6 @@ if (!db.v) {
   db.v = 2;
 }
 // Ajout ponctuel : plan « Livre offert » du projet chakras. N'efface rien ; ne s'ajoute qu'une fois (même après un import).
-const LIVRE_THEME = 'Livre offert — Amazon & Lulu';
 if (!db.themes.some(t => t.name === LIVRE_THEME)) {
   let pj = db.projects.find(p => /chakra|six lotus|sept roues/i.test(p.name));
   if (!pj) { pj = { id: uid(), name: 'Chakra', color: PALETTE[3], objective: '' }; db.projects.push(pj) }
@@ -627,12 +632,89 @@ if (!db.livreMouvements) {
   db.livreMouvements = true;
   try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
 }
+}
+runMigrations();
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
 try { Object.assign(ui, JSON.parse(localStorage.getItem(KEY + '.ui')) || {}, { editObjective: false }) } catch (e) {}
 if (!db.projects.some(p => p.id === ui.project)) ui.project = db.projects[0]?.id || null;
 
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(db)); localStorage.setItem(KEY + '.ui', JSON.stringify({ project: ui.project, view: ui.view, open: ui.open })) } catch (e) {}
+  schedulePush();
+}
+
+/* ---------- Synchronisation entre appareils ----------
+   Les données sont gardées en ligne, dans l'espace privé de l'utilisateur (data/users/<id>/state).
+   Le navigateur garde une copie locale : la page s'affiche tout de suite, puis se met à jour depuis le serveur. */
+const sync = { ref: null, state: 'local', msg: '', pushing: false, again: false, pending: false, lastJson: null, timer: 0 };
+const syncMeta = () => { try { return JSON.parse(localStorage.getItem(KEY + '.sync')) || {} } catch (e) { return {} } };
+const setSyncMeta = m => { try { localStorage.setItem(KEY + '.sync', JSON.stringify(m)) } catch (e) {} };
+const SYNC_TXT = { local: 'Enregistré sur cet appareil', connecting: 'Connexion…', saving: 'Synchronisation…', ok: 'Synchronisé sur tous tes appareils', error: '' };
+function setSyncState(state, msg = '') {
+  sync.state = state; sync.msg = msg;
+  const el = document.getElementById('sync-state');
+  if (el) { el.textContent = msg || SYNC_TXT[state]; el.dataset.state = state }
+}
+function schedulePush() {
+  if (!sync.ref) { if (syncMeta().synced) setSyncMeta({ ...syncMeta(), dirty: true }); return }
+  sync.pending = true; clearTimeout(sync.timer); sync.timer = setTimeout(pushState, 800);
+}
+async function pushState() {
+  if (sync.pushing) { sync.again = true; return }
+  const json = JSON.stringify(db);
+  if (json === sync.lastJson) { sync.pending = false; return }
+  if (json.length > 250000) { setSyncState('error', 'Trop de données pour la synchronisation : fais un export'); return }
+  sync.pushing = true; setSyncState('saving');
+  try {
+    await sync.ref.set({ json, savedAt: Date.now() });
+    sync.lastJson = json; setSyncMeta({ synced: true, dirty: false }); setSyncState('ok');
+  } catch (e) {
+    setSyncMeta({ ...syncMeta(), dirty: true });
+    setSyncState('error', e && e.code === 'quota_exceeded' ? 'Espace en ligne plein : fais un export' : 'Synchronisation impossible pour le moment, réessai automatique');
+    if (e && e.code === 'unavailable') setTimeout(schedulePush, 4000 + Math.random() * 3000);
+  }
+  sync.pushing = false; sync.pending = false;
+  if (sync.again) { sync.again = false; pushState() }
+}
+// Remplace les données par celles venues du serveur
+function adoptRemote(json) {
+  let d; try { d = JSON.parse(json) } catch (e) { return }
+  if (!d || !Array.isArray(d.projects) || !Array.isArray(d.tasks)) return;
+  db = d; runMigrations(); sync.lastJson = json;
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+  if (!db.projects.some(p => p.id === ui.project)) ui.project = db.projects[0]?.id || null;
+  render();
+  if (JSON.stringify(db) !== json) schedulePush();
+}
+async function initSync() {
+  if (!window.claude || typeof claude.use !== 'function') return;
+  setSyncState('connecting');
+  const [store, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+  const uid = user && await user.id();
+  if (!store || !uid) { setSyncState('local', 'Connecte-toi à claude.ai pour synchroniser'); return }
+  const ref = store.doc(`data/users/${uid}/state`);
+  let snap;
+  try { snap = await ref.get() } catch (e) { setSyncState('error', 'Synchronisation indisponible, tes données restent sur cet appareil'); return }
+  const meta = syncMeta(), local = JSON.stringify(db), remote = snap.exists ? snap.data().json : null;
+  if (!remote) { sync.ref = ref; await pushState() }
+  else if (remote === local) { sync.ref = ref; sync.lastJson = remote; setSyncMeta({ synced: true, dirty: false }); setSyncState('ok') }
+  else if (meta.synced && !meta.dirty) { sync.ref = ref; adoptRemote(remote); setSyncState('ok') }
+  else if (meta.synced) { sync.ref = ref; await pushState() }
+  else {
+    // Premier branchement de cet appareil alors que des données existent déjà en ligne : on demande
+    let rd = {}; try { rd = JSON.parse(remote) } catch (e) {}
+    const n = x => (x.tasks || []).filter(t => !t.done).length, when = snap.data().savedAt ? new Date(snap.data().savedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    const pick = await ask(`Des tâches sont déjà enregistrées en ligne (${n(rd)} tâches en cours${when ? `, modifiées le ${when}` : ''}). Cet appareil en a ${n(db)}. Lesquelles garder ? L'autre version sera remplacée.`, { ok: 'Garder celles en ligne', no: 'Garder celles de cet appareil' });
+    if (pick === null) { setSyncState('local', 'Synchronisation en pause : recharge la page pour choisir'); return }
+    sync.ref = ref;
+    if (pick) { adoptRemote(remote); setSyncMeta({ synced: true, dirty: false }); setSyncState('ok') } else await pushState();
+  }
+  // Les changements faits sur un autre appareil arrivent en direct
+  ref.onSnapshot(s => {
+    if (!s.exists || s.metadata.hasPendingWrites) return;
+    const j = s.data().json;
+    if (j && j !== sync.lastJson && !sync.pushing && !sync.pending) adoptRemote(j);
+  }, () => setSyncState('error', 'Synchronisation interrompue : recharge la page'));
 }
 
 /* ---------- Dates & durées ---------- */
@@ -722,6 +804,7 @@ function render() {
     ${ui.view ? renderView(ui.view) : cur ? renderProject(cur) : '<p class="empty">Crée ton premier projet avec « + Projet ».</p>'}
 
     <div class="footer">
+      <span id="sync-state" data-state="${sync.state}">${esc(sync.msg || SYNC_TXT[sync.state])}</span>
       <button class="linkbtn" data-action="export">Exporter (sauvegarde)</button>
       <button class="linkbtn" data-action="import">Importer</button>
     </div>`;
@@ -2087,20 +2170,20 @@ function readProjDraft() {
 /* ---------- Confirmation / saisie dans la page ---------- */
 const askDlg = document.getElementById('ask');
 // Résout avec true (ou le texte saisi) si validé, null si annulé
-function ask(message, { input = null, area = false, ok = 'Confirmer', danger = false, cancel = true } = {}) {
+function ask(message, { input = null, area = false, ok = 'Confirmer', danger = false, cancel = true, no = null } = {}) {
   askDlg.innerHTML = `<form class="modal" method="dialog">
     <p style="margin:0 0 14px;font-size:15px">${esc(message)}</p>
     ${input === null ? '' : area ? `<textarea id="ask-input" class="input ask-area">${esc(input)}</textarea>` : `<input id="ask-input" class="input" style="width:100%" value="${esc(input)}">`}
     <div class="modal-foot"><div class="right">
       <button class="btn ${danger ? 'danger' : 'primary'}" value="ok">${ok}</button>
-      ${cancel ? '<button class="btn" value="cancel" formnovalidate>Annuler</button>' : ''}
+      ${cancel ? `<button class="btn" value="cancel" formnovalidate>${no || 'Annuler'}</button>` : ''}
     </div></div></form>`;
   askDlg.returnValue = '';
   askDlg.showModal();
   const field = askDlg.querySelector('#ask-input');
   if (field) { field.focus(); if (!area) field.select() }
   return new Promise(res => askDlg.addEventListener('close', () =>
-    res(askDlg.returnValue === 'ok' ? (field ? field.value : true) : null), { once: true }));
+    res(askDlg.returnValue === 'ok' ? (field ? field.value : true) : askDlg.returnValue === 'cancel' && no ? false : null), { once: true }));
 }
 
 /* ---------- Actions ---------- */
@@ -2339,6 +2422,7 @@ document.addEventListener('pointercancel', endDrag);
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close() });
 
 render();
+initSync();
 </script>
 </body>
 </html>
