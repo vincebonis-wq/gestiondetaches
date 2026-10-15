@@ -145,8 +145,7 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .site-steps i.cur{background:linear-gradient(90deg,#d9a640 var(--f),var(--pill) var(--f))}
 .site-run{position:absolute;left:10px;top:10px;right:10px;display:flex;align-items:center;gap:10px;background:rgba(20,26,25,.72);color:#fff;border-radius:10px;padding:8px 12px;font-size:13px;max-width:460px}
 .site-run span{flex:1;min-width:0}
-.site-run i{display:block;height:4px;border-radius:2px;background:rgba(255,255,255,.25);margin-top:5px;overflow:hidden}
-.site-run i b{display:block;height:100%;background:#f2c94c;transform-origin:left;transform:scaleX(0)}
+.site-run[hidden]{display:none}
 .site-run button{color:#fff;font-weight:600;font-size:12px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px}
 /* Boucles d'ambiance (transform/opacity uniquement) */
 .s-cloud{animation:s-cloud 70s linear infinite alternate}
@@ -158,11 +157,11 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 @keyframes s-shim{0%,100%{opacity:.15}50%{opacity:.7}}
 .s-bird{animation:s-bird 40s linear infinite}
 @keyframes s-bird{from{transform:translateX(0)}to{transform:translateX(-1100px)}}
-.s-idle-arm{animation:s-dig 5s ease-in-out infinite}
+.site .arm{animation:s-dig 5s ease-in-out infinite}
 @keyframes s-dig{0%,100%{transform:rotate(0)}50%{transform:rotate(-12deg)}}
-.s-idle-hook{animation:s-swing 4s ease-in-out infinite}
+.site .hook{animation:s-swing 4s ease-in-out infinite}
 @keyframes s-swing{0%,100%{transform:rotate(2deg)}50%{transform:rotate(-2deg)}}
-.s-idle-drum{animation:s-drum 1.6s linear infinite}
+.site .drum{animation:s-drum 1.6s linear infinite}
 @keyframes s-drum{to{transform:translateX(-24px)}}
 .s-wk{animation:s-wk .9s ease-in-out infinite alternate}
 .s-wk.b{animation-delay:-.45s}
@@ -174,7 +173,7 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--chip-on);color:var(--chip-on-ink);padding:12px 18px;border-radius:12px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100vw - 32px);animation:toast 4.5s ease both}
 .toast small{display:block;font-weight:500;opacity:.75}
 @keyframes toast{0%{opacity:0;transform:translate(-50%,20px)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,10px)}}
-@media (prefers-reduced-motion:reduce){.s-cloud,.s-boat,.s-shim,.s-bird,.s-idle-arm,.s-idle-hook,.s-idle-drum,.s-wk,.s-fw,.s-bulb,.toast{animation:none}.s-fw{opacity:.8}}
+@media (prefers-reduced-motion:reduce){.s-cloud,.s-boat,.s-shim,.s-bird,.site .arm,.site .hook,.site .drum,.s-wk,.s-fw,.s-bulb,.toast{animation:none}.s-fw{opacity:.8}}
 
 /* Calendrier de publication */
 .cal{border:1px solid var(--line);border-top:4px solid var(--c);background:var(--card);border-radius:var(--radius);padding:16px 14px 14px;margin-bottom:28px}
@@ -655,7 +654,7 @@ function render() {
       <button class="linkbtn" data-action="export">Exporter (sauvegarde)</button>
       <button class="linkbtn" data-action="import">Importer</button>
     </div>`;
-  playSite();
+  attachSite();
 }
 
 function themeOptions(pid, selected) {
@@ -689,7 +688,7 @@ function renderProject(p) {
   return `
     <div class="proj-tools"><button class="linkbtn" data-action="edit-project" data-id="${p.id}">Modifier le projet</button></div>
     <div class="objective" style="--c:${p.color}"><small>Objectif à 90 jours</small>${objective}</div>
-    ${p.site !== false ? renderSite(p) : ''}
+    ${siteTask()?.projectId === p.id ? '<div class="site-slot"></div>' : ''}
     ${p.calendar ? renderCalendar(p, tasks) : ''}
 
     <section class="week">
@@ -723,7 +722,7 @@ function renderProject(p) {
     ${done.length ? `<details class="done-sec"><summary>Terminées (${done.length})</summary><div class="list">${done.map(t => card(t, { showTheme: true })).join('')}</div></details>` : ''}`;
 }
 
-/* ---------- Chantier : la villa se construit avec l'avancement ---------- */
+/* ---------- Chantier : la villa se construit avec « 1. Finaliser le manuscrit » ---------- */
 const SITE_N = 20;
 const SITE_STEPS = [
   ['Terrain à vendre', 'Une parcelle avec vue sur la mer t\'attend'],
@@ -751,54 +750,6 @@ const SITE_STEPS = [
 // Véhicule de chaque étape et sa position de travail sur la route
 const SITE_VEH = { 1: ['sedan', 170], 2: ['van:GÉOMÈTRE:#3b6fb5', 230], 3: ['bulldozer', 460], 4: ['excavator', 520], 5: ['flatbed:rebar', 600], 6: ['mixer', 600], 7: ['flatbed:bricks', 600], 8: ['mixer', 620], 9: ['flatbed:bricks', 620], 10: ['flatbed:beams', 620], 11: ['van:PEINTURE:#d0582f', 560], 12: ['flatbed:glass', 600], 13: ['excavator', 690], 14: ['van:CARRELAGE:#2a8a9a', 640], 15: ['tanker', 640], 16: ['flatbed:wood', 420], 17: ['box', 470], 18: ['pickup', 660], 19: ['van:ÉLECTRICITÉ:#b5487a', 520], 20: ['sport', 120] };
 const SITE_FX = { 1: 'drop', 2: 'drop', 3: 'vanish', 4: 'fade', 5: 'drop', 6: 'rise', 7: 'drop', 8: 'rise', 9: 'drop', 10: 'drop', 11: 'fade', 12: 'fade', 13: 'fade', 14: 'fade', 15: 'rise', 16: 'drop', 17: 'fade', 18: 'rise', 19: 'drop', 20: 'fade' };
-const SITE_T = 30000; // durée de l'animation d'une étape
-let siteAnim = null, siteTimer = null;
-
-// Une « brique » = un sous-objectif (ou une tâche sans sous-objectif). Une tâche terminée compte toutes ses briques.
-function siteProgress(p) {
-  const tasks = db.tasks.filter(t => t.projectId === p.id && (!p.siteScope || t.themeId === p.siteScope));
-  let total = 0, done = 0;
-  for (const t of tasks) {
-    if (t.subgoals.length) { total += t.subgoals.length; done += t.done ? t.subgoals.length : t.subgoals.filter(s => s.done).length }
-    else { total++; if (t.done) done++ }
-  }
-  const ratio = total ? done / total : 0;
-  const x = ratio * SITE_N, stage = ratio >= 1 ? SITE_N : Math.floor(x + 1e-9);
-  const frac = stage >= SITE_N ? 0 : Math.max(0, x - stage);
-  const need = stage >= SITE_N ? 0 : Math.max(1, Math.ceil((stage + 1) / SITE_N * total - 1e-9) - done);
-  return { total, done, ratio, stage, frac, need };
-}
-
-function renderSite(p) {
-  const pr = siteProgress(p);
-  const seen = p.siteSeen ?? pr.stage;
-  // Nouvelle étape franchie : on lance les travaux (animation) de la plus haute étape atteinte
-  if (pr.stage > seen && !matchMedia('(prefers-reduced-motion: reduce)').matches) siteAnim = { pid: p.id, k: pr.stage, start: performance.now() };
-  else if (pr.stage > seen) setTimeout(() => toast(`Nouvelle étape : ${SITE_STEPS[pr.stage][0]}`, SITE_STEPS[pr.stage][1]), 300);
-  if (p.siteSeen !== pr.stage) { p.siteSeen = pr.stage; save() }
-  const anim = siteAnim && siteAnim.pid === p.id && performance.now() - siteAnim.start < SITE_T ? siteAnim.k : 0;
-  const [name, line] = SITE_STEPS[pr.stage];
-  const next = SITE_STEPS[pr.stage + 1];
-  const pct = Math.round(pr.ratio * 100);
-  return `<section class="site">
-    <div class="site-wrap">${siteSVG(anim ? anim - 1 : pr.stage, anim ? 0 : pr.frac, anim, p.name)}
-      ${anim ? `<div class="site-run"><span>Travaux en cours · <b>${SITE_STEPS[anim][0]}</b><i><b class="run-bar"></b></i></span><button data-action="site-skip">Passer</button></div>` : ''}</div>
-    <div class="site-info">
-      <div class="site-top"><h2>Mon chantier</h2>
-        <div class="tools">${pr.stage ? `<button class="linkbtn" data-action="site-replay" data-id="${p.id}">Revoir la dernière étape</button>` : ''}
-        <select data-change="site-scope" data-id="${p.id}" aria-label="Ce que mesure le chantier">
-          <option value="">Tout le projet</option>${projThemes(p.id).map(t => `<option value="${t.id}" ${t.id === p.siteScope ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
-        </select></div></div>
-      <div class="site-stage"><small>Étape ${pr.stage}/${SITE_N}</small>${name} · <span style="font-weight:500">${line}</span></div>
-      <div class="site-bar" title="${pct} %"><span style="width:${pct}%"></span></div>
-      <div class="site-steps">${SITE_STEPS.slice(1).map((_, i) => `<i class="${i < pr.stage ? 'on' : i === pr.stage ? 'cur' : ''}" style="--f:${Math.round(pr.frac * 100)}%" title="${SITE_STEPS[i + 1][0]}"></i>`).join('')}</div>
-      <div class="site-next">${!pr.total ? 'Ajoute des tâches à ce projet pour lancer le chantier.'
-        : next ? `${pr.done} / ${pr.total} briques posées (${pct} %). Encore <b>${plural(pr.need, 'élément')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>.`
-        : `${pr.total} / ${pr.total} briques posées. Bravo, c'est construit !`}</div>
-    </div>
-  </section>`;
-}
-
 function toast(title, sub) {
   document.querySelector('.toast')?.remove();
   const el = document.createElement('div');
@@ -832,10 +783,11 @@ function vehicle(spec) {
       <rect x="44" y="-54" width="96" height="32" rx="4" fill="#f2b632"/><rect x="44" y="-88" width="38" height="36" rx="4" fill="#e0a21c"/><rect x="50" y="-82" width="26" height="20" fill="#cfe8f2"/><rect x="112" y="-64" width="28" height="12" fill="#d39a1a"/>
       <g transform="translate(48 -52)"><g class="arm"><path d="M0 0 L-52 -64 L-98 -14" stroke="#e0a21c" stroke-width="11" fill="none" stroke-linejoin="round" stroke-linecap="round"/><path d="M-108 -24 l24 2 l-6 24 l-24 -8z" fill="#4a4f55"/></g></g>`;
   } else if (type === 'mixer') {
+    const cid = 'drum' + uid();
     body = `${cab('#2f6bb5')}<rect x="40" y="-22" width="130" height="10" fill="#3d4247"/>
-      <clipPath id="drumclip"><ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)"/></clipPath>
+      <clipPath id="${cid}"><ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)"/></clipPath>
       <ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)" fill="#e8e8e6"/>
-      <g clip-path="url(#drumclip)"><g class="drum">${[0, 24, 48, 72, 96, 120, 144].map(x => `<path d="M${50 + x} -84 l-30 76" stroke="#e8553e" stroke-width="7"/>`).join('')}</g></g>
+      <g clip-path="url(#${cid})"><g class="drum">${[0, 24, 48, 72, 96, 120, 144].map(x => `<path d="M${50 + x} -84 l-30 76" stroke="#e8553e" stroke-width="7"/>`).join('')}</g></g>
       <ellipse cx="112" cy="-48" rx="54" ry="26" transform="rotate(-10 112 -48)" fill="none" stroke="#9aa0a6" stroke-width="2"/>`;
     body += `${wheel(24)}${wheel(124)}${wheel(150)}`; w = 170;
   } else if (type === 'tanker') {
@@ -867,8 +819,8 @@ const bush = (x, y, c = '#4f9a45') => `<g transform="translate(${x} ${y})"><circ
 const segs = (x0, x1, n, f) => Array.from({ length: n }, (_, i) => f(x0 + (x1 - x0) * i / n, (x1 - x0) / n, i));
 
 // Éléments de chaque étape (dans l'ordre où ils apparaissent)
-function siteItems(k, night) {
-  const glass = night ? 'url(#glassN)' : 'url(#glass)';
+function siteItems(k) {
+  const glass = 'url(#glass)', night = false;
   switch (k) {
     case 1: return [`<g transform="rotate(-14 120 272)"><rect x="70" y="262" width="100" height="18" fill="#c8323c"/><text x="120" y="275" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="system-ui,sans-serif">VENDU</text></g>`];
     case 2: return [...[[296, 340], [380, 342], [470, 342], [560, 342], [652, 340], [296, 314], [652, 314], [466, 396], [784, 396], [784, 344]].map(([x, y]) => `<g><rect x="${x - 1.5}" y="${y - 18}" width="3" height="18" fill="#a07a50"/><rect x="${x - 2.5}" y="${y - 20}" width="5" height="4" fill="#e8553e"/></g>`),
@@ -913,106 +865,242 @@ function siteItems(k, night) {
   return [];
 }
 
-// Scène complète. st = étapes terminées, frac = avancement de l'étape suivante, anim = étape en cours d'animation (0 = aucune)
-function siteSVG(st, frac, anim, projName) {
-  const night = st >= SITE_N;
-  const cur = anim || (st < SITE_N ? st + 1 : 0);           // étape en cours de travaux
-  const layer = k => {
-    if (k === anim) return `<g class="build" data-fx="${SITE_FX[k]}">${siteItems(k, night).map(s => `<g class="bi"${SITE_FX[k] === 'vanish' ? '' : ' style="opacity:0"'}>${s}</g>`).join('')}</g>`;
-    const items = siteItems(k, night);
-    if (k === 3) return st >= 3 ? '' : items.slice(k === st + 1 ? Math.floor(frac * items.length) : 0).join('');
-    if ((k === 1 && st >= 2) || (k === 2 && st >= 6) || (k === 5 && st >= 7)) return '';
-    if (st >= k) return items.join('');
-    if (k === st + 1 && frac > 0) return items.slice(0, Math.floor(frac * items.length)).join('');
-    return '';
-  };
+// Scène complète, dessinée une fois : tous les éléments sont présents, leur visibilité dépend de l'avancement D (en étapes, ex. 7,4).
+// Les transitions animent seulement ce qui change : rien ne « saute » d'une image à l'autre.
+const SITE_COUNT = Array.from({ length: SITE_N + 1 }, (_, k) => k ? siteItems(k).length : 0);
+const WK_GROUP = k => k >= 17 ? 'wkG' : k >= 13 ? 'wkP' : 'wkH';
+
+function siteState(D) {
+  const s = D >= SITE_N - 1e-9 ? SITE_N : Math.floor(D + 1e-9), f = s >= SITE_N ? 0 : Math.max(0, D - s);
+  const on = {};
+  for (let k = 1; k <= SITE_N; k++) for (let i = 0; i < SITE_COUNT[k]; i++) {
+    const built = Math.floor(f * SITE_COUNT[k] + 1e-9);
+    let v;
+    if (k === 3) v = s < 3 && (k !== s + 1 || i >= built);
+    else if ((k === 1 && s >= 2) || (k === 2 && s >= 6) || (k === 5 && s >= 7)) v = false;
+    else v = s >= k || (k === s + 1 && i < built);
+    on[`it${k}_${i}`] = v;
+  }
+  Object.assign(on, {
+    bp7: s >= 2 && s < 7, bp9: s >= 2 && s < 9, bp13: s >= 2 && s < 13,
+    scaf: s >= 6 && s < 11, scafU: s >= 8 && s < 11, crane: s >= 6 && s < 10, night: s >= SITE_N,
+    signA: s <= 1 && !(s === 0 && f > 0), signB: s === 0 && f > 0, signC: s >= 2 && s < SITE_N, signD: s >= SITE_N
+  });
+  for (let k = 1; k <= SITE_N; k++) on['veh' + k] = (k === s + 1 && f > 0) || (k === SITE_N && s >= SITE_N);
+  ['wkH', 'wkP', 'wkG'].forEach(g => { on[g] = f > 0 && s + 1 >= 2 && s + 1 <= 19 && WK_GROUP(s + 1) === g });
+  return on;
+}
+
+function siteSVG(D, projName) {
+  const on = siteState(D);
+  const sv = (key, inner, extra = '') => `<g data-sv="${key}"${extra} style="opacity:${on[key] ? 1 : 0}">${inner}</g>`;
+  const layer = k => siteItems(k).map((s, i) => sv(`it${k}_${i}`, s)).join('');
   const plan = 'fill="none" stroke="#2b6cb0" stroke-width="1.5" stroke-dasharray="7 5" opacity=".55"';
-  const signTxt = st === 0 ? (frac > 0 ? ['SOUS', 'COMPROMIS'] : ['À VENDRE', 'Vue mer']) : st === 1 ? ['À VENDRE', ''] : night ? ['VILLA', projName] : ['CHANTIER', projName];
-  const crane = (st >= 6 && st < 10) || (anim >= 7 && anim <= 10);
-  const scaffold = (st >= 6 && st < 11) || (anim >= 7 && anim <= 11);
-  const vk = cur && SITE_VEH[cur] ? cur : night ? 20 : 0;     // véhicule garé (étape suivante) ou animé
-  const [vspec, vx] = vk ? SITE_VEH[vk] : [];
-  const busy = cur >= 2 && cur <= 19 && (anim || frac > 0);
-  const wk = cur >= 13 && cur <= 16 ? [[492, 404], [760, 404]] : cur >= 17 ? [[260, 404], [700, 404]] : [[300, 342], [630, 342]];
-  return `<svg class="site-scene" viewBox="0 0 960 440" role="img" aria-label="Chantier : étape ${st} sur ${SITE_N}, ${SITE_STEPS[st][0]}">
+  const board = (txt, sub, bg, fg) => `<rect x="66" y="246" width="108" height="50" rx="4" fill="${bg}" stroke="#7a5532" stroke-width="2.5"/>
+    <text x="120" y="268" text-anchor="middle" font-size="14" font-weight="800" fill="${fg}" font-family="system-ui,sans-serif">${txt}</text>
+    <text x="120" y="285" text-anchor="middle" font-size="10" fill="${fg === '#fff' ? '#e6f0ea' : '#555'}" font-family="system-ui,sans-serif">${esc(String(sub).slice(0, 18))}</text>`;
+  const veh = k => { const [spec, x] = SITE_VEH[k]; return `<g transform="translate(${x} 434)"><g data-sv="veh${k}" class="drive" style="transform:translateX(${on['veh' + k] ? 0 : 1300}px)">${vehicle(spec)}</g></g>` };
+  return `<svg class="site-scene" viewBox="0 0 960 440" role="img" aria-label="Chantier du livre">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">${night ? '<stop offset="0" stop-color="#2c2f6b"/><stop offset=".55" stop-color="#d9786a"/><stop offset="1" stop-color="#ffd6a0"/>' : '<stop offset="0" stop-color="#6fbfe9"/><stop offset=".7" stop-color="#cdeefa"/><stop offset="1" stop-color="#fbf3df"/>'}</linearGradient>
-    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">${night ? '<stop offset="0" stop-color="#5a5f9a"/><stop offset="1" stop-color="#d98a76"/>' : '<stop offset="0" stop-color="#2e86bd"/><stop offset="1" stop-color="#6cc6e2"/>'}</linearGradient>
-    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${night ? '#7d9a5c' : '#a9cc72'}"/><stop offset="1" stop-color="${night ? '#5d7f45' : '#86b457'}"/></linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fbfe9"/><stop offset=".7" stop-color="#cdeefa"/><stop offset="1" stop-color="#fbf3df"/></linearGradient>
+    <linearGradient id="skyN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2f6b"/><stop offset=".55" stop-color="#d9786a"/><stop offset="1" stop-color="#ffd6a0"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e86bd"/><stop offset="1" stop-color="#6cc6e2"/></linearGradient>
+    <linearGradient id="seaN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a5f9a"/><stop offset="1" stop-color="#d98a76"/></linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9cc72"/><stop offset="1" stop-color="#86b457"/></linearGradient>
     <linearGradient id="dirt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d2a76c"/><stop offset="1" stop-color="#b98a52"/></linearGradient>
     <linearGradient id="lawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fbf5a"/><stop offset="1" stop-color="#5fa443"/></linearGradient>
     <linearGradient id="concrete" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8bcc0"/><stop offset="1" stop-color="#959a9f"/></linearGradient>
     <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ebe5d8"/></linearGradient>
     <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d2eef8" stop-opacity=".85"/><stop offset="1" stop-color="#6aa9c6" stop-opacity=".85"/></linearGradient>
-    <linearGradient id="glassN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a8" stop-opacity=".8"/><stop offset="1" stop-color="#f3b45c" stop-opacity=".85"/></linearGradient>
+    <linearGradient id="glassN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a8"/><stop offset="1" stop-color="#f3b45c"/></linearGradient>
     <pattern id="brick" width="24" height="12" patternUnits="userSpaceOnUse"><rect width="24" height="12" fill="#c8714c"/><path d="M0 .5H24M0 6.5H24M12 0V6M0 6V12M24 6V12" stroke="#ead6c2" stroke-width="1.2"/></pattern>
     <pattern id="tiles" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#8fd6ea"/><path d="M0 .5H12M.5 0V12" stroke="#cdeef7" stroke-width="1"/></pattern>
   </defs>
   <rect width="960" height="440" fill="url(#sky)"/>
-  ${night ? '<circle cx="770" cy="212" r="60" fill="#ffb15c" opacity=".25"/><circle cx="770" cy="212" r="38" fill="#ffb15c"/>' : '<circle cx="840" cy="70" r="48" fill="#fff6c2" opacity=".35"/><circle cx="840" cy="70" r="28" fill="#ffe27a"/>'}
-  <g class="s-cloud" opacity="${night ? .35 : .9}" fill="#fff"><ellipse cx="160" cy="70" rx="56" ry="14"/><ellipse cx="196" cy="60" rx="34" ry="14"/><ellipse cx="560" cy="44" rx="44" ry="11"/><ellipse cx="590" cy="38" rx="26" ry="10"/></g>
-  <g class="s-bird" fill="none" stroke="${night ? '#2c2f6b' : '#41545e'}" stroke-width="1.6"><path d="M1000 110 q6 -6 12 0 q6 -6 12 0"/><path d="M1030 124 q5 -5 10 0 q5 -5 10 0"/></g>
-  <path d="M0 196 Q90 160 190 186 T380 178 T560 190 T760 172 T960 186 V214 H0Z" fill="${night ? '#6c6f9c' : '#a7c0cf'}"/>
+  <circle cx="840" cy="70" r="48" fill="#fff6c2" opacity=".35"/><circle cx="840" cy="70" r="28" fill="#ffe27a"/>
+  ${sv('night', '<rect width="960" height="260" fill="url(#skyN)"/><circle cx="770" cy="212" r="60" fill="#ffb15c" opacity=".25"/><circle cx="770" cy="212" r="38" fill="#ffb15c"/>')}
+  <g class="s-cloud" fill="#fff" opacity=".85"><ellipse cx="160" cy="70" rx="56" ry="14"/><ellipse cx="196" cy="60" rx="34" ry="14"/><ellipse cx="560" cy="44" rx="44" ry="11"/><ellipse cx="590" cy="38" rx="26" ry="10"/></g>
+  <g class="s-bird" fill="none" stroke="#41545e" stroke-width="1.6"><path d="M1000 110 q6 -6 12 0 q6 -6 12 0"/><path d="M1030 124 q5 -5 10 0 q5 -5 10 0"/></g>
+  <path d="M0 196 Q90 160 190 186 T380 178 T560 190 T760 172 T960 186 V214 H0Z" fill="#a7c0cf"/>
   <rect y="208" width="960" height="52" fill="url(#sea)"/>
+  ${sv('night', '<path d="M0 196 Q90 160 190 186 T380 178 T560 190 T760 172 T960 186 V214 H0Z" fill="#6c6f9c"/><rect y="208" width="960" height="52" fill="url(#seaN)"/>')}
   <g stroke="#fff" stroke-width="1.5" stroke-linecap="round"><path class="s-shim" d="M60 222 h22"/><path class="s-shim" d="M240 232 h30"/><path class="s-shim" d="M420 220 h18"/><path class="s-shim" d="M620 236 h26"/><path class="s-shim" d="M820 226 h20"/></g>
   <g class="s-boat"><path d="M120 236 h36 l-6 7 h-24z" fill="#fff"/><path d="M138 234 V206 L154 232Z" fill="#fff"/><path d="M136 234 V212 L124 232Z" fill="#f2efe6"/></g>
   <path d="M0 252 Q160 236 330 248 T660 246 T960 250 V440 H0Z" fill="url(#ground)"/>
   ${cypress(36, 262)}${cypress(58, 266)}${cypress(912, 262)}${bush(880, 268, '#6b9a4a')}
   <rect x="0" y="404" width="960" height="36" fill="#5d6268"/><path d="M0 422 H960" stroke="#e9e3c9" stroke-width="2" stroke-dasharray="26 18"/>
-  <rect x="190" y="262" width="630" height="138" rx="10" fill="${st >= 4 ? '#c69c62' : '#97c065'}" opacity="${st >= 4 ? 1 : .55}"/>
+  <rect x="190" y="262" width="630" height="138" rx="10" fill="#97c065" opacity=".55"/>
   ${layer(4)}${layer(18)}${layer(3)}${layer(16)}${layer(13)}${layer(14)}${layer(15)}${layer(2)}
-  ${st >= 2 && st < 7 && anim !== 7 ? `<rect x="300" y="206" width="320" height="108" ${plan}/>` : ''}
-  ${st >= 2 && st < 9 && anim !== 9 ? `<rect x="380" y="126" width="300" height="68" ${plan}/>` : ''}
-  ${st >= 2 && st < 13 && anim !== 13 ? `<rect x="462" y="342" width="322" height="54" rx="3" ${plan}/>` : ''}
-  ${layer(5)}${layer(6)}${layer(7)}${layer(8)}${layer(9)}${layer(11)}${layer(17)}${layer(12)}${layer(10)}${layer(19)}${layer(20)}
-  ${scaffold ? `<g stroke="#a77b45" stroke-width="2.2">${[294, 372, 452, 532, 626].map(x => `<path d="M${x} 314 V202"/>`).join('')}${st >= 8 || anim >= 9 ? [376, 456, 536, 616, 688].map(x => `<path d="M${x} 194 V120"/>`).join('') : ''}</g>
-    <g fill="#c9a46a"><rect x="290" y="268" width="340" height="4"/><rect x="290" y="232" width="340" height="4"/>${st >= 8 || anim >= 9 ? '<rect x="372" y="160" width="320" height="4"/><rect x="372" y="130" width="320" height="4"/>' : ''}</g>` : ''}
-  ${crane ? `<g><path d="M852 404 V36 M870 404 V36" stroke="#e0a21c" stroke-width="4"/><path d="${Array.from({ length: 12 }, (_, i) => `M852 ${404 - i * 30} L870 ${389 - i * 30} L852 ${374 - i * 30}`).join(' ')}" stroke="#e0a21c" stroke-width="1.6" fill="none"/>
+  ${sv('bp7', `<rect x="300" y="206" width="320" height="108" ${plan}/>`)}${sv('bp9', `<rect x="380" y="126" width="300" height="68" ${plan}/>`)}${sv('bp13', `<rect x="462" y="342" width="322" height="54" rx="3" ${plan}/>`)}
+  ${layer(5)}${layer(6)}${layer(7)}${layer(8)}${layer(9)}${layer(11)}${layer(17)}${layer(12)}
+  ${sv('night', '<g fill="url(#glassN)" opacity=".85"><rect x="356" y="226" width="180" height="88"/><rect x="400" y="140" width="224" height="50"/></g>')}
+  ${layer(10)}${layer(19)}${layer(20)}
+  ${sv('scaf', `<g stroke="#a77b45" stroke-width="2.2">${[294, 372, 452, 532, 626].map(x => `<path d="M${x} 314 V202"/>`).join('')}</g><g fill="#c9a46a"><rect x="290" y="268" width="340" height="4"/><rect x="290" y="232" width="340" height="4"/></g>`)}
+  ${sv('scafU', `<g stroke="#a77b45" stroke-width="2.2">${[376, 456, 536, 616, 688].map(x => `<path d="M${x} 194 V120"/>`).join('')}</g><g fill="#c9a46a"><rect x="372" y="160" width="320" height="4"/><rect x="372" y="130" width="320" height="4"/></g>`)}
+  ${sv('crane', `<path d="M852 404 V36 M870 404 V36" stroke="#e0a21c" stroke-width="4"/><path d="${Array.from({ length: 12 }, (_, i) => `M852 ${404 - i * 30} L870 ${389 - i * 30} L852 ${374 - i * 30}`).join(' ')}" stroke="#e0a21c" stroke-width="1.6" fill="none"/>
     <path d="M360 36 H930" stroke="#f2b632" stroke-width="7"/><path d="M360 44 H850" stroke="#e0a21c" stroke-width="2"/><rect x="900" y="34" width="34" height="22" fill="#6b737a"/><rect x="842" y="40" width="34" height="22" rx="2" fill="#e0a21c"/><rect x="848" y="44" width="16" height="10" fill="#cfe8f2"/>
-    <g transform="translate(540 40)"><g class="hook"><path d="M0 0 V96" stroke="#3a3f44" stroke-width="1.6" vector-effect="non-scaling-stroke"/><g class="load"><path d="M-12 96 L0 84 L12 96" stroke="#3a3f44" fill="none"/><rect x="-18" y="96" width="36" height="14" fill="url(#brick)"/></g></g></g></g>` : ''}
-  <g><rect x="117" y="290" width="7" height="114" fill="#7a5532"/><rect x="66" y="246" width="108" height="50" rx="4" fill="${night ? '#2f5e4e' : '#fffdf6'}" stroke="#7a5532" stroke-width="2.5"/>
-    <text x="120" y="268" text-anchor="middle" font-size="14" font-weight="800" fill="${night ? '#fff' : '#c8323c'}" font-family="system-ui,sans-serif">${signTxt[0]}</text>
-    <text x="120" y="285" text-anchor="middle" font-size="10" fill="${night ? '#e6f0ea' : '#555'}" font-family="system-ui,sans-serif">${esc(String(signTxt[1]).slice(0, 18))}</text></g>
+    <g transform="translate(540 40)"><g class="hook"><path class="cable" d="M0 0 V96" stroke="#3a3f44" stroke-width="1.6" vector-effect="non-scaling-stroke"/><g class="load"><path d="M-12 96 L0 84 L12 96" stroke="#3a3f44" fill="none"/><rect x="-18" y="96" width="36" height="14" fill="url(#brick)"/></g></g></g>`)}
+  <rect x="117" y="290" width="7" height="114" fill="#7a5532"/>
+  ${sv('signA', board('À VENDRE', 'Vue mer', '#fffdf6', '#c8323c'))}${sv('signB', board('SOUS', 'COMPROMIS', '#fffdf6', '#c8323c'))}
+  ${sv('signC', board('CHANTIER', projName, '#fffdf6', '#c8323c'))}${sv('signD', board('VILLA', projName, '#2f5e4e', '#fff'))}
   ${layer(1)}
-  ${busy ? worker(wk[0][0], wk[0][1]) + worker(wk[1][0], wk[1][1], 'b') : ''}
-  ${vspec ? `<g transform="translate(${vx} 434)"><g class="drive ${anim ? '' : 'parked'}">${vehicle(vspec)}</g></g>` : ''}
+  ${sv('wkH', worker(300, 342) + worker(630, 342, 'b'))}${sv('wkP', worker(492, 404) + worker(760, 404, 'b'))}${sv('wkG', worker(260, 404) + worker(700, 404, 'b'))}
+  ${Array.from({ length: SITE_N }, (_, i) => veh(i + 1)).join('')}
 </svg>`;
 }
 
-// Joue (ou reprend) l'animation d'une étape : arrivée du véhicule, travaux, départ
-function playSite() {
-  clearTimeout(siteTimer);
-  const svg = document.querySelector('.site-scene');
-  if (!svg) return;
-  const idle = !svg.querySelector('.build');
-  if (idle) {
-    // Ambiance au repos : engins garés qui s'activent doucement
-    svg.querySelectorAll('.parked .arm').forEach(e => e.classList.add('s-idle-arm'));
-    svg.querySelectorAll('.parked .drum').forEach(e => e.classList.add('s-idle-drum'));
-    svg.querySelectorAll('.hook').forEach(e => e.classList.add('s-idle-hook'));
-    return;
+/* --- Animation : on fait évoluer la scène existante de l'avancement affiché vers l'avancement réel --- */
+const siteCtl = {};
+const qa = (svg, key) => [...svg.querySelectorAll(`[data-sv="${key}"]`)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function tween(el, from, to, o = {}) {
+  if (!el) return Promise.resolve();
+  const a = el.animate([from, to], { duration: o.d || 1000, delay: o.delay || 0, easing: o.e || 'ease-out', fill: 'both' });
+  return a.finished.then(() => { Object.assign(el.style, to); a.cancel() }, () => {});
+}
+const SHOW = { drop: { opacity: 0, transform: 'translateY(-46px)' }, rise: { opacity: 0, transform: 'translateY(14px)' }, fade: { opacity: 0 }, vanish: { opacity: 0 } };
+const fadeKey = (svg, key, show, d = 1400) => Promise.all(qa(svg, key).map(el => show
+  ? tween(el, { opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0px)' }, { d })
+  : tween(el, { opacity: 1, transform: 'translateY(0px)' }, { opacity: 0, transform: 'translateY(6px)' }, { d })));
+
+// Fait apparaître / disparaître tout ce qui diffère entre deux états (hors éléments d'étape et véhicules)
+function morphExtras(svg, a, b, d) {
+  return Promise.all(Object.keys(b).filter(k => !k.startsWith('it') && !k.startsWith('veh') && a[k] !== b[k]).map(k => fadeKey(svg, k, b[k], k === 'night' ? 4000 : d)));
+}
+
+function drive(svg, k, inOut, d) {
+  const el = qa(svg, 'veh' + k)[0];
+  if (!el) return Promise.resolve();
+  const [from, to] = inOut === 'in' ? ['translateX(1300px)', 'translateX(0px)'] : ['translateX(0px)', 'translateX(-1400px)'];
+  el.querySelectorAll('.whl').forEach(w => w.animate([{ transform: 'rotate(0)' }, { transform: `rotate(${inOut === 'in' ? -1500 : -1600}deg)` }], { duration: d, easing: inOut === 'in' ? 'ease-out' : 'ease-in' }));
+  return tween(el, { transform: from }, { transform: to }, { d, e: inOut === 'in' ? 'cubic-bezier(.2,.6,.3,1)' : 'cubic-bezier(.6,0,.8,.4)' });
+}
+
+// Mouvements de travail du véhicule (et de la grue) pendant une durée donnée
+function workMotion(svg, k, d) {
+  const v = qa(svg, 'veh' + k)[0], n = Math.max(1, Math.round(d / 3000));
+  const A = (el, kf, o) => el && el.animate(kf, { duration: d / n, iterations: n, easing: 'ease-in-out', ...o });
+  A(v?.querySelector('.arm'), [{ transform: 'rotate(0)' }, { transform: 'rotate(-22deg)' }, { transform: 'rotate(8deg)' }, { transform: 'rotate(0)' }]);
+  A(v?.querySelector('.veh'), [{ transform: 'translateY(0)' }, { transform: 'translateY(-1.5px)' }, { transform: 'translateY(0)' }], { iterations: n * 8, duration: d / (n * 8) });
+  if (k >= 7 && k <= 10) {
+    A(svg.querySelector('.load'), [{ transform: 'translateY(0)' }, { transform: 'translateY(150px)', offset: .45 }, { transform: 'translateY(150px)', offset: .55 }, { transform: 'translateY(0)' }]);
+    A(svg.querySelector('.cable'), [{ transform: 'scaleY(1)' }, { transform: 'scaleY(2.56)', offset: .45 }, { transform: 'scaleY(2.56)', offset: .55 }, { transform: 'scaleY(1)' }]);
   }
-  const t = Math.min(performance.now() - siteAnim.start, SITE_T - 1);
-  const anims = [], A = (el, kf, o) => { if (el) anims.push(el.animate(kf, { fill: 'both', ...o })) };
-  const drive = svg.querySelector('.drive');
-  A(drive, [{ transform: 'translateX(1100px)' }, { transform: 'translateX(0)', offset: .2, easing: 'ease-in' }, { transform: 'translateX(0)', offset: .8, easing: 'ease-in' }, { transform: 'translateX(-1300px)' }], { duration: SITE_T, easing: 'linear' });
-  drive?.querySelectorAll('.whl').forEach(w => A(w, [{ transform: 'rotate(0)' }, { transform: 'rotate(-1100deg)', offset: .2 }, { transform: 'rotate(-1100deg)', offset: .8 }, { transform: 'rotate(-2400deg)' }], { duration: SITE_T }));
-  const W = { delay: 6000, duration: 3000, iterations: 6, easing: 'ease-in-out' };
-  A(drive?.querySelector('.arm'), [{ transform: 'rotate(0)' }, { transform: 'rotate(-22deg)' }, { transform: 'rotate(8deg)' }, { transform: 'rotate(0)' }], W);
-  A(drive?.querySelector('.drum'), [{ transform: 'translateX(0)' }, { transform: 'translateX(-24px)' }], { delay: 0, duration: 900, iterations: SITE_T / 900 });
-  A(drive?.querySelector('.cargo'), [{ opacity: 1 }, { opacity: 0 }], { delay: 7000, duration: 16000 });
-  A(drive?.querySelector('.veh'), [{ transform: 'translateY(0)' }, { transform: 'translateY(-1.5px)' }], { delay: 6000, duration: 300, iterations: 60, direction: 'alternate' });
-  const load = svg.querySelector('.load');
-  if (load) { A(load, [{ transform: 'translateY(0)' }, { transform: 'translateY(150px)', offset: .45 }, { transform: 'translateY(150px)', offset: .55 }, { transform: 'translateY(0)' }], { delay: 6000, duration: 4500, iterations: 4, easing: 'ease-in-out' });
-    A(svg.querySelector('.hook > path'), [{ transform: 'scaleY(1)' }, { transform: 'scaleY(2.56)', offset: .45 }, { transform: 'scaleY(2.56)', offset: .55 }, { transform: 'scaleY(1)' }], { delay: 6000, duration: 4500, iterations: 4, easing: 'ease-in-out' }) }
-  // Construction des éléments un par un pendant les travaux
-  const build = svg.querySelector('.build'), fx = build.dataset.fx, items = [...build.children];
-  const KF = { drop: [{ opacity: 0, transform: 'translateY(-46px)' }, { opacity: 1, transform: 'translateY(0)' }], rise: [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)' }], fade: [{ opacity: 0 }, { opacity: 1 }], vanish: [{ opacity: 1 }, { opacity: 0, transform: 'translateY(6px)' }] }[fx];
-  items.forEach((el, i) => A(el, KF, { delay: 6500 + i * 16500 / items.length, duration: 1100, easing: 'cubic-bezier(.2,.9,.3,1.15)' }));
-  A(document.querySelector('.run-bar'), [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: SITE_T });
-  anims.forEach(a => { a.currentTime = t });
-  const k = siteAnim.k;
-  siteTimer = setTimeout(() => { siteAnim = null; toast(`Étape terminée : ${SITE_STEPS[k][0]}`, SITE_STEPS[k][1]); render() }, SITE_T - t);
+  const cargo = v?.querySelector('.cargo');
+  if (cargo && SITE_STEPS[k]) cargo.animate([{ opacity: 1 }, { opacity: .25 }], { duration: d, fill: 'forwards' });
+}
+
+// Travaux d'une étape k, de l'avancement f0 à f1 (f1 = 1 : étape terminée)
+async function workStage(ctl, k, f0, f1, fast) {
+  const svg = ctl.svg, n = SITE_COUNT[k], sc = fast ? .55 : 1;
+  const D0 = k - 1 + f0, D1 = k - 1 + f1;
+  const i0 = Math.floor(f0 * n + 1e-9), i1 = f1 >= 1 - 1e-9 ? n : Math.floor(f1 * n + 1e-9);
+  setRun(ctl, k);
+  // Le véhicule de l'étape arrive s'il n'est pas déjà sur place
+  if (f0 <= 1e-9) {
+    await Promise.all([drive(svg, k, 'in', 5000 * sc), morphExtras(svg, siteState(D0), siteState(k - 1 + 1e-6), 1200)]);
+    if (ctl.skip) return;
+  }
+  // Pose des éléments un par un
+  const count = i1 - i0;
+  if (count > 0) {
+    const total = (f1 >= 1 - 1e-9 ? Math.min(16000, Math.max(7000, count * 900)) : Math.min(6000, Math.max(1200, count * 800))) * sc;
+    workMotion(svg, k, total);
+    const fx = SITE_FX[k], step = total / count;
+    await Promise.all(Array.from({ length: count }, (_, j) => {
+      const el = qa(svg, `it${k}_${i0 + j}`)[0];
+      return fx === 'vanish'
+        ? tween(el, { opacity: 1, transform: 'translateY(0px)' }, { opacity: 0, transform: 'translateY(8px)' }, { d: 900, delay: j * step })
+        : tween(el, SHOW[fx], { opacity: 1, transform: 'translateY(0px)' }, { d: 1100, delay: j * step, e: 'cubic-bezier(.2,.9,.3,1.15)' });
+    }));
+    if (ctl.skip) return;
+  }
+  await morphExtras(svg, siteState(Math.max(D0, k - 1 + 1e-6)), siteState(D1), 1600);
+  // Étape terminée : on range le chantier de cette étape et l'engin repart
+  if (f1 >= 1 - 1e-9) {
+    toast(`Étape terminée : ${SITE_STEPS[k][0]}`, SITE_STEPS[k][1]);
+    if (k < SITE_N) { await sleep(600 * sc); await drive(svg, k, 'out', 5000 * sc) }
+  }
+}
+
+function setRun(ctl, k) {
+  const run = ctl.el.querySelector('.site-run');
+  run.hidden = !k;
+  if (k) run.querySelector('b').textContent = `${SITE_STEPS[k][0]} — ${SITE_STEPS[k][1]}`;
+}
+
+function snapSite(ctl) {
+  ctl.D = ctl.target;
+  ctl.svg.outerHTML = siteSVG(ctl.D, ctl.name);
+  ctl.svg = ctl.el.querySelector('.site-scene');
+}
+
+async function siteRun(ctl) {
+  if (ctl.busy) return;
+  ctl.busy = true;
+  while (!ctl.skip && ctl.target > ctl.D + 1e-9) {
+    const s = Math.floor(ctl.D + 1e-9), k = s + 1, f0 = ctl.D - s;
+    const end = Math.min(ctl.target, k);
+    await workStage(ctl, k, f0, end - s, ctl.target - ctl.D > 1.2);
+    if (ctl.skip) break;
+    ctl.D = end; saveShown(ctl);
+  }
+  if (ctl.skip || ctl.target < ctl.D - 1e-9) { ctl.svg.getAnimations({ subtree: true }).forEach(a => a.cancel()); snapSite(ctl); saveShown(ctl) }
+  ctl.busy = false; ctl.skip = false; setRun(ctl, 0);
+}
+function saveShown(ctl) { const p = project(ctl.pid); if (p) { p.siteShown = ctl.D; save() } }
+
+/* --- Intégration dans la page --- */
+// Le chantier ne mesure que les sous-objectifs de « 1. Finaliser le manuscrit »
+const siteTask = () => db.tasks.find(t => t.title === '1. Finaliser le manuscrit');
+function siteProgress() {
+  const t = siteTask();
+  const total = t ? t.subgoals.length || 1 : 0;
+  const done = !t ? 0 : t.done ? total : t.subgoals.length ? t.subgoals.filter(s => s.done).length : 0;
+  const ratio = total ? done / total : 0, D = ratio * SITE_N;
+  const stage = ratio >= 1 ? SITE_N : Math.floor(D + 1e-9), frac = stage >= SITE_N ? 0 : Math.max(0, D - stage);
+  const need = stage >= SITE_N ? 0 : Math.max(1, Math.ceil((stage + 1) / SITE_N * total - 1e-9) - done);
+  return { total, done, ratio, D, stage, frac, need };
+}
+
+function siteInfo(pr) {
+  const [name, line] = SITE_STEPS[pr.stage], next = SITE_STEPS[pr.stage + 1], pct = Math.round(pr.ratio * 100);
+  return `<div class="site-top"><h2>Chantier du manuscrit</h2>${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div>
+    <div class="site-stage"><small>Étape ${pr.stage}/${SITE_N}</small>${name} · <span style="font-weight:500">${line}</span></div>
+    <div class="site-bar" title="${pct} %"><span style="width:${pct}%"></span></div>
+    <div class="site-steps">${SITE_STEPS.slice(1).map((_, i) => `<i class="${i < pr.stage ? 'on' : i === pr.stage ? 'cur' : ''}" style="--f:${Math.round(pr.frac * 100)}%" title="${SITE_STEPS[i + 1][0]}"></i>`).join('')}</div>
+    <div class="site-next">${next ? `« 1. Finaliser le manuscrit » : ${pr.done} / ${pr.total} sous-objectifs. Encore <b>${plural(pr.need, 'case')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>.` : `${pr.total} / ${pr.total} sous-objectifs. Le manuscrit est terminé, la villa aussi !`}</div>`;
+}
+
+function attachSite() {
+  const slot = app.querySelector('.site-slot'), t = siteTask();
+  if (!slot || !t) return;
+  const p = project(t.projectId), pr = siteProgress();
+  let ctl = siteCtl[p.id];
+  if (!ctl) {
+    // Premier affichage : la villa est déjà construite jusqu'à l'avancement enregistré (ou réel), sans animation
+    const D = Math.min(p.siteShown ?? pr.D, pr.D);
+    const el = document.createElement('section');
+    el.className = 'site';
+    el.innerHTML = `<div class="site-wrap">${siteSVG(D, p.name)}<div class="site-run" hidden><span>Travaux en cours · <b></b></span><button data-action="site-skip">Passer</button></div></div><div class="site-info"></div>`;
+    ctl = siteCtl[p.id] = { pid: p.id, el, svg: el.querySelector('.site-scene'), D, target: pr.D, name: p.name, busy: false, skip: false };
+  }
+  slot.replaceWith(ctl.el);
+  ctl.el.querySelector('.site-info').innerHTML = siteInfo(pr);
+  ctl.target = pr.D;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { if (ctl.D !== ctl.target) { snapSite(ctl); saveShown(ctl) } return }
+  if (ctl.target > ctl.D + 1e-9) siteRun(ctl);
+  else if (ctl.target < ctl.D - 1e-9 && !ctl.busy) { snapSite(ctl); saveShown(ctl) }
+}
+
+function replaySite() {
+  const t = siteTask(); if (!t) return;
+  const ctl = siteCtl[t.projectId]; if (!ctl || ctl.busy) return;
+  const s = Math.floor(ctl.target + 1e-9); if (!s) return;
+  // On revient au début de la dernière étape franchie, puis on rejoue la construction
+  ctl.D = s - 1; ctl.svg.outerHTML = siteSVG(ctl.D, ctl.name); ctl.svg = ctl.el.querySelector('.site-scene');
+  siteRun(ctl);
 }
 
 /* ---------- Calendrier de publication ---------- */
@@ -1230,9 +1318,6 @@ function renderProjectModal() {
       <span>${db.projects.findIndex(x => x.id === p.id) + 1} / ${db.projects.length}</span>
       <button type="button" class="btn small" data-action="move-project" data-id="1" ${db.projects.at(-1).id === p.id ? 'disabled' : ''}>Après →</button>
     </div></div>` : ''}
-    <div class="field"><label>Chantier</label>
-      <label class="check-line" style="margin:0"><input type="checkbox" name="siteOn" ${p.site !== false ? 'checked' : ''}> Afficher la villa qui se construit avec l'avancement du projet</label>
-    </div>
     <div class="field"><label>Calendrier de publication</label>
       <label class="check-line" style="margin:0"><input type="checkbox" name="calOn" ${p.calendar ? 'checked' : ''}> Afficher un calendrier de sorties (podcast, contenus…)</label>
       <div class="grid2">
@@ -1253,7 +1338,6 @@ function renderProjectModal() {
 function readProjDraft() {
   const f = dlg.querySelector('form');
   projDraft.name = f.name.value.trim();
-  projDraft.site = f.siteOn.checked;
   projDraft.calendar = f.calOn.checked ? { cadence: Number(f.calCadence.value), start: f.calStart.value || isoDate(today0()) } : null;
 }
 
@@ -1321,8 +1405,8 @@ document.addEventListener('click', async e => {
     }
     case 'color': readProjDraft(); projDraft.color = id; return renderProjectModal();
     case 'slot-add': return openSlot(id);
-    case 'site-skip': clearTimeout(siteTimer); siteAnim = null; return render();
-    case 'site-replay': { const pr = siteProgress(project(id)); if (pr.stage) siteAnim = { pid: id, k: pr.stage, start: performance.now() }; return render() }
+    case 'site-skip': { const c = Object.values(siteCtl).find(c => c.busy); if (c) { c.skip = true; c.svg.getAnimations({ subtree: true }).forEach(a => a.cancel()) } return }
+    case 'site-replay': return replaySite();
     case 'delete-project': {
       const n = db.tasks.filter(x => x.projectId === projDraft.id).length;
       if (!await ask(`Supprimer « ${projDraft.name} » et ses ${n} tâche(s) ? C'est définitif.`, { ok: 'Supprimer', danger: true })) return;
@@ -1357,8 +1441,6 @@ document.addEventListener('change', e => {
   const k = e.target.dataset.change;
   if (k === 'quick-project') e.target.form.theme.innerHTML = themeOptions(e.target.value);
   if (k === 'draft-project') { readDraft(); draft.themeId = null; renderTaskModal() }
-  // Changer ce que mesure le chantier : on repart de l'étape actuelle sans fête
-  if (k === 'site-scope') { const p = project(e.target.dataset.id); p.siteScope = e.target.value || null; p.siteSeen = undefined; commit() }
 });
 
 document.addEventListener('submit', e => {
