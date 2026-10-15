@@ -1927,10 +1927,13 @@ function brickSlots(fl, key) {
       const len = Math.hypot(bx - ax, bz - az), off = (c % 2) * L / 2, n = Math.ceil((len + off) / L);
       for (let i = 0; i < n; i++) {
         const t0 = Math.max(0, i * L - off), t1 = Math.min(len, (i + 1) * L - off); if (t1 - t0 < .08) continue;
-        const tm = (t0 + t1) / 2, x = ax + (bx - ax) * tm / len, z = az + (bz - az) * tm / len;
-        const along = side === 'front' || side === 'back' ? x : z;
-        if (OPEN3.some(o => o.f === key && o.side === side && along > o.a && along < o.b && y > o.y0 && y < o.y1)) continue;
-        row.push({ x, y, z, len: t1 - t0 - .01, rot: side === 'front' || side === 'back' ? 0 : Math.PI / 2, s: s0 + tm, side });
+        // bornes de la brique le long du mur, rognées au bord des ouvertures
+        const hz = side === 'front' || side === 'back', P = t => hz ? ax + (bx - ax) * t / len : az + (bz - az) * t / len;
+        let lo = Math.min(P(t0), P(t1)), hi = Math.max(P(t0), P(t1)), skip = false;
+        for (const o of OPEN3) if (o.f === key && o.side === side && y > o.y0 && y < o.y1 && hi > o.a && lo < o.b) { const m = (lo + hi) / 2; if (m <= o.a) hi = o.a; else if (m >= o.b) lo = o.b; else skip = true }
+        if (skip || hi - lo < .08) continue;
+        const mid = (lo + hi) / 2, x = hz ? mid : ax, z = hz ? az : mid, tm = (t0 + t1) / 2;
+        row.push({ x, y, z, len: hi - lo - .01, rot: side === 'front' || side === 'back' ? 0 : Math.PI / 2, s: s0 + tm, side });
       }
       s0 += len;
     }
@@ -2093,6 +2096,9 @@ class Site3D {
     h.faces = faces.map(([fl, side, ax, c, a0, a1, y0, y1, holes]) => {
       const plane = new T3.Plane(new T3.Vector3(0, 1, 0), -y1), m = clipMat(STD(0xffffff, { map: tx.plaster, r: .85 }), plane), g = new T3.Group();
       panelsAround(a0, a1, y0, y1, holes).forEach(([p0, p1, q0, q1]) => { const b = BX(ax === 'z' ? p1 - p0 : .04, q1 - q0, ax === 'z' ? .04 : p1 - p0, m, ax === 'z' ? (p0 + p1) / 2 : c, (q0 + q1) / 2, ax === 'z' ? c : (p0 + p1) / 2); g.add(b) });
+      // tableaux d'enduit dans les ouvertures (cachent la tranche des briques)
+      const sg = Math.sign(c), cc = c - sg * .15, J = (p, q, a, b2, w, hh) => g.add(ax === 'z' ? BX(w, hh, .3, m, p, q, cc) : BX(.3, hh, w, m, cc, q, p));
+      holes.forEach(([p0, p1, q0, q1]) => { J(p0, (q0 + q1) / 2, 0, 0, .03, q1 - q0); J(p1, (q0 + q1) / 2, 0, 0, .03, q1 - q0); J((p0 + p1) / 2, q1, 0, 0, p1 - p0, .03); if (q0 > y0 + .05) J((p0 + p1) / 2, q0, 0, 0, p1 - p0, .03) });
       g.visible = false; sc.add(g); return { g, plane, y0, y1 };
     });
     { const plane = new T3.Plane(new T3.Vector3(0, -1, 0), .35), m = clipMat(STD(0xffffff, { map: tx.stone, r: .95 }), plane); const g = new T3.Group(); BX(4, 3, .1, m, 5.2, 1.85, 4.66, g); g.visible = false; sc.add(g); h.stone = { g, plane } }
@@ -2744,6 +2750,7 @@ Site3D.prototype.updateCrane = function (dt) { this.craneFollow(dt); _upd.call(t
 
 /* ----- Chorégraphies des 20 étapes, en 3D ----- */
 const CONT3D = new Set(['string', 'dirt', 'trench', 'slab', 'course', 'fascia', 'paint', 'stone', 'slats', 'cover', 'tiles', 'coping', 'water', 'lawn', 'night', 'bulbs']);
+const PAL3 = 180; // briques par palette
 const V3 = (x, y, z) => new T3.Vector3(x, y, z);
 const carryBox = (w, h, d, c, o = {}) => { const m = BX(w, h, d, STD(c, o)); m.castShadow = true; return m };
 // Position de travail du maçon : sur l'échafaudage, face à la brique
@@ -2761,12 +2768,12 @@ Object.assign(Site3D.prototype, {
     const [mx, mz] = H3.crane, dx = g.x - mx, dz = g.z - mz;
     let phi = Math.atan2(-dz, dx); while (phi - c.phi > Math.PI) phi -= 2 * Math.PI; while (phi - c.phi < -Math.PI) phi += 2 * Math.PI;
     const r = Math.max(3, Math.min(34, Math.hypot(dx, dz))), L = Math.max(1.5, H3.craneH + .2 - g.y - .35), k = this.rate || 1;
-    c.phi += Math.max(-.22 * dt * k, Math.min(.22 * dt * k, phi - c.phi)); c.r += Math.max(-2 * dt * k, Math.min(2 * dt * k, r - c.r)); c.L += Math.max(-1.6 * dt * k, Math.min(1.6 * dt * k, L - c.L));
+    c.phi += Math.max(-.35 * dt * k, Math.min(.35 * dt * k, phi - c.phi)); c.r += Math.max(-3 * dt * k, Math.min(3 * dt * k, r - c.r)); c.L += Math.max(-2.4 * dt * k, Math.min(2.4 * dt * k, L - c.L));
   },
   async pickPallet(truck) {
     await this.craneTo(truck.x + 1.3, 2.75, truck.z);
     const top = truck.cargo.children[truck.cargo.children.length - 1]; if (top) truck.cargo.remove(top);
-    const pal = makePallet(); pal.userData.hangH = .95; this.hang(pal); this.crane.pallet = pal; pal.userData.left = 64; pal.userData.fill(1);
+    const pal = makePallet(); pal.userData.hangH = .95; this.hang(pal); this.crane.pallet = pal; pal.userData.left = PAL3; pal.userData.fill(1);
     await this.tween(this.crane, { L: 6 }, 1400, EZ.sine);
   },
   // Murs : la grue présente la palette, le maçon pose chaque brique (lancée sur une vraie trajectoire)
@@ -2776,6 +2783,8 @@ Object.assign(Site3D.prototype, {
     if (!truck) { truck = await this.arrive('flatbed', -3); for (let i = 0; i < 6; i++) { const p = makePallet(); p.position.set(-2 + (i % 3) * 1.25, 0, i < 3 ? -.6 : .6); truck.cargo.add(p) } }
     let mason = this.workers[0]; if (!mason) [mason] = await this.crew(truck, 1);
     if (c.a < 1) await this.anim(4000, e => this.setCrane(e), EZ.out);
+    // cadence : un mur entier se monte en un peu plus d'une minute
+    const total = todo.reduce((a, { it, to }) => a + Math.max(0, Math.round(to * B.slots[it.ci].length) - Math.round(it.p * B.slots[it.ci].length)), 0), gap = Math.max(25, Math.min(130, 60000 / Math.max(1, total)));
     for (const { it, to } of todo) {
       const row = B.slots[it.ci], n0 = Math.round(it.p * row.length), n1 = Math.round(to * row.length);
       if (n1 <= n0) { it.p = to; continue }
@@ -2797,11 +2806,11 @@ Object.assign(Site3D.prototype, {
         mason.pose = 'reach';
         const out = V3(sp[0] - b.x, 0, sp[2] - b.z).normalize();
         c.goal = { x: sp[0] + out.x * .9, y: b.y + 1.6, z: sp[2] + out.z * .9 };
-        const from = c.hook.position.clone(); from.y -= .35 + .8 * (c.pallet.userData.left / 64);
-        c.pallet.userData.left--; c.pallet.userData.fill(c.pallet.userData.left / 64);
+        const from = c.hook.position.clone(); from.y -= .35 + .8 * (c.pallet.userData.left / PAL3);
+        c.pallet.userData.left--; c.pallet.userData.fill(c.pallet.userData.left / PAL3);
         inAir++;
         this.throwBrick(from, V3(b.x, b.y, b.z), b.rot, .5, () => { inAir--; placed++; it.p = Math.max(it.p, placed / row.length); this.emit({ x: b.x, y: b.y, z: b.z, vx: 0, vy: .4, sv: .4, g: 1, drag: 2, life: .5, size: .25, c: [.9, .85, .8], a: .6 }, 2) });
-        await this.wait(this.rate > 1.5 ? 60 : 130);
+        await this.wait(this.rate > 1.5 ? Math.min(gap, 60) : gap);
       }
       while (inAir > 0) await this.wait(50);
       it.p = to; mason.pose = null;
