@@ -632,6 +632,24 @@ if (!db.livreMouvements) {
   db.livreMouvements = true;
   try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
 }
+// Ajout ponctuel : les 3 QR codes du livre (méditations, carnet, « Pour aller plus loin »), sur des adresses que je contrôle. Une seule fois.
+if (!db.livreQrCodes) {
+  const qr = db.tasks.find(t => /^14\. Créer les QR codes/.test(t.title));
+  if (qr) {
+    qr.title = '14. Créer les 3 QR codes du livre (méditations, carnet, pour aller plus loin)';
+    qr.subgoals.push(...[
+      'Créer les 3 adresses sur occult.academy, qui redirigent vers le contenu : /lotus/meditations, /lotus/carnet, /lotus',
+      'Décider : un seul QR pour les méditations (chapitres 10 à 16), ou 7 QR distincts, un par chapitre',
+      'Créer la page « Pour aller plus loin » (/lotus) : formation Six lotus, Éveil & Alchimie, soins, avantage lecteur',
+      'Générer le QR « Pour aller plus loin » et l\'insérer dans la page du même nom (fin du livre)',
+      'Écrire l\'adresse en clair sous chaque QR code',
+      'QR statiques et gratuits uniquement (pas de générateur « dynamique » à abonnement)',
+      'Activer le renouvellement automatique du domaine occult.academy'
+    ].map(x => ({ id: uid(), title: x, due: null, est: 0, done: false })));
+    db.livreQrCodes = true;
+    try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+  }
+}
 }
 runMigrations();
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
@@ -2255,7 +2273,7 @@ document.addEventListener('click', async e => {
       try {
         const data = JSON.parse(txt);
         if (!Array.isArray(data.projects) || !Array.isArray(data.tasks)) throw new Error();
-        db = { v: 2, livreChapitres: data.livreChapitres, livreMeditations: data.livreMeditations, livreIllustrations: data.livreIllustrations, livreVincent: data.livreVincent, livreMassages: data.livreMassages, livreRenumerotation: data.livreRenumerotation, livreChapitre21: data.livreChapitre21, livreChapitresManquants: data.livreChapitresManquants, livrePlancheCentres: data.livrePlancheCentres, livreMeditation7: data.livreMeditation7, livreCarnetPdf: data.livreCarnetPdf, livreMeditations15: data.livreMeditations15, leadQuestionnaire: data.leadQuestionnaire, livreSerpents: data.livreSerpents, livreCorpsSubtils: data.livreCorpsSubtils, livreFusion24: data.livreFusion24, livreAnnexesImages: data.livreAnnexesImages, livreAnnexesBis: data.livreAnnexesBis, livreMouvements: data.livreMouvements, projects: data.projects, themes: data.themes || [], tasks: data.tasks };
+        db = { v: 2, livreChapitres: data.livreChapitres, livreMeditations: data.livreMeditations, livreIllustrations: data.livreIllustrations, livreVincent: data.livreVincent, livreMassages: data.livreMassages, livreRenumerotation: data.livreRenumerotation, livreChapitre21: data.livreChapitre21, livreChapitresManquants: data.livreChapitresManquants, livrePlancheCentres: data.livrePlancheCentres, livreMeditation7: data.livreMeditation7, livreCarnetPdf: data.livreCarnetPdf, livreMeditations15: data.livreMeditations15, leadQuestionnaire: data.leadQuestionnaire, livreSerpents: data.livreSerpents, livreCorpsSubtils: data.livreCorpsSubtils, livreFusion24: data.livreFusion24, livreAnnexesImages: data.livreAnnexesImages, livreAnnexesBis: data.livreAnnexesBis, livreMouvements: data.livreMouvements, livreQrCodes: data.livreQrCodes, projects: data.projects, themes: data.themes || [], tasks: data.tasks };
         ui.project = db.projects[0]?.id || null; ui.view = null; commit();
       } catch { ask("Ce texte n'est pas une sauvegarde valide. Utilise le texte complet donné par « Exporter ».", { ok: 'OK', cancel: false }) }
       return;
