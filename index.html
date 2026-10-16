@@ -157,6 +157,8 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .site-steps i.cur{background:linear-gradient(90deg,#d9a640 var(--f),var(--pill) var(--f))}
 .site-run{position:absolute;z-index:1;left:10px;top:10px;right:10px;display:flex;align-items:center;gap:10px;background:rgba(20,26,25,.72);color:#fff;border-radius:10px;padding:8px 12px;font-size:13px;max-width:460px}
 .site-run span{flex:1;min-width:0}
+.site-over{position:absolute;z-index:1;right:10px;bottom:10px;background:rgba(20,26,25,.72);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600}
+.site-over[hidden],.site.compact .site-over{display:none}
 .site-run[hidden]{display:none}
 .site-run button{color:#fff;font-weight:600;font-size:12px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--chip-on);color:var(--chip-on-ink);padding:12px 18px;border-radius:12px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100vw - 32px);animation:toast 4.5s ease both}
@@ -2786,7 +2788,7 @@ class World {
     // visibilité : seules les parcelles dans le champ de la caméra sont dessinées et animées en détail
     this.cam.updateMatrixWorld(); this._pm.multiplyMatrices(this.cam.projectionMatrix, this.cam.matrixWorldInverse); this.frustum.setFromProjectionMatrix(this._pm);
     let baked1 = false;
-    for (const p of this.plots) { this._sph.center.set(p.X, 3, 3); p.root.visible = this.frustum.intersectsSphere(this._sph); p.tick(dt, p.root.visible); if (!baked1 && !p.baked && p !== this.active && !p.anims.length) { p.bake(); baked1 = true } }
+    for (const p of this.plots) { this._sph.center.set(p.X, 3, 3); p.root.visible = this.frustum.intersectsSphere(this._sph); p.tick(dt, p.root.visible); if (!baked1 && !p.baked && !p.busy && !p.anims.length && (p !== this.active || (p.idle = (p.idle || 0) + dt) > 1.5)) { p.bake(); baked1 = true } if (p.anims.length || p.busy) p.idle = 0 }
     // la lumière du soir suit la parcelle affichée (allumée quand sa construction est finie)
     const tgt = this.active ? this.active.lit : 0;
     if (Math.abs(tgt - this.night) > 1e-3) this.setNight(this.night + (tgt - this.night) * Math.min(1, dt * 1.4));
@@ -2909,7 +2911,7 @@ Object.assign(Site3D.prototype, {
   setLights(n) { if (!this.h) return; const L = n * (this.lit || 0); this.warmM.emissiveIntensity = L * 1.7; this.h.furn[1].children[1].material.emissiveIntensity = L * 2; this.bulbM.emissiveIntensity = L * 2.2; this.setLightsKind(L) },
   tick(dt, visible) {
     this.t += dt;
-    if (this.baked && (this.anims.length || this.W.active === this)) this.unbake();
+    if (this.baked && (this.anims.length || this.busy)) this.unbake();
     if (this.baked) { if (visible) { for (const v of this.vehicles) v.update(dt, this); this.updateResidents(dt) } return }
     for (const a of [...this.anims]) { a.e += dt * 1000 * (this.rate || 1); const p = clamp01(a.e / a.ms); a.fn(a.ease(p), p); if (p >= 1) { this.anims.splice(this.anims.indexOf(a), 1); a.res() } }
     this.syncItems(false); this.syncClip();
@@ -4035,7 +4037,7 @@ function setRun(ctl, k) {
 function snapSite(ctl) { ctl.D = ctl.target; ctl.S.skip = false; ctl.S.apply(ctl.D) }
 async function siteRun(ctl) {
   if (ctl.busy) return;
-  ctl.busy = true;
+  ctl.busy = true; ctl.S.busy = true; ctl.S.unbake && ctl.S.unbake();
   while (!ctl.skip && ctl.target > ctl.D + 1e-9) {
     const s = Math.floor(ctl.D + 1e-9), k = s + 1, f0 = ctl.D - s, end = Math.min(ctl.target, k);
     // Peu de sous-objectifs : chaque case fait avancer plusieurs étapes, jouées plus vite. Beaucoup : une fraction d'étape, jouée en détail.
@@ -4044,7 +4046,7 @@ async function siteRun(ctl) {
     ctl.D = end; saveShown(ctl);
   }
   if (ctl.skip || ctl.target < ctl.D - 1e-9) { snapSite(ctl); saveShown(ctl) }
-  ctl.busy = false; ctl.skip = false; ctl.S.skip = false; ctl.stage = 0; setRun(ctl, 0);
+  ctl.busy = false; ctl.S.busy = false; ctl.skip = false; ctl.S.skip = false; ctl.stage = 0; setRun(ctl, 0);
 }
 function saveShown(ctl) { const t = findTask(ctl.tid); if (t && t.site) { t.site.shown = ctl.D; save() } }
 
@@ -4315,7 +4317,8 @@ function renderTaskModal() {
     </div>
     ${t.subgoals.length ? '<p class="hint">Avec des sous-objectifs, l\'estimation est la somme de leurs durées.</p>' : ''}
     <label class="check-line"><input type="checkbox" name="flagged" ${t.flagged ? 'checked' : ''}> Priorité (drapeau rouge)</label>
-    <label class="check-line"><input type="checkbox" name="site" ${t.site?.on ? 'checked' : ''}> Chantier 3D : une villa se construit au fil des sous-objectifs cochés</label>
+    <div class="check-line"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="site" ${t.site?.on ? 'checked' : ''}> Construction 3D, qui avance au fil des sous-objectifs :</label>
+      <select name="siteKind" aria-label="Type de construction">${KIND_ORDER.map(k => `<option value="${k}" ${(t.site?.kind || 'villa') === k ? 'selected' : ''}>${KINDS[k].label}</option>`).join('')}</select></div>
 
     <div class="field"><label>Sous-objectifs</label></div>
     ${t.subgoals.length ? `<div class="sub-head"><span></span><span>Intitulé</span><span>Échéance</span><span>Durée</span><span></span></div>` : ''}
@@ -4348,7 +4351,7 @@ function readDraft() {
   draft.pub = f.pub.value || null;
   if (!f.est.disabled) draft.est = parseDur(f.est.value);
   draft.flagged = f.flagged.checked;
-  if (f.site.checked) draft.site = { shown: null, ...draft.site, on: true }; else if (draft.site) draft.site.on = false;
+  if (f.site.checked) { const k = f.siteKind.value; draft.site = { shown: null, since: Date.now(), ...draft.site, on: true }; if (draft.site.kind !== k) { draft.site.kind = k; draft.site.shown = null } } else if (draft.site) draft.site.on = false;
   f.querySelectorAll('.sub-edit').forEach(row => {
     const s = draft.subgoals.find(x => x.id === row.dataset.sub);
     const v = k => row.querySelector(`[data-f="${k}"]`);
