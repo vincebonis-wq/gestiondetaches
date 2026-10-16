@@ -1880,7 +1880,7 @@ const T3 = window.THREE;
 const G = 9.81;
 const tex = (w, h, draw, rep) => {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
-  const t = new T3.CanvasTexture(c); t.encoding = T3.sRGBEncoding; t.anisotropy = 4;
+  const t = new T3.CanvasTexture(c); t.encoding = T3.sRGBEncoding; t.anisotropy = 8;
   if (rep) { t.wrapS = t.wrapT = T3.RepeatWrapping; t.repeat.set(rep[0], rep[1]) }
   return t;
 };
@@ -1891,11 +1891,11 @@ const noiseFill = (g, w, h, base, vary, n, sz) => {
 };
 function siteTextures() {
   return {
-    grass: tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#7fae55', ['#6c9a45', '#93c063', '#5d8a3c', '#a4c876'], 2600, 3), [60, 60]),
-    dirt: tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#b48a58', ['#9c7446', '#c79c66', '#8a6540', '#d2ad7c'], 3000, 3), [6, 6]),
-    asphalt: tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#4f5459', ['#44494e', '#5c6166', '#3d4246'], 3000, 2), [40, 2]),
-    concrete: tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#b9bcbf', ['#a9acaf', '#c8cbce', '#9fa3a6'], 2500, 2), [3, 3]),
-    plaster: tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#f4f1ea', ['#ebe6dc', '#faf8f3', '#e4ded2'], 1500, 2), [3, 2]),
+    grass: tex(512, 512, (g, w, h) => noiseFill(g, w, h, '#7fae55', ['#6c9a45', '#93c063', '#5d8a3c', '#a4c876'], 2600, 3), [60, 60]),
+    dirt: tex(512, 512, (g, w, h) => noiseFill(g, w, h, '#b48a58', ['#9c7446', '#c79c66', '#8a6540', '#d2ad7c'], 3000, 3), [6, 6]),
+    asphalt: tex(512, 512, (g, w, h) => noiseFill(g, w, h, '#4f5459', ['#44494e', '#5c6166', '#3d4246'], 3000, 2), [40, 2]),
+    concrete: tex(512, 512, (g, w, h) => noiseFill(g, w, h, '#b9bcbf', ['#a9acaf', '#c8cbce', '#9fa3a6'], 2500, 2), [3, 3]),
+    plaster: tex(512, 512, (g, w, h) => noiseFill(g, w, h, '#f4f1ea', ['#ebe6dc', '#faf8f3', '#e4ded2'], 1500, 2), [3, 2]),
     wood: tex(256, 256, (g, w, h) => { g.fillStyle = '#b07a4a'; g.fillRect(0, 0, w, h); for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#a06c3e' : '#bc8654'; g.fillRect(0, i * 16, w, 15); g.fillStyle = 'rgba(70,40,20,.35)'; g.fillRect(0, i * 16 + 15, w, 1); for (let k = 0; k < 6; k++) { g.fillStyle = 'rgba(60,35,15,.18)'; g.fillRect(Math.random() * w, i * 16 + Math.random() * 14, 30 + Math.random() * 60, 1) } } }, [1, 1]),
     stone: tex(256, 256, (g, w, h) => { g.fillStyle = '#cbbd9f'; g.fillRect(0, 0, w, h); for (let r = 0; r < 8; r++) for (let c = 0; c < 5; c++) { const x = c * 56 - (r % 2) * 28 + Math.random() * 4, y = r * 32 + Math.random() * 3; g.fillStyle = ['#d9cdb6', '#cfc1a6', '#e0d5bf', '#c4b597'][(r + c) % 4]; g.fillRect(x + 2, y + 2, 52, 28) } }, [1, 1]),
     tiles: tex(128, 128, (g, w, h) => { g.fillStyle = '#e8f6fa'; g.fillRect(0, 0, w, h); for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = (x + y) % 3 ? '#7fcbe0' : '#6abed8'; g.fillRect(x * 16 + 1, y * 16 + 1, 14, 14) } }, [10, 2]),
@@ -2436,10 +2436,10 @@ const KTX = {};
 function kindTex() {
   if (KTX.tiles) return KTX;
   KTX.tiles = tex(256, 256, (g, w, h) => { g.fillStyle = '#8f3f22'; g.fillRect(0, 0, w, h); for (let r = 0; r < 12; r++) for (let c = 0; c < 8; c++) { const x = c * 32 + (r % 2) * 16, y = r * 22, gr = g.createLinearGradient(x, 0, x + 30, 0); const t = ['#c4643a', '#b8582f', '#cf7247', '#a94f2a'][(r * 3 + c) % 4]; gr.addColorStop(0, '#7d3418'); gr.addColorStop(.35, t); gr.addColorStop(.7, t); gr.addColorStop(1, '#7d3418'); g.fillStyle = gr; g.fillRect(x, y, 30, 24) } }, [3, 2]);
-  KTX.green = tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#5f8f3e', ['#4f7d32', '#77a64c', '#86b35a', '#c9b54a', '#e3e0d0'], 4200, 4), [3, 3]);
+  KTX.green = tex(512, 512, (g, w, h) => noiseFill(g, w, h, '#5f8f3e', ['#4f7d32', '#77a64c', '#86b35a', '#c9b54a', '#e3e0d0'], 4200, 4), [3, 3]);
   KTX.pv = tex(128, 128, (g, w, h) => { g.fillStyle = '#c9ced3'; g.fillRect(0, 0, w, h); for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { g.fillStyle = '#1d3554'; g.fillRect(c * 32 + 1, r * 32 + 1, 30, 30); g.fillStyle = 'rgba(120,170,230,.35)'; g.fillRect(c * 32 + 2, r * 32 + 2, 12, 28) } });
   KTX.stripes = tex(128, 32, (g, w, h) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#f4efe4' : '#2f6e5a'; g.fillRect(i * 16, 0, 16, h) } });
-  KTX.pebble = tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#8a7a62', ['#6e624f', '#a59478', '#5b5244', '#b8a98c'], 3000, 7), [4, 2]);
+  KTX.pebble = tex(512, 512, (g, w, h) => noiseFill(g, w, h, '#8a7a62', ['#6e624f', '#a59478', '#5b5244', '#b8a98c'], 3000, 7), [4, 2]);
   return KTX;
 }
 Object.assign(Site3D.prototype, {
@@ -2549,7 +2549,7 @@ class World {
     this.cv = canvas; this.t = 0; this.plots = []; this.active = null; this.night = 0; this.over = false; this.rng = seeded('la côte');
     this.tx = siteTextures(); this.tx.grass.repeat.set(1, 1); this.tx.dirt.repeat.set(1, 1); this.tx.asphalt.repeat.set(1, 1);
     const R = this.R = new T3.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.pr = Math.min(devicePixelRatio || 1, 1.75); R.setPixelRatio(this.pr); R.outputEncoding = T3.sRGBEncoding;
+    this.pr = Math.min(Math.max(devicePixelRatio || 1, 1.25), 2); R.setPixelRatio(this.pr); R.outputEncoding = T3.sRGBEncoding;
     R.toneMapping = T3.ACESFilmicToneMapping; R.toneMappingExposure = 1;
     R.shadowMap.enabled = true; R.shadowMap.type = T3.PCFSoftShadowMap; R.localClippingEnabled = true;
     this.scene = new T3.Scene();
@@ -2568,7 +2568,7 @@ class World {
   initPost() {
     try {
       const gl2 = this.R.capabilities.isWebGL2, RT = gl2 && T3.WebGLMultisampleRenderTarget ? T3.WebGLMultisampleRenderTarget : T3.WebGLRenderTarget;
-      const rt = this.rt = new RT(4, 4, { depthBuffer: true }); rt.texture.encoding = T3.sRGBEncoding; if (rt.samples !== undefined) rt.samples = 4;
+      const rt = this.rt = new RT(4, 4, { depthBuffer: true }); rt.texture.encoding = T3.sRGBEncoding; rt.texture.minFilter = rt.texture.magFilter = T3.NearestFilter; rt.texture.generateMipmaps = false; if (rt.samples !== undefined) rt.samples = 4;
       rt.depthTexture = new T3.DepthTexture(4, 4); rt.depthTexture.type = T3.UnsignedIntType;
       this.postU = { tC: { value: rt.texture }, tD: { value: rt.depthTexture }, uPx: { value: new T3.Vector2(1 / 4, 1 / 4) }, uNear: { value: this.cam.near }, uFar: { value: this.cam.far }, uW: { value: 1 } };
       const mat = new T3.ShaderMaterial({ uniforms: this.postU, depthTest: false, depthWrite: false, toneMapped: false,
@@ -2577,10 +2577,12 @@ class World {
           float Z(vec2 p){ float d = texture2D(tD, p).x; return uNear * uFar / (uFar - d * (uFar - uNear)); }
           void main(){
             vec4 c = texture2D(tC, vUv); vec2 o = uPx * uW;
+            vec3 nb = texture2D(tC, vUv + vec2(uPx.x, 0.)).rgb + texture2D(tC, vUv - vec2(uPx.x, 0.)).rgb + texture2D(tC, vUv + vec2(0., uPx.y)).rgb + texture2D(tC, vUv - vec2(0., uPx.y)).rgb;
+            c.rgb = clamp(c.rgb + (c.rgb - nb * .25) * .55, 0., 1.);
             float z = Z(vUv), l = Z(vUv - vec2(o.x, 0.)), r = Z(vUv + vec2(o.x, 0.)), u = Z(vUv + vec2(0., o.y)), d = Z(vUv - vec2(0., o.y));
             float sil = max(max(abs(l - z), abs(r - z)), max(abs(u - z), abs(d - z))) / z;
             float crease = (abs(l + r - 2. * z) + abs(u + d - 2. * z)) / z;
-            float e = max(smoothstep(.03, .09, sil), smoothstep(.012, .04, crease) * .7) * (1. - smoothstep(140., 420., z));
+            float e = max(smoothstep(.025, .06, sil), smoothstep(.01, .03, crease) * .75) * (1. - smoothstep(140., 420., z));
             gl_FragColor = vec4(mix(c.rgb, c.rgb * .16 + vec3(.03, .025, .04), e * .95), 1.);
           }` });
       this.postScene = new T3.Scene(); const q = new T3.Mesh(new T3.PlaneGeometry(2, 2), mat); q.frustumCulled = false; this.postScene.add(q); this.postCam = new T3.Camera();
@@ -2671,7 +2673,7 @@ class World {
   /* ----- Terrain vallonné, route, sentier, végétation, rochers, fleurs ----- */
   buildLand() {
     const sc = this.scene, P = H3.pool, tx = this.tx, rng = this.rng, R = (a, b) => a + rng() * (b - a);
-    const det = tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#e4e4e4', ['#cdcdcd', '#f4f4f4', '#bcbcbc', '#d8d8d8'], 3200, 3)); det.wrapS = det.wrapT = T3.RepeatWrapping; this.tx.det = det;
+    const det = tex(512, 512, (g, w, h) => noiseFill(g, w, h, '#e4e4e4', ['#cdcdcd', '#f4f4f4', '#bcbcbc', '#d8d8d8'], 3200, 3)); det.wrapS = det.wrapT = T3.RepeatWrapping; this.tx.det = det;
     this.grassMat = STD(GRASS0, { map: det, r: .95 });
     // chaque parcelle : sol plat percé à l'endroit de la piscine, recouvert tant qu'elle est libre ; panneau « À vendre »
     this.slotSigns = []; this.slotCovers = [];
@@ -2809,7 +2811,7 @@ class World {
   resize() {
     const r = this.cv.parentElement.getBoundingClientRect(), w = Math.max(320, r.width || 800), h = Math.round(w * SH / SW);
     this.R.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix();
-    if (this.post) { const b = this.R.getDrawingBufferSize(new T3.Vector2()); this.rt.setSize(b.x, b.y); this.postU.uPx.value.set(1 / b.x, 1 / b.y); this.postU.uW.value = Math.max(1.2, b.y / 430) }
+    if (this.post) { const b = this.R.getDrawingBufferSize(new T3.Vector2()); this.rt.setSize(b.x, b.y); this.postU.uPx.value.set(1 / b.x, 1 / b.y); this.postU.uW.value = Math.max(1, this.pr * .8) }
     this.ptScale = this.R.getDrawingBufferSize(new T3.Vector2()).y * .5 / Math.tan(this.cam.fov * Math.PI / 360) / (devicePixelRatio > 1 ? 1.3 : 1);
     for (const p of this.plots) p.fxScale(this.ptScale);
   }
@@ -2825,8 +2827,10 @@ class World {
     const f = this.fps; f.n++; f.t += dt;
     if (f.t < 2) return;
     const fps = f.n / f.t; f.n = 0; f.t = 0;
-    if (fps < 42 && this.pr > 1) { this.pr = Math.max(1, this.pr - .25); this.R.setPixelRatio(this.pr); this.resize() }
-    else if (fps < 30 && !this.lowShadows) { this.lowShadows = true; this.sun.shadow.mapSize.set(1024, 1024); this.sun.shadow.map?.dispose(); this.sun.shadow.map = null }
+    // d'abord les ombres, puis (seulement si ça rame vraiment, plusieurs fois de suite) la définition
+    f.slow = fps < 32 ? (f.slow || 0) + 1 : 0;
+    if (f.slow >= 1 && !this.lowShadows) { this.lowShadows = true; this.sun.shadow.mapSize.set(1024, 1024); this.sun.shadow.map?.dispose(); this.sun.shadow.map = null; f.slow = 0 }
+    else if (f.slow >= 3 && this.pr > 1.25) { this.pr = Math.max(1.25, this.pr - .25); this.R.setPixelRatio(this.pr); this.resize(); f.slow = 0 }
   }
   loop(now) {
     if (!this.cv.isConnected) { this.running = false; return }
