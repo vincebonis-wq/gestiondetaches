@@ -131,6 +131,7 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .site{border:1px solid var(--line);background:var(--card);border-radius:var(--radius);overflow:hidden;margin-bottom:28px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20;transition:box-shadow .3s}
 .site-wrap{position:relative;flex:none;transition:width .35s ease,height .35s ease}
 .site-scene{display:block;width:100%;height:100%;background:#bfe6f7}
+.site-wrap::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(20,24,30,.28) 100%)}
 /* Mode compact : la villa reste visible en haut pendant qu'on fait défiler les tâches */
 .site.compact{display:flex;align-items:center;box-shadow:0 10px 28px rgba(0,0,0,.16)}
 .site.compact .site-info{flex:1;min-width:0;padding:8px 12px;gap:5px}
@@ -154,7 +155,7 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .site-steps i{height:6px;border-radius:3px;background:var(--pill)}
 .site-steps i.on{background:#d9a640}
 .site-steps i.cur{background:linear-gradient(90deg,#d9a640 var(--f),var(--pill) var(--f))}
-.site-run{position:absolute;left:10px;top:10px;right:10px;display:flex;align-items:center;gap:10px;background:rgba(20,26,25,.72);color:#fff;border-radius:10px;padding:8px 12px;font-size:13px;max-width:460px}
+.site-run{position:absolute;z-index:1;left:10px;top:10px;right:10px;display:flex;align-items:center;gap:10px;background:rgba(20,26,25,.72);color:#fff;border-radius:10px;padding:8px 12px;font-size:13px;max-width:460px}
 .site-run span{flex:1;min-width:0}
 .site-run[hidden]{display:none}
 .site-run button{color:#fff;font-weight:600;font-size:12px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px}
@@ -651,6 +652,13 @@ if (!db.livreQrCodes) {
     try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
   }
 }
+// Chantier 3D : il devient une option de chaque tâche ; le manuscrit garde le sien et son avancement affiché. Une seule fois.
+if (!db.siteTaches) {
+  const m = db.tasks.find(t => t.title === '1. Finaliser le manuscrit');
+  if (m && !m.site) { const p = db.projects.find(x => x.id === m.projectId); m.site = { on: true, shown: p?.siteShown ?? null } }
+  db.siteTaches = true;
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+}
 }
 runMigrations();
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
@@ -658,7 +666,7 @@ try { Object.assign(ui, JSON.parse(localStorage.getItem(KEY + '.ui')) || {}, { e
 if (!db.projects.some(p => p.id === ui.project)) ui.project = db.projects[0]?.id || null;
 
 function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(db)); localStorage.setItem(KEY + '.ui', JSON.stringify({ project: ui.project, view: ui.view, open: ui.open })) } catch (e) {}
+  try { localStorage.setItem(KEY, JSON.stringify(db)); localStorage.setItem(KEY + '.ui', JSON.stringify({ project: ui.project, view: ui.view, open: ui.open, siteSel: ui.siteSel })) } catch (e) {}
   schedulePush();
 }
 
@@ -861,7 +869,7 @@ function renderProject(p) {
   return `
     <div class="proj-tools"><button class="linkbtn" data-action="edit-project" data-id="${p.id}">Modifier le projet</button></div>
     <div class="objective" style="--c:${p.color}"><small>Objectif à 90 jours</small>${objective}</div>
-    ${siteTask()?.projectId === p.id ? '<div class="site-slot"></div>' : ''}
+    ${siteTasksOf(p.id).length ? '<div class="site-slot"></div>' : ''}
     ${p.calendar ? renderCalendar(p, tasks) : ''}
 
     <section class="week">
@@ -1192,7 +1200,7 @@ class SiteScene {
   start() { if (!this.running) { this.running = true; this.last = performance.now(); requestAnimationFrame(this.loop) } }
   loop(now) {
     if (!this.cv.isConnected) { this.running = false; return }
-    const dt = Math.min(.05, (now - this.last) / 1000); this.last = now; this.t += dt;
+    const dt = Math.max(0, Math.min(.05, (now - this.last) / 1000)); this.last = now; this.t += dt;
     for (const a of [...this.anims]) {
       a.e += dt * 1000 * (this.rate || 1); const p = clamp01(a.e / a.ms); a.fn(a.ease(p), p);
       if (p >= 1) { this.anims.splice(this.anims.indexOf(a), 1); a.res() }
@@ -1714,16 +1722,37 @@ const SITE_JOBS = {
       await S.tween(ex, { tx: ex.x - 40, ty: ex.y - 120 }, 800);
     }
   },
-  14: { // Carreleur
-    park(S) { S.vehicles.push(mkVeh('van', 650, { label: 'CARRELAGE', color: '#2a8a9a' })); const w = S.worker(500, 400); w.a = 1; w.pose = 'kneel' },
+  14: { // Le carreleur descend dans le bassin par l'échelle, carrelle section par section, remonte, puis pose les margelles une à une
+    park(S) { S.addVehicle('van', 6, H3.lane, 0, { label: 'CARRELAGE', color: 0x2a8a9a }); const P = H3.pool, w = S.addWorker(P.x0 + .9, P.z0 + .6, -P.depth); w.pose = 'kneel' },
     async work(S, todo) {
-      let v = S.vehicles.find(x => x.type === 'van'), w = S.workers[0];
-      if (!v) { [v] = await bringIn(S, [['van', 650, { label: 'CARRELAGE', color: '#2a8a9a' }]]); [w] = await crew(S, v, 1) }
+      let v = S.vehicles.find(x => x.type === 'van'), w = S.workers[0]; const P = H3.pool;
+      if (!v) { v = await S.arrive('van', 6, { label: 'CARRELAGE', color: 0x2a8a9a }); [w] = await S.crew(v, 1) }
+      S.focus(2.5, -.5, 9, 24, .55);
       for (const { it, to } of todo) {
-        w.carry = C.tile; await S.walk(w, it.x + 10, 400, 80); w.carry = null; w.pose = 'kneel';
-        const p0 = it.p; await S.anim(3200 * (to - p0) + 200, e => { it.p = lerp(p0, to, e); w.x = (it.kind === 'coping' ? it.x : it.x) + it.w * it.p }, EZ.lin);
-        w.pose = null;
+        const p0 = it.p;
+        if (it.kind === 'tiles') {
+          if (w.y > -1) { w.setCarry(carryBox(.5, .3, .4, 0x8fd3e6)); await S.poolIn(w); w.setCarry(null) }
+          const n = Math.max(1, Math.ceil((to - p0) * 26));
+          for (let i = 0; i < n; i++) {
+            const a = lerp(p0, to, i / n), b = lerp(p0, to, (i + 1) / n), x = P.x0 + .45 + (P.x1 - P.x0 - .9) * b, z = i % 2 ? P.z0 + .9 : P.z1 - .9;
+            w.pose = null; await S.seg1(w, x - .35, z, -P.depth, 'walk'); w.tyaw = Math.PI / 2; w.pose = 'kneel';
+            await S.anim(650, e => { it.p = lerp(a, b, e) }, EZ.io);
+          }
+          w.pose = null; if (to >= 1) await S.poolOut(w);
+        } else {
+          if (w.y < -.5) await S.poolOut(w);
+          const N = S.h.coping.length, n0 = Math.round(p0 * N), n1 = Math.round(to * N), cx = (P.x0 + P.x1) / 2, cz = (P.z0 + P.z1) / 2;
+          for (let j = n0; j < n1; j++) {
+            const c = S.h.coping[j].position, side = Math.abs(c.z - P.z0) < .5 ? [0, -1] : Math.abs(c.z - P.z1) < .5 ? [0, 1] : [Math.sign(c.x - cx), 0];
+            w.setCarry(carryBox(1, .08, .5, 0xf1ede4));
+            await S.walk(w, c.x + side[0] * .75, c.z + side[1] * .75, 0); w.setCarry(null);
+            w.tyaw = Math.atan2(c.x - w.x, c.z - w.z); w.pose = 'kneel';
+            await S.anim(420, e => { it.p = (j + e) / N }, EZ.out); it.p = (j + 1) / N; w.pose = null;
+          }
+        }
+        it.p = to;
       }
+      if (w.y < -.5) await S.poolOut(w);
     }
   },
   15: { // Le camion-citerne remplit la piscine
@@ -1749,16 +1778,20 @@ const SITE_JOBS = {
       await teams(S, ws, todo, (w, { it }) => fetchPlace(S, w, v, it, () => S.anim(it.kind === 'parasol' ? 1400 : 700, e => { it.p = e }, it.kind === 'parasol' ? EZ.lin : EZ.out), it.kind === 'lounger' ? C.lounger : C.plank, [it.x + (it.w || 30) / 2, 400]));
     }
   },
-  17: { // Les déménageurs installent les meubles
-    park(S) { S.vehicles.push(mkVeh('box', 470)); S.worker(360, 336, { vest: '#9b4dbb' }).a = 1 },
+  17: { // Les déménageurs entrent par la porte, montent l'escalier pour l'étage et posent chaque meuble à sa place
+    park(S) { S.addVehicle('box', -5); S.addWorker(-6, 7, 0, { vest: 0x9b4dbb }) },
     async work(S, todo) {
       let v = S.vehicles.find(x => x.type === 'box'), ws = S.workers;
-      if (!v) { [v] = await bringIn(S, [['box', 470]]); ws = await crew(S, v, 2, { vest: '#9b4dbb' }) }
-      await teams(S, ws, todo, async (w, { it }) => {
-        await S.walk(w, v.x + 120, ROAD - 2, 90); w.carry = C.box;
-        await S.walk(w, 323, 336, 70); await S.tween(w, { a: .2 }, 300); w.carry = null;
-        await S.anim(900, e => { it.p = e }); await S.tween(w, { a: 1 }, 300);
+      if (!v) { v = await S.arrive('box', -5); ws = await S.crew(v, 2, { vest: 0x9b4dbb }) }
+      S.focus(-3, 2, 6, 24, .45);
+      await teams3(S, ws, todo, async (w, { it }) => {
+        const f = S.h.furn[S.items[17].indexOf(it)], up = f.position.y > 3;
+        await S.walk(w, v.x + 4.4, v.z - .2, 0); w.setCarry(carryBox(.7, .55, .6, 0xc99a62));
+        await S.walk(w, f.position.x + .2, f.position.z - .9, up ? 3.65 : 0);
+        w.tyaw = Math.atan2(f.position.x - w.x, f.position.z - w.z); w.setCarry(null); w.pose = 'reach';
+        await S.anim(1200, e => { it.p = e }, EZ.out); w.pose = null;
       });
+      await Promise.all(ws.map(w => S.walk(w, v.x + 3 + rnd(-.5, .5), v.z - 1.8, 0)));
     }
   },
   18: { // Jardin : gazon en rouleau puis plantations
@@ -1942,9 +1975,31 @@ function brickSlots(fl, key) {
   return out;
 }
 
+// Relief autour de la parcelle : plat sur le terrain et la route, collines douces ailleurs (moins hautes côté mer)
+const GRASS0 = 0x67984a; // herbe de la parcelle (et des abords, pour qu'aucune couture ne se voie)
+const PLOT0 = { x0: -22, x1: 22, z0: -14, z1: 14.85 };
+const sstep = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t) };
+function terrainH(x, z) {
+  const P = H3.pool;
+  if (x > P.x0 - 3.6 && x < P.x1 + 3.6 && z > P.z0 - 3.6 && z < P.z1 + 3.6) return -4;
+  const dx = Math.max(PLOT0.x0 - x, 0, x - PLOT0.x1), dz = Math.max(PLOT0.z0 - z, 0, z - PLOT0.z1), d = Math.min(Math.hypot(dx, dz), Math.max(0, Math.abs(z - 17.6) - 3.4));
+  if (d <= 0) return -.04;
+  const n = vnoise(x * .021, 1.3, z * .021) * .65 + vnoise(x * .063, 4.1, z * .063) * .35;
+  const amp = lerp(.18, 1, sstep(-25, 12, z)) * sstep(-52, -34, z);
+  return -.04 + n * 10 * amp * sstep(0, 40, d) + sstep(40, 260, z) * 38 * vnoise(x * .008, 9, z * .008);
+}
+// Générateur pseudo-aléatoire reproductible (chaque tâche a sa villa, toujours la même)
+function seeded(str) { let h = 1779033703 ^ String(str).length; for (const c of String(str)) { h = Math.imul(h ^ c.charCodeAt(0), 3432918353); h = h << 13 | h >>> 19 } return () => { h = Math.imul(h ^ h >>> 16, 2246822507); h = Math.imul(h ^ h >>> 13, 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296 } }
+const VILLA_STYLES = [
+  { name: 'blanche', plaster: 0xf6f3ec, wood: 0xb07a4a, roof: 0x3a3f44, car: 0xc8323c, tiles: 0x6abed8 },
+  { name: 'sable', plaster: 0xeedfc6, wood: 0x7a5236, roof: 0x4a4038, car: 0x2a5e8a, tiles: 0x4fb3a8 },
+  { name: 'galet', plaster: 0xe4e2dd, wood: 0x3b3e42, roof: 0x2c3034, car: 0xd8d4c8, tiles: 0x5aa7d9 },
+  { name: 'terracotta', plaster: 0xf1e2d2, wood: 0x9a5a36, roof: 0x5a3a2c, car: 0x2f5e4e, tiles: 0x63c0c9 }
+];
 class Site3D {
-  constructor(canvas, name) {
-    this.cv = canvas; this.name = name; this.anims = []; this.t = 0; this.skip = false; this.rate = 1;
+  constructor(canvas, name, seed = name) {
+    this.rng = seeded(seed); this.style = VILLA_STYLES[Math.floor(seeded(seed + '#style')() * VILLA_STYLES.length)];
+    this.cv = canvas; this.name = String(name || '').slice(0, 22); this.anims = []; this.t = 0; this.skip = false; this.rate = 1;
     this.jobs = JOBS3D; this.cont = CONT3D; this.vehicles = []; this.workers = []; this.dirty = true;
     this.tx = siteTextures(); this.tx.grass.repeat.set(1, 1); this.tx.dirt.repeat.set(1, 1); this.tx.asphalt.repeat.set(1, 1);
     const R = this.R = new T3.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -1955,7 +2010,7 @@ class Site3D {
     this.cam = new T3.PerspectiveCamera(30, SW / SH, .5, 1500);
     this.view = { yaw: .7, pitch: .32, dist: 52, tx: 0, ty: 2.6, tz: 3, cyaw: .7, cpitch: .32, cdist: 52, ctx: 0, cty: 2.6, ctz: 3, user: -99 };
     this.buildSky(); this.buildLand(); this.buildHouse(); this.buildCrane(); this.buildScaffold(); this.initFx();
-    this.items = this.defineItems(); sites3dSlabItems(this);
+    this.items = this.defineItems(); sites3dSlabItems(this); this.applyStyle();
     this.night = 0; this.setNight(0);
     this.resize(); this.bindControls();
     this.loop = this.loop.bind(this);
@@ -1963,7 +2018,7 @@ class Site3D {
   /* ----- Ciel, lumière, mer ----- */
   buildSky() {
     const sc = this.scene;
-    this.sunDir = new T3.Vector3(.5, .72, .48).normalize();
+    this.sunDir = new T3.Vector3(.55, .6, .5).normalize();
     this.skyU = { uSun: { value: this.sunDir.clone() }, uNight: { value: 0 } };
     const skyMat = new T3.ShaderMaterial({
       uniforms: this.skyU, side: T3.BackSide, depthWrite: false, fog: false,
@@ -2010,27 +2065,62 @@ class Site3D {
     }));
     sea.rotation.x = -Math.PI / 2; sea.position.set(0, -7, -480); sc.add(sea); this.sea = sea;
   }
-  /* ----- Terrain, falaise, route, végétation ----- */
+  /* ----- Terrain vallonné, route, végétation, rochers, fleurs ----- */
   buildLand() {
-    const sc = this.scene, P = H3.pool, tx = this.tx;
-    this.grassMat = STD(0xd2e2c0, { map: tx.grass, r: .95 });
-    sc.add(groundRect(-420, -50, 420, 320, [P.x0, P.z0, P.x1, P.z1], this.grassMat));
+    const sc = this.scene, P = H3.pool, tx = this.tx, rng = this.rng, R = (a, b) => a + rng() * (b - a);
+    const det = tex(256, 256, (g, w, h) => noiseFill(g, w, h, '#e4e4e4', ['#cdcdcd', '#f4f4f4', '#bcbcbc', '#d8d8d8'], 3200, 3)); det.wrapS = det.wrapT = T3.RepeatWrapping; this.tx.det = det;
+    this.grassMat = STD(GRASS0, { map: det, r: .95 });
+    // la parcelle : sol plat, percé à l'endroit de la piscine
+    sc.add(groundRect(PLOT0.x0, PLOT0.z0, PLOT0.x1, PLOT0.z1, [P.x0, P.z0, P.x1, P.z1], this.grassMat));
+    // collines tout autour : relief, teintes d'herbe, zones sèches et rocailleuses
+    const geo = new T3.PlaneGeometry(700, 360, 220, 120); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, 130);
+    const pos = geo.attributes.position, uv = geo.attributes.uv, n = pos.count, col = new Float32Array(n * 3), c = new T3.Color();
+    const base0 = new T3.Color(GRASS0).convertSRGBToLinear(), lush = new T3.Color(0x79a957).convertSRGBToLinear(), deep = new T3.Color(0x4f7d3e).convertSRGBToLinear(), dry = new T3.Color(0xc0b073).convertSRGBToLinear(), rock = new T3.Color(0xa59a85).convertSRGBToLinear();
+    for (let i = 0; i < n; i++) {
+      const x = pos.getX(i), z = pos.getZ(i), y = terrainH(x, z); pos.setY(i, y); uv.setXY(i, x / 4, z / 4);
+      const e = .02, sl = Math.hypot(terrainH(x + e * 50, z) - y, terrainH(x, z + e * 50) - y) / (e * 50);
+      const dx = Math.max(PLOT0.x0 - x, 0, x - PLOT0.x1), dz = Math.max(PLOT0.z0 - z, 0, z - PLOT0.z1), wv = sstep(0, 14, Math.hypot(dx, dz));
+      c.copy(deep).lerp(lush, vnoise(x * .05, 3, z * .05)).lerp(dry, clamp01((vnoise(x * .018, 7, z * .018) - .45) * 2.2) * .8).lerp(rock, clamp01((sl - .35) * 2));
+      c.lerp(base0, 1 - wv);
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    geo.setAttribute('color', new T3.BufferAttribute(col, 3)); geo.computeVertexNormals();
+    const terr = MS(geo, Object.assign(STD(0xffffff, { map: det, r: .96 }), { vertexColors: true }), false, true); sc.add(terr);
     // falaise vers la mer
-    const cliff = MS(new T3.PlaneGeometry(840, 12, 60, 2), STD(0x9d8d72, { r: 1 }), false, true);
-    const cp = cliff.geometry.attributes.position; for (let i = 0; i < cp.count; i++) cp.setZ(i, (Math.sin(cp.getX(i) * .21) + Math.sin(cp.getX(i) * .07)) * 1.4 + (cp.getY(i) < 0 ? -3 : 0));
-    cliff.geometry.computeVertexNormals(); cliff.position.set(0, -5.5, -51); cliff.rotation.x = -.5; sc.add(cliff);
-    // collines au loin
-    const hillM = STD(0x8fa58a, { r: 1 });
-    [[-330, -260, 120, 60], [-150, -330, 90, 34], [260, -300, 140, 70], [420, -200, 90, 40]].forEach(([x, z, r, h]) => { const m = MS(new T3.SphereGeometry(1, 18, 10), hillM, false, false); m.scale.set(r, h, r * .6); m.position.set(x, -8, z); sc.add(m) });
+    const cliff = MS(new T3.PlaneGeometry(840, 14, 120, 4), STD(0xb1a184, { r: 1 }), false, true);
+    const cp = cliff.geometry.attributes.position; for (let i = 0; i < cp.count; i++) cp.setZ(i, (Math.sin(cp.getX(i) * .21) + Math.sin(cp.getX(i) * .07) + vnoise(cp.getX(i) * .3, cp.getY(i) * .3, 0) * 2) * 1.4 + (cp.getY(i) < 0 ? -3 : 0));
+    cliff.geometry.computeVertexNormals(); cliff.position.set(0, -6.2, -51); cliff.rotation.x = -.5; sc.add(cliff);
+    // montagnes au loin, dans la brume
+    const hillM = STD(0x8c9f8e, { r: 1 });
+    [[-330, -260, 120, 60], [-150, -330, 90, 34], [260, -300, 140, 70], [420, -200, 90, 40], [-420, 380, 160, 90], [0, 470, 220, 110], [380, 420, 170, 80]].forEach(([x, z, r, h]) => { const m = MS(blobGeo(1, { detail: 3, amp: .18, dark: 0x6f8577, light: 0x9fb2a2 }), Object.assign(hillM.clone(), { vertexColors: true }), false, false); m.scale.set(r, h, r * .6); m.position.set(x, -8, z); sc.add(m) });
     // route
     sc.add(groundRect(-420, 15, 420, 20.2, null, STD(0xffffff, { map: tx.asphalt, r: .9 }), .02));
     const line = new T3.InstancedMesh(new T3.BoxGeometry(3, .02, .18), STD(0xf2ecd0, { r: .6 }), 120); line.receiveShadow = true;
     const m4 = new T3.Matrix4(); for (let i = 0; i < 120; i++) { m4.makeTranslation(-400 + i * 7, .035, 17.6); line.setMatrixAt(i, m4) } sc.add(line);
     [14.85, 20.35].forEach(z => sc.add(BX(840, .14, .3, STD(0xcfcac0, { r: .8 }), 0, .07, z)));
-    // végétation fixe autour de la parcelle
+    // touffes d'herbe et fleurs des champs (instanciées : des milliers pour presque rien)
+    const free = (x, z) => !(x > PLOT0.x0 - .5 && x < PLOT0.x1 + .5 && z > PLOT0.z0 - .5 && z < PLOT0.z1 + .5) && !(z > 14.3 && z < 20.9);
+    const tuft = (() => {
+      const pts = [], cl = [], a = new T3.Color(0x3e6a2e).convertSRGBToLinear(), b = new T3.Color(0xa8c86a).convertSRGBToLinear();
+      for (let k = 0; k < 7; k++) { const an = k / 7 * 6.28 + rnd(-.3, .3), lean = rnd(.1, .35), h = rnd(.25, .5), w = .035, ca = Math.cos(an), sa = Math.sin(an);
+        pts.push(-w * sa, 0, w * ca, w * sa, 0, -w * ca, ca * lean * h, h, sa * lean * h); cl.push(a.r, a.g, a.b, a.r, a.g, a.b, b.r, b.g, b.b) }
+      const g = new T3.BufferGeometry(); g.setAttribute('position', new T3.Float32BufferAttribute(pts, 3)); g.setAttribute('color', new T3.Float32BufferAttribute(cl, 3)); g.computeVertexNormals(); return g;
+    })();
+    const NT = innerWidth < 700 ? 4000 : 8000, grass = new T3.InstancedMesh(tuft, Object.assign(STD(0xffffff, { r: 1, side: T3.DoubleSide }), { vertexColors: true }), NT), q = new T3.Quaternion(), sv = new T3.Vector3(), pv = new T3.Vector3(), up = new T3.Vector3(0, 1, 0);
+    let k = 0; for (let t = 0; k < NT && t < NT * 4; t++) { const r = Math.sqrt(rng()) * 75, an = rng() * 6.28, x = Math.cos(an) * r * 1.3, z = 4 + Math.sin(an) * r; if (!free(x, z) || z < -49) continue; q.setFromAxisAngle(up, rng() * 6.28); const s = R(.7, 1.5); sv.set(s, s * R(.8, 1.3), s); pv.set(x, terrainH(x, z) - .02, z); m4.compose(pv, q, sv); grass.setMatrixAt(k++, m4) }
+    grass.count = k; grass.receiveShadow = true; sc.add(grass);
+    const NF = 1600, flw = new T3.InstancedMesh(new T3.IcosahedronGeometry(.055, 0), STD(0xffffff, { r: .7 }), NF), fc = new T3.Color(), FC = [0xffffff, 0xf6d84a, 0xb38be0, 0xf08aa8, 0xffffff];
+    k = 0; for (let t = 0; k < NF && t < NF * 6; t++) { const cx = R(-70, 70), cz = R(-45, 60); if (!free(cx, cz)) continue; const tone = FC[(rng() * FC.length) | 0]; for (let j = 0; j < 9 && k < NF; j++) { const x = cx + R(-1.5, 1.5), z = cz + R(-1.5, 1.5); if (!free(x, z)) continue; m4.makeTranslation(x, terrainH(x, z) + R(.18, .4), z); flw.setMatrixAt(k, m4); flw.setColorAt(k++, fc.set(tone).convertSRGBToLinear()) } }
+    flw.count = k; sc.add(flw);
+    // rochers calcaires
+    const rockM = Object.assign(STD(0xffffff, { r: .95 }), { vertexColors: true });
+    for (let i = 0; i < 34; i++) { let x, z; do { x = R(-90, 90); z = i < 14 ? R(-50, -38) : R(-40, 70) } while (!free(x, z)); const s = R(.4, 1.6), m = MS(blobGeo(s, { detail: 1, amp: .35, sy: .6, dark: 0x6d665a, light: 0xb9ae98, seed: R(0, 99) }), rockM); m.position.set(x, terrainH(x, z) + s * .15, z); m.rotation.y = R(0, 6); sc.add(m) }
+    // végétation fixe autour de la parcelle, et bosquets sur les collines
     this.trees = new T3.Group(); sc.add(this.trees);
-    [[-24, -14], [-27, -6], [-22, 4], [24, -12], [27, -2], [-34, 9], [33, 10], [-40, -20], [38, -24]].forEach(([x, z], i) => this.trees.add(i % 3 === 2 ? makeTree('pine', x, z, 1 + i * .04) : makeTree('cypress', x, z, .9 + (i % 4) * .12)));
-    [[-19, 12], [20, 11], [-30, -30], [28, -34], [6, -26], [-8, -30]].forEach(([x, z], i) => this.trees.add(makeTree(i % 2 ? 'bush' : 'olive', x, z, 1)));
+    const plant = (type, x, z, s) => { const t = makeTree(type, x, z, s, rng); t.position.y = terrainH(x, z); t.userData.home.y = t.position.y; this.trees.add(t) };
+    [[-24, -14], [-27, -6], [-22, 4], [24, -12], [27, -2], [-34, 9], [33, 10], [-40, -20], [38, -24]].forEach(([x, z], i) => plant(i % 3 === 2 ? 'pine' : 'cypress', x, z, .9 + (i % 4) * .1));
+    [[-19, 12], [20, 11], [-30, -30], [28, -34], [6, -26], [-8, -30]].forEach(([x, z], i) => plant(i % 2 ? 'bush' : 'olive', x, z, 1));
+    for (let i = 0; i < 46; i++) { let x, z; do { x = R(-110, 110); z = R(-46, 90) } while (!free(x, z) || Math.hypot(x, z - 4) < 26 || (x > 4 && x < 60 && z > 18) /* rien entre la caméra et la villa */); const r = rng(); plant(r < .35 ? 'pine' : r < .6 ? 'cypress' : r < .85 ? 'olive' : 'bush', x, z, R(.8, 1.25)) }
     // panneau
     this.sign = new T3.Group(); this.sign.position.set(-13, 0, 13.3); this.sign.rotation.y = .25; sc.add(this.sign);
     [-1.1, 1.1].forEach(x => this.sign.add(BX(.12, 2.6, .12, STD(0x7a5532), x, 1.3, 0)));
@@ -2038,6 +2128,32 @@ class Site3D {
     this.signTex = { sale: signTexture(['À VENDRE', 'Vue mer'], '#fffdf6', '#c8323c'), sold: signTexture(['VENDU', 'Permis accordé'], '#c8323c', '#ffffff'), site: signTexture(['CHANTIER', this.name], '#fffdf6', '#c8323c'), villa: signTexture(['VILLA', this.name], '#2f5e4e', '#ffffff') };
     this.signFront = BX(3, 1.5, .08, STD(0xffffff, { map: this.signTex.sale, r: .6 }), 0, 0, .05, this.signBoard);
     this.signBack = BX(3, 1.5, .08, STD(0xffffff, { map: this.signTex.sold, r: .6 }), 0, 0, -.05, this.signBoard); this.signBack.rotation.y = Math.PI;
+    this.buildLife();
+  }
+  /* ----- Ce qui rend le monde vivant : nuages, mouettes, voilier ----- */
+  buildLife() {
+    const sc = this.scene, rng = this.rng, R = (a, b) => a + rng() * (b - a);
+    const ct = tex(256, 128, (g, w, h) => { for (let i = 0; i < 26; i++) { const x = w * (.18 + .64 * Math.random()), y = h * (.45 + .3 * Math.random()) - (1 - Math.abs(x / w - .5) * 2) * 22, r = 18 + Math.random() * 30, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.6, 'rgba(250,250,252,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h) } });
+    this.cloudM = new T3.SpriteMaterial({ map: ct, transparent: true, depthWrite: false, fog: false, opacity: .92 });
+    this.clouds = []; for (let i = 0; i < 16; i++) { const s = new T3.Sprite(this.cloudM); const a = R(-1.2, 1.2), d = R(320, 620); s.position.set(Math.sin(a) * d, R(70, 170), -Math.cos(a) * d * .8 + R(-80, 200)); s.scale.set(R(110, 220), R(45, 80), 1); sc.add(s); this.clouds.push(s) }
+    // mouettes qui tournent au-dessus de la côte
+    const wingG = new T3.BufferGeometry(); wingG.setAttribute('position', new T3.Float32BufferAttribute([0, 0, -.12, 0, 0, .12, .9, .05, 0], 3)); wingG.computeVertexNormals();
+    const bm = STD(0xf4f4f2, { r: .8, side: T3.DoubleSide }), tipM = STD(0x2e3236, { r: .8 });
+    this.birds = Array.from({ length: 7 }, (_, i) => { const g = new T3.Group(), wl = MS(wingG, bm, false, false), wr = MS(wingG, bm, false, false); wr.scale.x = -1; g.add(wl, wr, AT(MS(new T3.SphereGeometry(.12, 8, 6), bm, false, false), 0, 0, 0)); g.add(AT(MS(new T3.ConeGeometry(.04, .12, 5), tipM, false, false), 0, 0, .14)); g.scale.setScalar(1.6); sc.add(g); return { g, wl, wr, r: R(18, 45), cx: R(-30, 30), cz: R(-75, -40), y: R(16, 30), sp: R(.12, .25) * (rng() < .5 ? -1 : 1), ph: R(0, 6.28) } });
+    // un voilier au large
+    const boat = this.boat = new T3.Group(), hull = new T3.Shape(); hull.moveTo(-2.2, 0); hull.quadraticCurveTo(0, -1.1, 2.6, .2); hull.lineTo(-2.2, .2);
+    const hg = new T3.ExtrudeGeometry(hull, { depth: 1, bevelEnabled: false }); hg.translate(0, .1, -.5); boat.add(MS(hg, STD(0xf6f4ee, { r: .4 }), false, false));
+    boat.add(AT(CY(.05, .05, 5.5, STD(0xcfcfcf, { m: .6, r: .3 })), 0, 3, 0));
+    const sail = new T3.BufferGeometry(); sail.setAttribute('position', new T3.Float32BufferAttribute([0, .7, 0, 0, 5.6, 0, 2.2, .7, 0, 0, .9, 0, 0, 5, 0, -1.6, .9, 0], 3)); sail.computeVertexNormals();
+    boat.add(MS(sail, STD(0xffffff, { r: .7, side: T3.DoubleSide }), false, false));
+    boat.scale.setScalar(2.2); boat.position.set(-160, -6.9, -230); boat.rotation.y = .3; sc.add(boat);
+  }
+  updateLife(dt) {
+    const t = this.t, n = this.night;
+    for (const c of this.clouds) { c.position.x += dt * 1.2; if (c.position.x > 700) c.position.x = -700 }
+    this.cloudM.color.setRGB(1, lerp(1, .78, n), lerp(1, .7, n));
+    for (const b of this.birds) { const a = b.ph + t * b.sp; b.g.position.set(b.cx + Math.cos(a) * b.r, b.y + Math.sin(t * .7 + b.ph) * 1.5, b.cz + Math.sin(a) * b.r * .6); b.g.rotation.y = -a + (b.sp > 0 ? 0 : Math.PI); const f = Math.sin(t * 7 + b.ph) * .5 * (Math.sin(t * .9 + b.ph) > -.3 ? 1 : .1); b.wl.rotation.z = f; b.wr.rotation.z = -f }
+    this.boat.position.x = -160 + ((t * .8) % 400); this.boat.position.y = -6.9 + Math.sin(t * 1.3) * .15; this.boat.rotation.z = Math.sin(t * 1.1) * .04;
   }
   /* ----- La villa et toutes ses parties ----- */
   buildHouse() {
@@ -2054,7 +2170,8 @@ class Site3D {
     // Pelouse finale, déroulée comme un rouleau
     h.lawnPlane = new T3.Plane(new T3.Vector3(-1, 0, 0), pl.x0);
     h.lawn = groundRect(pl.x0, pl.z0, pl.x1, pl.z1, [P.x0, P.z0, P.x1, P.z1], clipMat(STD(0x7cb257, { map: tx.grass, r: .95 }), h.lawnPlane), .02); h.lawn.visible = false; sc.add(h.lawn);
-    h.roll = CY(.35, .35, pl.z1 - pl.z0, STD(0x5f9a43, { r: .9 }), 20); h.roll.rotation.x = Math.PI / 2; h.roll.position.set(pl.x0, .35, (pl.z0 + pl.z1) / 2); h.roll.visible = false; sc.add(h.roll);
+    h.roll = new T3.Group(); h.roll.position.set(pl.x0, .35, 0); h.roll.visible = false; sc.add(h.roll);
+    { const rm = STD(0x5f9a43, { map: tx.grass, r: .9 }); [[pl.z0, -4.95, null], [-4.95, 4.95, [-7.45, 7.45]], [4.95, P.z0 - .05, null], [P.z0 - .05, P.z1 + .05, [P.x0 - .4, P.x1 + .4]], [P.z1 + .05, pl.z1, null]].forEach(([z0, z1, skip]) => { const c = CY(.35, .35, z1 - z0 - .1, rm, 20); c.rotation.x = Math.PI / 2; c.position.z = (z0 + z1) / 2; c.userData.skip = skip; h.roll.add(c) }) }
     // Tranchée de fondation
     const trM = STD(0x6e4f2f, { r: 1 }); h.trench = [];
     [[-7.4, 7.4, 4.4, 4.9], [7.0, 7.6, -4.9, 4.9], [-7.4, 7.4, -4.9, -4.4], [-7.6, -7.0, -4.9, 4.9]].forEach(([x0, x1, z0, z1]) => { const b = BX(x1 - x0, .05, z1 - z0, trM, (x0 + x1) / 2, .02, (z0 + z1) / 2); b.visible = false; sc.add(b); h.trench.push(b) });
@@ -2137,6 +2254,10 @@ class Site3D {
     [P.x0 - .25, P.x1 + .25].forEach(x => { for (let i = 0; i < 4; i++) h.coping.push(BX(.5, .08, 1.02, copM, x, .04, P.z0 + .5 + i * 1.0 - .02)) });
     h.coping.forEach(b => { b.visible = false; sc.add(b) });
     this.waterM = PHY({ color: 0x2fb2d6, roughness: .05, metalness: 0, transparent: true, opacity: .8, envMapIntensity: 1.3, clearcoat: 1, emissive: 0x062a3a });
+    // petites vaguelettes : carte de normales calculée à partir d'une somme de sinus, qui glisse lentement
+    { const N = 128, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), im = g.createImageData(N, N), H = (x, y) => Math.sin(x * .19 + Math.sin(y * .11) * 2) + Math.sin(y * .23 + x * .07) * .8 + Math.sin((x + y) * .41) * .3;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const dx = H(x + 1, y) - H(x - 1, y), dy = H(x, y + 1) - H(x, y - 1), L = Math.hypot(dx, dy, 2), i = (y * N + x) * 4; im.data[i] = (-dx / L * .5 + .5) * 255; im.data[i + 1] = (-dy / L * .5 + .5) * 255; im.data[i + 2] = (2 / L * .5 + .5) * 255; im.data[i + 3] = 255 }
+      g.putImageData(im, 0, 0); const nt = new T3.CanvasTexture(c); nt.wrapS = nt.wrapT = T3.RepeatWrapping; nt.repeat.set(3, 1); this.waterM.normalMap = nt; this.waterM.normalScale.set(.35, .35); this.waterM.clearcoatNormalMap = nt }
     h.water = MS(new T3.BoxGeometry(w - .12, 1, dd - .12), this.waterM, false, false); h.water.position.set(cx, -d, cz); h.water.visible = false; sc.add(h.water);
     h.poolLight = new T3.PointLight(0x6fe7ff, 0, 10, 2); h.poolLight.position.set(cx, -.8, cz); sc.add(h.poolLight);
     // Terrasse bois, transats, parasol
@@ -2148,14 +2269,19 @@ class Site3D {
     // Mobilier intérieur
     const fm = c => STD(c, { r: .8 });
     h.furn = [
-      grp(sc, -3.2, .35, 3.2, g => { BX(2.4, .45, .9, fm(0x8d8f93), 0, .22, 0, g); BX(2.4, .4, .2, fm(0x9a9da1), 0, .55, -.35, g) }),
-      grp(sc, -.8, .35, 3.3, g => { g.add(AT(CY(.02, .02, 1.6, fm(0x333333)), 0, .8, 0)); g.add(AT(MS(new T3.ConeGeometry(.25, .3, 14, 1, true), STD(0xf6e3b0, { e: 0xffd27a, ei: 0, side: T3.DoubleSide })), 0, 1.6, 0)) }),
+      grp(sc, -.9, .35, 3.4, g => { BX(2.4, .45, .9, fm(0x8d8f93), 0, .22, 0, g); BX(2.4, .4, .2, fm(0x9a9da1), 0, .55, -.35, g) }),
+      grp(sc, -2.4, .35, 3.6, g => { g.add(AT(CY(.02, .02, 1.6, fm(0x333333)), 0, .8, 0)); g.add(AT(MS(new T3.ConeGeometry(.25, .3, 14, 1, true), STD(0xf6e3b0, { e: 0xffd27a, ei: 0, side: T3.DoubleSide })), 0, 1.6, 0)) }),
       grp(sc, 1.6, .35, 3.4, g => { BX(.4, .4, .4, fm(0xc9925a), 0, .2, 0, g); g.add(AT(MS(new T3.IcosahedronGeometry(.45, 1), fm(0x4f9a45)), 0, .8, 0)) }),
-      grp(sc, -.4, .35, 2.2, g => { BX(1.2, .35, .7, fm(0x6b4428), 0, .18, 0, g) }),
+      grp(sc, -.9, .35, 2.2, g => { BX(1.2, .35, .7, fm(0x6b4428), 0, .18, 0, g) }),
       grp(sc, 3, 3.65, 2.4, g => { BX(2, .45, 2.2, fm(0xf2efe6), 0, .22, 0, g); BX(2, .7, .15, fm(0xc9b79a), 0, .45, -1.05, g) }),
       grp(sc, -1, 3.65, 3.4, g => { BX(1.2, .8, .05, fm(0xe8b65c), 0, 1.4, -.1, g) })
     ];
     h.furn.forEach(f => { f.visible = false; f.scale.setScalar(.001) });
+    // Escalier intérieur en bois (marches suspendues + limon)
+    { const g = this.stair = new T3.Group(), n = 15, wm = STD(0xb58a5c, { map: tx.wood, r: .7 }), sm = STD(0x2b3136, { r: .4, m: .6 });
+      for (let i = 0; i < n; i++) { const u = (i + 1) / n; BX(STAIR.w, .06, (STAIR.z0 - STAIR.z1) / n + .04, wm, STAIR.x, lerp(STAIR.y0, STAIR.y1, u) - .03, lerp(STAIR.z0, STAIR.z1, (i + .5) / n), g) }
+      const L = Math.hypot(STAIR.z0 - STAIR.z1, STAIR.y1 - STAIR.y0), lim = BX(.06, .25, L, sm, STAIR.x + STAIR.w / 2 + .03, (STAIR.y0 + STAIR.y1) / 2, (STAIR.z0 + STAIR.z1) / 2, g); lim.rotation.x = Math.atan2(STAIR.y1 - STAIR.y0, STAIR.z0 - STAIR.z1);
+      g.visible = false; sc.add(g) }
     // Jardin : palmiers, olivier, cyprès, massifs
     h.plants = [['palm', -12, 9], ['palm', 11.6, 5.5], ['olive', 12, -2], ['cypress', -10.6, -7], ['cypress', 10.4, -7.6], ['bush', -9.8, 3.5], ['bush', 9.2, 2.8], ['bush', 11.2, 12.4]].map(([t, x, z]) => { const g = makeTree(t, x, z, 1); g.visible = false; g.scale.setScalar(.001); sc.add(g); return g });
     // Allée et éclairage
@@ -2225,7 +2351,7 @@ class Site3D {
       });
       // échelle
       const lad = new T3.Group(); lad.position.set(x0 - .55, 0, z1 + .9); [-.22, .22].forEach(dx => { const r = CY(.03, .03, y1 - y0, poleM, 5); r.position.set(dx, (y1 - y0) / 2, 0); lad.add(r) }); for (let y = .3; y < y1 - y0; y += .3) BX(.44, .03, .03, poleM, 0, y, 0, lad); g.add(lad);
-      g.visible = false; return g;
+      mergeByMaterial(g); mergeByMaterial(lad); g.visible = false; return g;
     };
     this.scafGF = make(-7, 7, -4.5, 4.5, 0, 3.4, [1.25, 2.5]); this.scafUP = make(-4, 8, -4, 4, 3.65, 6.6, [4.95]);
     this.scaf = { gf: 0, up: 0 };
@@ -2265,7 +2391,7 @@ class Site3D {
     h.loungers.forEach(g => add(16, 'lounger', p => { g.visible = p > 0; g.scale.setScalar(Math.max(.001, EZ.back(clamp01(p)))) }));
     add(16, 'parasol', p => { h.parasol.visible = p > 0; h.canopy.scale.set(Math.max(.05, EZ.back(clamp01(p))), 1, Math.max(.05, EZ.back(clamp01(p)))) });
     h.furn.forEach(g => add(17, 'furn', p => { g.visible = p > 0; g.scale.setScalar(Math.max(.001, EZ.back(clamp01(p)))) }));
-    add(18, 'lawn', p => { h.lawn.visible = p > 0; h.lawnPlane.constant = pl.x0 + p * (pl.x1 - pl.x0); h.roll.visible = p > 0 && p < 1; h.roll.position.x = h.lawnPlane.constant; h.roll.rotation.y = 0; h.roll.rotation.z = -p * 40 });
+    add(18, 'lawn', p => { h.lawn.visible = p > 0; h.lawnPlane.constant = pl.x0 + p * (pl.x1 - pl.x0); h.roll.visible = p > 0 && p < 1; const rx = h.roll.position.x = h.lawnPlane.constant; h.roll.rotation.z = -p * 40; h.roll.children.forEach(c => { const k = c.userData.skip; c.visible = !k || rx < k[0] || rx > k[1]; c.scale.set(1 - p * .5, 1, 1 - p * .5) }); h.roll.position.y = .35 * (1 - p * .5) });
     h.plants.forEach(g => add(18, 'plant', p => { g.visible = p > 0; g.scale.setScalar(Math.max(.001, EZ.back(clamp01(p)))) }));
     h.stones.forEach(s => add(19, 'stonepath', p => { s.visible = p > 0; s.position.y = .03 + (1 - p) * .8 }));
     h.lamps.forEach(g => { const bulb = g.children[1]; bulb.material = this.bulbM.clone(); add(19, 'lamp', p => { g.visible = p > 0; g.scale.y = Math.max(.001, clamp01(p * 2)); bulb.material.emissiveIntensity = p > .5 ? (p - .5) * 2 * 2.2 : 0 }) });
@@ -2293,16 +2419,17 @@ class Site3D {
     const h = this.h, villa = this.items[20][0].p >= 1, site = this.prog(2) > 0 || this.prog(3) > 0, sold = this.items[1][0].p;
     this.signFront.material.map = villa ? this.signTex.villa : site && sold >= 1 ? this.signTex.site : this.signTex.sale; this.signFront.material.needsUpdate = true;
     this.signBoard.rotation.y = villa || (site && sold >= 1) ? 0 : Math.PI * EZ.io(clamp01(sold));
+    this.stair.visible = this.prog(8) >= 1;
     const slabDone = this.prog(6) >= 1;
     if (slabDone) { h.stakes.forEach(g => g.visible = false); h.strings.forEach(l => l.visible = false); h.forms.forEach(b => b.visible = false); h.rebar.forEach(g => g.visible = false); h.trench.forEach(b => b.visible = false) }
-    const coverDirt = this.prog(4) > 0; h.cover.forEach(g => { const want = coverDirt ? this.tx.dirt : this.tx.grass; if (g.material.map !== want) { g.material.map = want; g.material.needsUpdate = true } });
+    const coverDirt = this.prog(4) > 0; h.cover.forEach(g => { const want = coverDirt ? this.tx.dirt : this.tx.det; if (g.material.map !== want) { g.material.map = want; g.material.color.set(coverDirt ? 0xffffff : GRASS0).convertSRGBToLinear(); g.material.needsUpdate = true } });
   }
   /* ----- Soir : coucher de soleil progressif ----- */
   setNight(n) {
     this.night = n;
     this.skyU.uNight.value = n;
-    const d = new T3.Vector3(.5, .72, .48).lerp(new T3.Vector3(-.3, .1, -.95), n).normalize(); this.skyU.uSun.value.copy(d);
-    this.sun.position.copy(d).multiplyScalar(80); this.sun.color.setRGB(1, lerp(.94, .62, n), lerp(.85, .4, n)); this.sun.intensity = lerp(2.4, 1.1, n);
+    const d = new T3.Vector3(.55, .6, .5).lerp(new T3.Vector3(-.3, .1, -.95), n).normalize(); this.skyU.uSun.value.copy(d);
+    this.sun.position.copy(d).multiplyScalar(80); this.sun.color.setRGB(1, lerp(.9, .62, n), lerp(.76, .4, n)); this.sun.intensity = lerp(2.7, 1.1, n);
     this.hemi.intensity = lerp(.6, .32, n); this.hemi.color.setRGB(lerp(.84, .55, n), lerp(.93, .5, n), lerp(1, .75, n));
     this.fog.color.setRGB(lerp(.81, .9, n), lerp(.89, .62, n), lerp(.95, .5, n));
     this.R.toneMappingExposure = lerp(1, .95, n);
@@ -2420,17 +2547,31 @@ class Site3D {
     this.fxN.mat.uniforms.uScale.value = this.fxA.mat.uniforms.uScale.value = sc;
   }
   /* ----- Boucle ----- */
-  start() { if (!this.running) { this.running = true; this.last = performance.now(); requestAnimationFrame(this.loop) } }
+  start() { if (!this.running && !this.dead) { this.running = true; this.last = performance.now(); requestAnimationFrame(this.loop) } }
+  // Teintes propres à chaque villa (enduit, bois, toit, voiture)
+  applyStyle() {
+    const st = this.style, h = this.h, col = c => new T3.Color(c).convertSRGBToLinear();
+    h.faces.forEach(f => f.g.children.forEach(m => m.material.color.copy(col(st.plaster))));
+    const wood = h.slats.children[0].material.clone(); wood.color.copy(col(st.wood));
+    h.slats.children.forEach(b => b.material = wood); h.fascia.children.forEach(b => b.material = wood);
+    h.roof.forEach(b => b.material.color.copy(col(st.roof)));
+    h.tiles.children.forEach(m => m.material.color.copy(col(st.tiles)).lerp(new T3.Color(1, 1, 1), .55));
+  }
+  dispose() {
+    this.dead = true; this.running = false;
+    this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose() }) });
+    this.R.dispose(); try { this.R.forceContextLoss() } catch (e) {}
+  }
   loop(now) {
     if (!this.cv.isConnected) { this.running = false; return }
-    const dt = Math.min(.05, (now - this.last) / 1000); this.last = now; this.t += dt;
+    const dt = Math.max(0, Math.min(.05, (now - this.last) / 1000)); this.last = now; this.t += dt;
     for (const a of [...this.anims]) { a.e += dt * 1000 * (this.rate || 1); const p = clamp01(a.e / a.ms); a.fn(a.ease(p), p); if (p >= 1) { this.anims.splice(this.anims.indexOf(a), 1); a.res() } }
     const pdt = dt * Math.min(2, this.rate || 1);
     this.syncItems(false);
     for (const v of this.vehicles) v.update(pdt, this);
     for (const w of this.workers) w.update(pdt, this);
     this.updateCrane(pdt); this.updateFx(pdt);
-    this.seaU.uTime.value = this.t;
+    this.seaU.uTime.value = this.t; if (this.waterM.normalMap) { this.waterM.normalMap.offset.set(this.t * .015, this.t * .008) } this.updateLife(dt);
     for (const tr of this.h.plants.concat(this.trees.children)) if (tr.userData.sway) tr.userData.sway.rotation.z = Math.sin(this.t * 1.1 + tr.position.x) * .025;
     if (this.night >= 1 && Math.random() < dt * .9) this.firework();
     this.updateCam(dt);
@@ -2458,7 +2599,7 @@ class Site3D {
     this.syncItems(true);
     this.focus(0, 2.6, 3, 52, .7);
     const k = s + 1; if (k <= SITE_N && f > 0 && this.jobs[k].park) this.jobs[k].park(this);
-    if (s >= SITE_N) this.addVehicle('sport', -9, 13.2, Math.PI / 2);
+    if (s >= SITE_N) this.addVehicle('sport', -9, 13.2, Math.PI / 2, { color: this.style.car });
   }
 }
 // Petit utilitaire : groupe posé dans la scène
@@ -2473,21 +2614,113 @@ function panelsAround(a0, a1, y0, y1, holes) {
   }
   return out;
 }
-// Arbres et plantes (procéduraux)
-function makeTree(type, x, z, s) {
-  const g = new T3.Group(); g.position.set(x, 0, z); g.userData.home = g.position.clone(); g.userData.s = s; g.userData.type = type; g.scale.setScalar(s);
-  const sway = new T3.Group(); g.add(sway); g.userData.sway = sway;
-  if (type === 'cypress') { sway.add(AT(CY(.12, .18, 1, STD(0x6b4f35)), 0, .5, 0)); const c = MS(new T3.SphereGeometry(1, 12, 10), STD(0x2f5b37, { r: .95 })); c.scale.set(.9, 4.2, .9); c.position.y = 4.4; sway.add(c) }
-  else if (type === 'pine') { sway.add(AT(CY(.2, .3, 6, STD(0x6b4f35)), 0, 3, 0)); const c = MS(new T3.SphereGeometry(1, 14, 8), STD(0x3c6b3a, { r: .95 })); c.scale.set(3.6, 1.3, 3.6); c.position.y = 6.6; sway.add(c) }
-  else if (type === 'olive') { const tr = CY(.16, .26, 2.2, STD(0x7a5a3a)); tr.position.y = 1.1; tr.rotation.z = .12; sway.add(tr); [[0, 2.8, 0, 1.6], [-.9, 2.5, .4, 1.1], [.8, 2.6, -.3, 1.2]].forEach(([a, b, c, r]) => { const m = MS(new T3.IcosahedronGeometry(r, 1), STD(0x7f9a5a, { r: .95 })); m.position.set(a, b, c); sway.add(m) }) }
-  else if (type === 'palm') {
-    let y = 0, xo = 0; for (let i = 0; i < 9; i++) { const seg = CY(.17 - i * .008, .2 - i * .008, .75, STD(0x8a6a48, { r: .9 }), 8); xo += .06 * i * .2; seg.position.set(xo, y + .37, 0); seg.rotation.z = -.03 * i; sway.add(seg); y += .72 }
-    const crown = new T3.Group(); crown.position.set(xo + .1, y, 0); sway.add(crown);
-    const leafShape = new T3.Shape(); leafShape.moveTo(0, 0); leafShape.quadraticCurveTo(1.4, .5, 2.8, -.6); leafShape.quadraticCurveTo(1.4, -.1, 0, 0);
-    const leafG = new T3.ShapeGeometry(leafShape, 8), leafM = STD(0x2f8a4a, { r: .8, side: T3.DoubleSide });
-    for (let i = 0; i < 9; i++) { const l = MS(leafG, leafM); l.rotation.set(-.5 + Math.random() * .3, i / 9 * Math.PI * 2, -.2); l.scale.setScalar(.9 + Math.random() * .3); crown.add(l) }
+// Arbres et plantes (procéduraux, feuillages organiques) : volumes bosselés, teintes qui varient de l'ombre au soleil
+const FOL = {};
+// Bruit de valeur 3D léger (pour bosseler les feuillages et les rochers)
+function hash3(x, y, z) { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s) }
+function vnoise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), xf = x - xi, yf = y - yi, zf = z - zi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  const L = (a, b, t) => a + (b - a) * t, h = (i, j, k) => hash3(xi + i, yi + j, zi + k);
+  return L(L(L(h(0, 0, 0), h(1, 0, 0), u), L(h(0, 1, 0), h(1, 1, 0), u), v), L(L(h(0, 0, 1), h(1, 0, 1), u), L(h(0, 1, 1), h(1, 1, 1), u), v), w);
+}
+// Une touffe de feuillage : icosaèdre déformé par le bruit, couleurs par sommet (plus sombre dessous et au cœur)
+function blobGeo(r, o = {}) {
+  const g = new T3.IcosahedronGeometry(r, o.detail ?? 2), p = g.attributes.position, n = p.count, col = new Float32Array(n * 3);
+  const c0 = new T3.Color(o.dark ?? 0x24452a).convertSRGBToLinear(), c1 = new T3.Color(o.light ?? 0x6f9a4a).convertSRGBToLinear(), seed = o.seed ?? Math.random() * 100, amp = o.amp ?? .28, fq = o.fq ?? 1.6 / r, tmp = new T3.Color();
+  for (let i = 0; i < n; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), L = Math.hypot(x, y, z) || 1;
+    const k = 1 + (vnoise(x * fq + seed, y * fq, z * fq) - .5) * 2 * amp + (vnoise(x * fq * 3.1, y * fq * 3.1 + seed, z * fq * 3.1) - .5) * amp * .6;
+    p.setXYZ(i, x * k * (o.sx ?? 1), y * k * (o.sy ?? 1), z * k * (o.sz ?? 1));
+    const up = clamp01((y / L + 1) / 2), t = clamp01(up * .75 + (k - 1) * 1.4 + .15 + (hash3(x, y, z) - .5) * .18);
+    tmp.copy(c0).lerp(c1, t); col.set([tmp.r, tmp.g, tmp.b], i * 3);
   }
-  else { const c = type === 'scrub' ? 0x6d8a3c : 0x4f9a45; [[0, .45, 0, .6], [.5, .35, .2, .45], [-.45, .35, -.1, .5]].forEach(([a, b, d, r]) => { const m = MS(new T3.IcosahedronGeometry(r, 1), STD(c, { r: .95 })); m.position.set(a, b, d); sway.add(m) }) }
+  g.setAttribute('color', new T3.BufferAttribute(col, 3)); smoothNormals(g);
+  return g;
+}
+// Normales lissées sur une géométrie non indexée (les sommets confondus partagent leur normale)
+function smoothNormals(g) {
+  g.computeVertexNormals(); const p = g.attributes.position, nr = g.attributes.normal, acc = new Map(), key = i => `${p.getX(i).toFixed(3)},${p.getY(i).toFixed(3)},${p.getZ(i).toFixed(3)}`;
+  for (let i = 0; i < p.count; i++) { const k = key(i), a = acc.get(k) || [0, 0, 0]; a[0] += nr.getX(i); a[1] += nr.getY(i); a[2] += nr.getZ(i); acc.set(k, a) }
+  for (let i = 0; i < p.count; i++) { const a = acc.get(key(i)), L = Math.hypot(...a) || 1; nr.setXYZ(i, a[0] / L, a[1] / L, a[2] / L) }
+  nr.needsUpdate = true;
+}
+const folMat = () => FOL.m || (FOL.m = STD(0xffffff, { r: .92 })) && Object.assign(FOL.m, { vertexColors: true });
+const barkMat = c => (FOL['b' + c] ||= STD(c, { r: .95 }));
+// Tronc ou branche le long d'une courbe, qui s'affine
+function limb(pts, r0, r1, m) {
+  const curve = new T3.CatmullRomCurve3(pts.map(([x, y, z]) => new T3.Vector3(x, y, z))), g = new T3.TubeGeometry(curve, 10, 1, 7, false), p = g.attributes.position;
+  // rayon décroissant le long du tube
+  const segs = 11, ring = 8, ctr = new T3.Vector3();
+  for (let i = 0; i < segs; i++) { const t = i / (segs - 1), c = curve.getPointAt(t), r = lerp(r0, r1, t); for (let j = 0; j < ring; j++) { const k = i * ring + j; ctr.set(p.getX(k), p.getY(k), p.getZ(k)).sub(c).multiplyScalar(r); p.setXYZ(k, c.x + ctr.x, c.y + ctr.y, c.z + ctr.z) } }
+  g.computeVertexNormals(); return MS(g, m);
+}
+// Fusionne les maillages d'un groupe qui partagent un matériau (beaucoup moins d'appels de dessin)
+function mergeByMaterial(grp) {
+  grp.updateMatrixWorld(true); const inv = new T3.Matrix4().copy(grp.matrixWorld).invert(), by = new Map();
+  grp.children.slice().forEach(m => { if (!m.isMesh || m.isInstancedMesh) return; (by.get(m.material) || by.set(m.material, []).get(m.material)).push(m) });
+  for (const [mat, list] of by) {
+    if (list.length < 2) continue;
+    const parts = list.map(m => { const g = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()); g.applyMatrix4(new T3.Matrix4().multiplyMatrices(inv, m.matrixWorld)); return g });
+    const names = Object.keys(parts[0].attributes).filter(n => parts.every(p => p.attributes[n] && p.attributes[n].itemSize === parts[0].attributes[n].itemSize)), out = new T3.BufferGeometry();
+    for (const n of names) { const sz = parts[0].attributes[n].itemSize, arr = new Float32Array(parts.reduce((a, p) => a + p.attributes[n].count * sz, 0)); let o = 0; parts.forEach(p => { arr.set(p.attributes[n].array, o); o += p.attributes[n].array.length }); out.setAttribute(n, new T3.BufferAttribute(arr, sz)) }
+    list.forEach(m => { grp.remove(m); m.geometry.dispose() }); parts.forEach(p => p.dispose());
+    grp.add(MS(out, mat));
+  }
+}
+function makeTree(type, x, z, s, rng = Math.random) {
+  const g = new T3.Group(); g.position.set(x, 0, z); g.userData.home = g.position.clone(); g.userData.s = s; g.userData.type = type; g.scale.setScalar(s); g.rotation.y = rng() * 6.28;
+  const sway = new T3.Group(); g.add(sway); g.userData.sway = sway;
+  const R = (a, b) => a + rng() * (b - a), fm = folMat();
+  const blob = (r, px, py, pz, o) => { const m = MS(blobGeo(r, { seed: R(0, 99), ...o }), fm); m.position.set(px, py, pz); sway.add(m); return m };
+  if (type === 'cypress') {
+    // cyprès de Provence : fuseau sombre, fait de touffes empilées
+    sway.add(limb([[0, 0, 0], [0, 1.2, 0]], .16, .1, barkMat(0x5b4331)));
+    const H = R(6.5, 8.5);
+    for (let i = 0; i < 7; i++) { const t = i / 6, r = .95 * Math.sin(Math.PI * (.12 + t * .82)) + .18; blob(r, R(-.06, .06), 1.2 + t * (H - 1.6), R(-.06, .06), { dark: 0x16301f, light: 0x3f6a3a, sy: 1.5, amp: .22 }) }
+  } else if (type === 'pine') {
+    // pin parasol : tronc incliné qui se divise, couronne large et plate
+    const lean = R(-.5, .5), top = [lean, 5.6, R(-.3, .3)];
+    sway.add(limb([[0, 0, 0], [lean * .3, 2.5, 0], top], .32, .16, barkMat(0x6e5440)));
+    for (let b = 0; b < 4; b++) { const a = b / 4 * 6.28 + R(0, 1), L = R(1.6, 2.4), end = [top[0] + Math.cos(a) * L, top[1] + R(.6, 1.2), top[2] + Math.sin(a) * L]; sway.add(limb([top, [(top[0] + end[0]) / 2, top[1] + .5, (top[2] + end[2]) / 2], end], .13, .06, barkMat(0x6e5440))); blob(R(1.3, 1.7), end[0], end[1] + .35, end[2], { dark: 0x23402a, light: 0x5d8a4a, sy: .5, amp: .3 }) }
+    blob(1.9, top[0], top[1] + 1.3, top[2], { dark: 0x23402a, light: 0x6a9652, sy: .45, amp: .3 });
+  } else if (type === 'olive') {
+    // olivier : tronc noueux et tordu, feuillage gris-vert argenté
+    const tw = R(-.4, .4);
+    sway.add(limb([[0, 0, 0], [tw, .8, .2], [-tw * .5, 1.5, -.1], [tw * .3, 2.1, 0]], .3, .14, barkMat(0x6b5a48)));
+    [[0, 2.9, 0, 1.25], [-1, 2.55, .5, .95], [.95, 2.6, -.35, 1], [.2, 2.4, 1, .85], [-.4, 3.3, -.6, .8]].forEach(([a, b, c, r]) => { sway.add(limb([[tw * .3, 2.1, 0], [a * .6, b - .2, c * .6]], .1, .05, barkMat(0x6b5a48))); blob(r, a, b, c, { dark: 0x3c4c33, light: 0x8a9a6c, sy: .8, amp: .32 }) });
+  } else if (type === 'palm') {
+    // palmier : stipe annelé et cintré, palmes découpées qui retombent
+    const H = R(6, 7.5), bend = R(.5, 1.1);
+    const pts = []; for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push([bend * t * t, H * t, 0]) }
+    const trunk = limb(pts, .22, .15, FOL.palmBark || (FOL.palmBark = STD(0xffffff, { map: tex(64, 256, (c, w, h) => { c.fillStyle = '#8a6a4a'; c.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 10) { c.fillStyle = 'rgba(60,40,24,.55)'; c.fillRect(0, y, w, 3); c.fillStyle = 'rgba(190,160,120,.35)'; c.fillRect(0, y + 4, w, 2) } }), r: .95 })));
+    sway.add(trunk);
+    const crown = new T3.Group(); crown.position.set(bend, H, 0); sway.add(crown);
+    crown.add(MS(blobGeo(.35, { dark: 0x5a4a2a, light: 0x7a6a3a, amp: .2 }), fm));
+    const leafM = FOL.leaf || (FOL.leaf = STD(0xffffff, { r: .75, side: T3.DoubleSide })); leafM.vertexColors = true;
+    for (let i = 0; i < 11; i++) {
+      // palme : nervure courbe + folioles, couleur plus claire au bout
+      const L = R(2.4, 3.2), pos = [], col = [], c0 = new T3.Color(0x2f6a30).convertSRGBToLinear(), c1 = new T3.Color(0x7fae4a).convertSRGBToLinear(), N = 14;
+      for (let k = 0; k < N; k++) {
+        const t0 = k / N, t1 = (k + 1) / N, y = t => -t * t * L * .55 + t * L * .25, wd = t => Math.sin(Math.PI * Math.min(1, t * 1.15)) * .5;
+        const a = [t0 * L, y(t0), 0], b = [t1 * L, y(t1), 0];
+        for (const sd of [-1, 1]) { const tip = [(t0 + .6 / N) * L + .15, y(t0) - .18, sd * wd(t0)]; pos.push(...a, ...b, ...tip); const cc = c0.clone().lerp(c1, t0); for (let q = 0; q < 3; q++) col.push(cc.r, cc.g, cc.b) }
+      }
+      const lg = new T3.BufferGeometry(); lg.setAttribute('position', new T3.Float32BufferAttribute(pos, 3)); lg.setAttribute('color', new T3.Float32BufferAttribute(col, 3)); lg.computeVertexNormals();
+      const l = MS(lg, leafM); l.rotation.set(R(-.15, .15), i / 11 * 6.28 + R(-.2, .2), R(.15, .55)); crown.add(l);
+    }
+  } else if (type === 'flowers') {
+    // massif fleuri (bougainvillier / lavande)
+    const lav = rng() < .5;
+    for (let i = 0; i < 4; i++) blob(R(.35, .55), R(-.6, .6), R(.3, .5), R(-.4, .4), lav ? { dark: 0x3e4f3a, light: 0x7e8d6a, amp: .3 } : { dark: 0x2c5a2c, light: 0x5c8f45, amp: .3 });
+    const fl = new T3.InstancedMesh(FOL.petal || (FOL.petal = new T3.IcosahedronGeometry(.07, 0)), STD(lav ? 0x8d6cc9 : 0xd8427f, { r: .7 }), 40), m4 = new T3.Matrix4();
+    for (let i = 0; i < 40; i++) { const a = R(0, 6.28), b = R(.2, 1.2); m4.makeTranslation(Math.cos(a) * R(.2, .8), .35 + Math.sin(b) * .45, Math.sin(a) * R(.2, .6)); fl.setMatrixAt(i, m4) }
+    fl.castShadow = true; sway.add(fl);
+  } else {
+    // buisson / broussaille
+    const dry = type === 'scrub';
+    for (let i = 0; i < 4; i++) blob(R(.35, .6), R(-.5, .5), R(.3, .5), R(-.4, .4), dry ? { dark: 0x4f5a2e, light: 0x9a9a52, amp: .35 } : { dark: 0x2c5530, light: 0x669a4c, amp: .3 });
+  }
+  mergeByMaterial(sway);
   return g;
 }
 
@@ -2631,33 +2864,68 @@ function updateVehicle(v, dt, S) {
 }
 
 /* ----- Ouvriers ----- */
+// Ouvrier : silhouette humaine (proportions réelles, membres arrondis, visage, casque, gilet à bandes), animée par ses articulations
+const SKINS = [0xf1c9a5, 0xe3b089, 0xc98e63, 0x9a6440, 0x6e4529], HAIRS = [0x2a1d14, 0x5a3a22, 0x8a6a42, 0x1b1b1b, 0xb9b2a8];
+const WG = {};
+function wgeo() {
+  if (WG.torso) return WG;
+  const lathe = (pts, seg = 14) => new T3.LatheGeometry(pts.map(([r, y]) => new T3.Vector2(r, y)), seg);
+  WG.torso = lathe([[.001, -.02], [.15, 0], [.17, .12], [.165, .28], [.19, .44], [.2, .52], [.12, .6], [.001, .61]]);
+  WG.vest = lathe([[.155, .06], [.18, .14], [.175, .28], [.2, .44], [.205, .5]]); WG.vest.scale(1.04, 1, 1.04);
+  WG.band = new T3.CylinderGeometry(.199, .196, .04, 18, 1, true);
+  WG.limb = (r0, r1, L) => { const g = new T3.CylinderGeometry(r1, r0, L, 10); g.translate(0, -L / 2, 0); return g };
+  WG.joint = new T3.SphereGeometry(1, 10, 8);
+  WG.head = new T3.SphereGeometry(.105, 18, 14); WG.head.scale(1, 1.18, 1.06);
+  WG.hair = new T3.SphereGeometry(.112, 16, 10, 0, Math.PI * 2, 0, Math.PI * .5); WG.hair.scale(1, 1.1, 1.08);
+  WG.nose = new T3.ConeGeometry(.018, .045, 6); WG.nose.rotateX(Math.PI / 2);
+  WG.ear = new T3.SphereGeometry(.022, 8, 6); WG.ear.scale(.5, 1, .8);
+  WG.helmet = lathe([[.001, .13], [.06, .125], [.1, .1], [.122, .05], [.128, 0]], 18);
+  WG.brim = new T3.CylinderGeometry(.15, .155, .015, 20); WG.brim.translate(0, 0, .025);
+  WG.boot = (() => { const g = new T3.BoxGeometry(.11, .09, .26, 2, 1, 3), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const z = p.getZ(i), y = p.getY(i); if (z > .08 && y > 0) p.setY(i, y - .03); if (z > .1) p.setX(i, p.getX(i) * .85) } g.computeVertexNormals(); g.translate(0, -.045, .045); return g })();
+  WG.hand = new T3.SphereGeometry(.042, 10, 8); WG.hand.scale(.8, 1.15, .6);
+  return WG;
+}
 function makeWorker(o = {}) {
-  const g = new T3.Group(), skin = STD(0xe2b089, { r: .7 }), vest = STD(o.vest || 0xf07a2a, { r: .6 }), pants = STD(o.pants || 0x2f3a4a, { r: .8 }), boot = STD(0x3a2c22, { r: .8 }), refl = STD(0xd9dde0, { r: .3, m: .5, e: 0x222222 });
-  const hips = new T3.Group(); hips.position.y = .95; g.add(hips);
-  const torso = RB(.44, .58, .26, .07, vest); torso.position.y = .32; hips.add(torso); BX(.45, .05, .27, refl, 0, .22, 0, hips); BX(.45, .05, .27, refl, 0, .4, 0, hips);
-  const head = MS(new T3.SphereGeometry(.12, 14, 10), skin); head.position.y = .75; hips.add(head);
-  const helmet = MS(new T3.SphereGeometry(.14, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), STD(o.hat || 0xf2c94c, { r: .35 })); helmet.position.y = .78; hips.add(helmet); BX(.3, .02, .32, STD(o.hat || 0xf2c94c, { r: .35 }), 0, .78, .02, hips);
-  const limb = (par, x, y, len, r, m) => { const j = new T3.Group(); j.position.set(x, y, 0); par.add(j); const s = CY(r, r * .85, len, m, 8); s.position.y = -len / 2; j.add(s); return j };
-  const arms = [-1, 1].map(sd => { const sh = limb(hips, sd * .27, .56, .3, .05, vest); const el = limb(sh, 0, -.3, .28, .045, skin); el.position.y = -.3; return { sh, el } });
-  const legs = [-1, 1].map(sd => { const th = limb(hips, sd * .11, 0, .44, .075, pants); const kn = limb(th, 0, -.44, .44, .065, pants); kn.position.y = -.44; BX(.12, .08, .24, boot, 0, -.46, .05, kn); return { th, kn } });
+  const G = wgeo(), rnd1 = Math.random, pick = a => a[(rnd1() * a.length) | 0], civil = !!o.civil;
+  const g = new T3.Group(), skin = STD(o.skin || pick(SKINS), { r: .62 }), hairM = STD(pick(HAIRS), { r: .8 }), shirt = STD(o.shirt || pick([0xf1efe9, 0x5a6e86, 0x7e8a5a, 0x3c4048, 0xb04a3a]), { r: .85 });
+  const vestM = STD(o.vest || 0xf07a2a, { r: .55 }), pants = STD(o.pants || pick([0x2f3a4a, 0x3d4a3a, 0x4a4036]), { r: .85 }), boot = STD(civil ? 0x2a2420 : 0x5a3e28, { r: .7 }), refl = STD(0xe6eaec, { r: .25, m: .6, e: 0x333333 }), glove = STD(civil ? 0 : 0x9a8a5a, { r: .8 });
+  const sc = o.h || (.95 + rnd1() * .1), hips = new T3.Group(); hips.position.y = .95; g.add(hips); g.scale.setScalar(sc);
+  const torso = new T3.Group(); torso.position.y = .02; hips.add(torso);
+  torso.add(MS(G.torso, civil ? STD(o.vest || 0x3b55b5, { r: .7 }) : shirt));
+  if (!civil) { torso.add(MS(G.vest, vestM)); [.2, .36].forEach(y => torso.add(AT(MS(G.band, refl), 0, y, 0))); const belt = MS(new T3.TorusGeometry(.162, .022, 6, 18), STD(0x4a3422, { r: .7 })); belt.rotation.x = Math.PI / 2; belt.position.y = .02; torso.add(belt); torso.add(AT(BX(.08, .1, .05, STD(0x4a3422, { r: .7 })), .13, -.02, .1)) }
+  const neck = MS(new T3.CylinderGeometry(.045, .055, .09, 10), skin); neck.position.y = .64; torso.add(neck);
+  const head = new T3.Group(); head.position.y = .76; torso.add(head);
+  head.add(MS(G.head, skin)); head.add(AT(MS(G.nose, skin), 0, -.005, .11)); [-1, 1].forEach(sd => head.add(AT(MS(G.ear, skin), sd * .103, 0, 0)));
+  const hair = MS(G.hair, hairM); hair.position.set(0, .005, -.01); hair.rotation.x = -.45; head.add(hair);
+  [-1, 1].forEach(sd => head.add(AT(MS(new T3.SphereGeometry(.011, 6, 5), STD(0x1b1b1b, { r: .3 })), sd * .036, .015, .102)));
+  if (rnd1() < .3) head.add(AT(MS(new T3.SphereGeometry(.085, 12, 8, 0, Math.PI * 2, Math.PI * .55, Math.PI * .45), hairM), 0, -.02, .02));
+  if (!civil) { const hm = STD(o.hat || 0xf2c94c, { r: .35, m: .05 }); const hel = AT(MS(G.helmet, hm), 0, .035, -.005); hel.scale.set(1.02, 1.05, 1.08); head.add(hel); head.add(AT(MS(G.brim, hm), 0, .04, 0)); hair.visible = false }
+  const limb = (par, x, y, r0, r1, L, m) => { const j = new T3.Group(); j.position.set(x, y, 0); par.add(j); j.add(MS(G.limb(r0, r1, L), m)); const k = MS(G.joint, m); k.scale.setScalar(r0); j.add(k); return j };
+  const arms = [-1, 1].map(sd => { const sh = limb(torso, sd * .21, .5, .055, .045, .29, shirt); sh.rotation.z = sd * .06; const el = limb(sh, 0, -.29, .044, .036, .26, civil ? shirt : skin); el.add(AT(MS(G.hand, civil ? skin : glove), 0, -.29, 0)); return { sh, el } });
+  const legs = [-1, 1].map(sd => { const th = limb(hips, sd * .095, 0, .085, .065, .45, pants); const kn = limb(th, 0, -.45, .062, .05, .44, pants); kn.add(AT(MS(G.boot, boot), 0, -.44, 0)); return { th, kn } });
   const hand = new T3.Group(); hand.position.set(0, .3, .42); hips.add(hand);
   g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = false } });
-  const w = { g, hips, arms, legs, hand, x: o.x || 0, y: o.y || 0, z: o.z || 0, yaw: 0, tyaw: 0, step: 0, moving: false, pose: null, carry: null, seed: Math.random() * 9 };
+  const w = { g, hips, torso, head, arms, legs, hand, x: o.x || 0, y: o.y || 0, z: o.z || 0, yaw: 0, tyaw: 0, step: 0, moving: false, pose: null, carry: null, seed: rnd1() * 9 };
   w.setCarry = m => { while (hand.children.length) hand.remove(hand.children[0]); w.carry = m; if (m) hand.add(m) };
   w.update = (dt, S) => {
-    let d = w.tyaw - w.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; w.yaw += d * Math.min(1, dt * 8);
+    let d = w.tyaw - w.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; w.yaw += d * Math.min(1, dt * 7);
     g.position.set(w.x, w.y, w.z); g.rotation.y = w.yaw;
-    const t = S.t, ph = w.step * 2.6, mv = w.moving ? 1 : 0, P = w.pose;
-    let lt = [0, 0], lk = [0, 0], as = [0, 0], ae = [0, 0], hy = .95;
-    if (P === 'climb') { const c = Math.sin(t * 7); lt = [c * .7 - .4, -c * .7 - .4]; lk = [.8, .8]; as = [-2.6 + c * .4, -2.6 - c * .4]; ae = [.2, .2] }
-    else if (P === 'kneel') { lt = [-1.5, -.2]; lk = [1.6, 1.5]; hy = .55; as = [-.9, -.7 + Math.sin(t * 5) * .3]; ae = [-.5, -.5] }
-    else if (mv) { const s = Math.sin(ph); lt = [s * .55, -s * .55]; lk = [Math.max(0, -Math.cos(ph)) * .7, Math.max(0, Math.cos(ph)) * .7]; as = w.carry ? [-1.1, -1.1] : [-s * .5, s * .5]; ae = w.carry ? [-.6, -.6] : [-.3, -.3]; hy = .95 + Math.abs(Math.cos(ph)) * .03 }
-    else { const br = Math.sin(t * 1.6 + w.seed) * .03; as = w.carry ? [-1.1, -1.1] : [br, -br]; ae = w.carry ? [-.6, -.6] : [-.15, -.15] }
-    if (P === 'hammer') { as[1] = -2.2 + Math.max(0, Math.sin(t * 11)) * 1.6; ae[1] = -.4 }
-    if (P === 'reach') { as = [-1.4 + Math.sin(t * 6 + 1) * .25, -1.5 + Math.sin(t * 6) * .25]; ae = [-.4, -.4] }
+    const t = S.t, ph = w.step / sc * 2.7, mv = w.moving ? 1 : 0, P = w.pose;
+    let lt = [0, 0], lk = [0, 0], as = [0, 0], ae = [0, 0], hy = .95, tw = 0, lean = 0, hb = 0;
+    if (P === 'climb') { const c = Math.sin(t * 7); lt = [c * .7 - .4, -c * .7 - .4]; lk = [.9, .9]; as = [-2.6 + c * .4, -2.6 - c * .4]; ae = [.25, .25]; lean = .08 }
+    else if (P === 'kneel') { lt = [-1.45, -.15]; lk = [1.65, 1.55]; hy = .55; as = [-.9 + Math.sin(t * 4) * .15, -.75 + Math.sin(t * 5) * .3]; ae = [-.6, -.7]; lean = .35 }
+    else if (mv) {
+      const s = Math.sin(ph), c = Math.cos(ph);
+      lt = [s * .5, -s * .5]; lk = [Math.max(0, -c) * .8 + .05, Math.max(0, c) * .8 + .05];
+      as = w.carry ? [-1.05, -1.05] : [-s * .45, s * .45]; ae = w.carry ? [-.75, -.75] : [-.35 - Math.max(0, s) * .2, -.35 - Math.max(0, -s) * .2];
+      hy = .94 + Math.abs(c) * .028; tw = s * .12; lean = .05; hb = Math.abs(s) * .02;
+    } else { const br = Math.sin(t * 1.6 + w.seed); as = w.carry ? [-1.05, -1.05] : [br * .03, -br * .03]; ae = w.carry ? [-.75, -.75] : [-.18, -.18]; hy = .95 + br * .004 }
+    if (P === 'hammer') { as[1] = -2.2 + Math.max(0, Math.sin(t * 11)) * 1.6; ae[1] = -.4; lean = .2 }
+    if (P === 'reach') { as = [-1.35 + Math.sin(t * 6 + 1) * .2, -1.45 + Math.sin(t * 6) * .2]; ae = [-.35, -.35]; lean = .1 }
+    if (P === 'push') { as = [-1.2, -1.2]; ae = [-.35, -.35]; lean = .3 }
     if (P === 'roll') { as = [-2.4 + Math.sin(t * 3) * .5, -2.4 + Math.sin(t * 3) * .5]; ae = [-.2, -.2] }
     w.legs.forEach((L, i) => { L.th.rotation.x = -lt[i]; L.kn.rotation.x = lk[i] }); w.arms.forEach((A, i) => { A.sh.rotation.x = as[i]; A.el.rotation.x = ae[i] });
-    w.hips.position.y = hy;
+    w.hips.position.y = hy; w.torso.rotation.set(lean, tw, 0); w.head.rotation.set(-lean * .6 + hb, -tw * .6 + Math.sin(t * .4 + w.seed) * .15 * (1 - mv), 0);
   };
   return w;
 }
@@ -2743,6 +3011,146 @@ Object.assign(Site3D.prototype, {
     for (let i = 0; i < 16; i++) this.clod(tx + rnd(-.4, .4), ty - .4, tz + rnd(-.4, .4), rnd(-1, 1), rnd(-1, .5), rnd(-1, 1));
     if (!dump) this.anim(1500, e => { const pl = this.h.pile.scale; pl.set(Math.min(2.6, pl.x + .004), Math.min(1.3, pl.y + .002), Math.min(2, pl.z + .003)) });
     await this.wait(300);
+  }
+});
+/* ----- Navigation : les ouvriers contournent les murs, la piscine, les arbres et les engins ----- */
+const NAV = { x0: -34, z0: -18, x1: 34, z1: 24, c: .4 };
+NAV.nx = Math.round((NAV.x1 - NAV.x0) / NAV.c); NAV.nz = Math.round((NAV.z1 - NAV.z0) / NAV.c);
+// Escalier intérieur (rez-de-chaussée → étage), le long du mur ouest de l'étage
+const STAIR = { x: -3.35, z0: 2.3, z1: -3.2, y0: .35, y1: 3.65, w: .9 };
+Object.assign(Site3D.prototype, {
+  // Grille d'obstacles au sol, calculée au moment où l'on part (le chantier change sans cesse)
+  navGrid(ignore) {
+    const g = new Uint8Array(NAV.nx * NAV.nz), c = NAV.c, h = this.h, P = H3.pool, pad = .3;
+    const cell = (x, z) => [Math.floor((x - NAV.x0) / c), Math.floor((z - NAV.z0) / c)];
+    const rect = (x0, z0, x1, z1) => { const [a, b] = cell(x0, z0), [e, d] = cell(x1, z1); for (let i = Math.max(0, a); i <= Math.min(NAV.nx - 1, e); i++) for (let j = Math.max(0, b); j <= Math.min(NAV.nz - 1, d); j++) g[j * NAV.nx + i] = 1 };
+    const circ = (x, z, r) => { const [a, b] = cell(x - r, z - r), [e, d] = cell(x + r, z + r); for (let i = Math.max(0, a); i <= Math.min(NAV.nx - 1, e); i++) for (let j = Math.max(0, b); j <= Math.min(NAV.nz - 1, d); j++) { const cx = NAV.x0 + (i + .5) * c, cz = NAV.z0 + (j + .5) * c; if (Math.hypot(cx - x, cz - z) < r) g[j * NAV.nx + i] = 1 } };
+    // piscine, dès que le trou est entamé
+    if (this.poolOpen()) rect(P.x0 - pad, P.z0 - pad, P.x1 + pad, P.z1 + pad);
+    // murs du rez-de-chaussée dès le premier rang, avec la porte (et la baie tant qu'elle n'est pas vitrée)
+    if (h.bricks.gf.shown.some(n => n > 0)) {
+      const F = H3.gf, t = .11 + pad, bay = h.panes.slice(1, 4).some(p => p.visible);
+      const gaps = [[-6.3, -5.3], ...(bay ? [] : [[-4.2, 3.2]])];
+      let a = F.x0 - t; for (const [g0, g1] of gaps) { rect(a, F.z1 - t, g0 + .05, F.z1 + t); a = g1 - .05 } rect(a, F.z1 - t, F.x1 + t, F.z1 + t);
+      rect(F.x0 - t, F.z0 - t, F.x1 + t, F.z0 + t); rect(F.x0 - t, F.z0 - t, F.x0 + t, F.z1 + t); rect(F.x1 - t, F.z0 - t, F.x1 + t, F.z1 + t);
+      if (this.stair && this.stair.visible) rect(STAIR.x - STAIR.w / 2 - .1, STAIR.z1 - .1, STAIR.x + STAIR.w / 2 + .1, STAIR.z0 - .5);
+      h.furn.forEach(f => { if (f.visible && f.position.y < 1) circ(f.position.x, f.position.z, .75) });
+    }
+    // végétation, mobilier extérieur, grue, déblais
+    const tree = t => { if (!t.visible || t.scale.x < .2) return; const ty = t.userData.type, r = ty === 'pine' ? .6 : ty === 'olive' ? .55 : ty === 'palm' ? .45 : ty === 'cypress' ? .5 : .55 * (t.userData.s || 1); circ(t.position.x, t.position.z, r * Math.max(1, t.scale.x) + .1) };
+    this.trees.children.forEach(tree); h.plants.forEach(tree); h.bushes.forEach(tree);
+    h.lamps.forEach(l => { if (l.visible) circ(l.position.x, l.position.z, .35) });
+    h.loungers.forEach(l => { if (l.visible) rect(l.position.x - .5, l.position.z - 1.2, l.position.x + .5, l.position.z + 1.2) });
+    if (h.parasol.visible) circ(h.parasol.position.x, h.parasol.position.z, .3);
+    if (this.crane.base.visible) rect(H3.crane[0] - 2.3, H3.crane[1] - 2.3, H3.crane[0] + 2.3, H3.crane[1] + 2.3);
+    if (h.pile.scale.x > .05) circ(h.pile.position.x, h.pile.position.z, h.pile.scale.x * .95);
+    circ(this.sign.position.x, this.sign.position.z, 1.5);
+    // engins à l'arrêt (rectangle orienté)
+    const up = new T3.Vector3(0, 1, 0), q = new T3.Vector3();
+    for (const v of this.vehicles) {
+      if (v === ignore) continue;
+      if (!v.half) { const r = v.g.rotation.y; v.g.rotation.y = 0; v.g.position.set(0, 0, 0); v.g.updateMatrixWorld(true); const bb = new T3.Box3().setFromObject(v.g); v.half = [bb.min.x, bb.max.x, bb.min.z, bb.max.z]; v.g.rotation.y = r; v.g.position.set(v.x, v.y || 0, v.z); v.g.updateMatrixWorld(true) }
+      const [lx0, lx1, lz0, lz1] = v.half, R = Math.max(-lx0, lx1, -lz0, lz1) + pad, [a, b] = cell(v.x - R, v.z - R), [e, d] = cell(v.x + R, v.z + R);
+      for (let i = Math.max(0, a); i <= Math.min(NAV.nx - 1, e); i++) for (let j = Math.max(0, b); j <= Math.min(NAV.nz - 1, d); j++) {
+        q.set(NAV.x0 + (i + .5) * c - v.x, 0, NAV.z0 + (j + .5) * c - v.z).applyAxisAngle(up, -v.yaw);
+        if (q.x > lx0 - pad && q.x < lx1 + pad && q.z > lz0 - pad && q.z < lz1 + pad) g[j * NAV.nx + i] = 1;
+      }
+    }
+    return g;
+  },
+  poolOpen() { return this.h.cover.some(c => !c.visible || c.material.opacity < .999) || this.h.water.visible },
+  // Plus court chemin (A* sur la grille, 8 directions), puis lissé en lignes droites
+  findPath(sx, sz, tx, tz) {
+    const g = this.navGrid(), c = NAV.c, nx = NAV.nx, nz = NAV.nz;
+    const idx = (x, z) => { const i = Math.floor((x - NAV.x0) / c), j = Math.floor((z - NAV.z0) / c); return i < 0 || j < 0 || i >= nx || j >= nz ? -1 : j * nx + i };
+    const free = k => k >= 0 && !g[k];
+    const nearest = k => { if (free(k)) return k; const i0 = k % nx, j0 = (k / nx) | 0; for (let r = 1; r < 25; r++) for (let di = -r; di <= r; di++) for (const dj of [-r, r]) { for (const [i, j] of [[i0 + di, j0 + dj], [i0 + dj, j0 + di]]) if (i >= 0 && j >= 0 && i < nx && j < nz && !g[j * nx + i]) return j * nx + i } return k };
+    let s = idx(sx, sz), t = idx(tx, tz); if (s < 0 || t < 0) return [[tx, tz]];
+    s = nearest(s); const t2 = nearest(t);
+    const ctr = k => [NAV.x0 + (k % nx + .5) * c, NAV.z0 + (((k / nx) | 0) + .5) * c];
+    const H = k => { const dx = Math.abs(k % nx - t2 % nx), dz = Math.abs(((k / nx) | 0) - ((t2 / nx) | 0)); return Math.max(dx, dz) + .414 * Math.min(dx, dz) };
+    const gs = new Float32Array(nx * nz).fill(1e9), from = new Int32Array(nx * nz).fill(-1), closed = new Uint8Array(nx * nz);
+    const heap = [[H(s), s]]; gs[s] = 0;
+    const push = (f, k) => { heap.push([f, k]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m } } return top };
+    let found = false, n = 0;
+    while (heap.length && n++ < 40000) {
+      const [, k] = pop(); if (closed[k]) continue; closed[k] = 1; if (k === t2) { found = true; break }
+      const i = k % nx, j = (k / nx) | 0;
+      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+        if (!di && !dj) continue; const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= nx || b >= nz) continue;
+        const kk = b * nx + a; if (g[kk] || closed[kk]) continue;
+        if (di && dj && (g[j * nx + a] || g[b * nx + i])) continue; // pas de coin coupé
+        const ng = gs[k] + (di && dj ? 1.414 : 1); if (ng < gs[kk]) { gs[kk] = ng; from[kk] = k; push(ng + H(kk), kk) }
+      }
+    }
+    if (!found) return [[tx, tz]];
+    const cells = []; for (let k = t2; k !== -1; k = from[k]) cells.push(k); cells.reverse();
+    const pts = [[sx, sz], ...cells.slice(1, -1).map(ctr), [tx, tz]];
+    // lissage : on saute les points intermédiaires tant que la ligne droite reste dégagée
+    const clear = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / (c * .5)); for (let i = 1; i < n; i++) { const k = idx(lerp(a[0], b[0], i / n), lerp(a[1], b[1], i / n)); if (k >= 0 && g[k] && k !== t && k !== idx(sx, sz)) return false } return true };
+    const out = []; let i = 0;
+    while (i < pts.length - 1) { let j = pts.length - 1; while (j > i + 1 && !clear(pts[i], pts[j])) j--; out.push(pts[j]); i = j }
+    return out;
+  },
+  // Sur l'échafaudage : on fait le tour par les planches (jamais à travers la maison)
+  ringRoute(y, sx, sz, tx, tz) {
+    const F = y >= 3.6 ? H3.up : H3.gf, o = .72, X0 = F.x0 - o, X1 = F.x1 + o, Z0 = F.z0 - o, Z1 = F.z1 + o, W = X1 - X0, D = Z1 - Z0, L = 2 * (W + D);
+    const proj = (x, z) => { const cx = Math.max(X0, Math.min(X1, x)), cz = Math.max(Z0, Math.min(Z1, z)); const d = [Math.abs(cz - Z1), Math.abs(cx - X1), Math.abs(cz - Z0), Math.abs(cx - X0)], m = d.indexOf(Math.min(...d)); return m === 0 ? [cx, Z1] : m === 1 ? [X1, cz] : m === 2 ? [cx, Z0] : [X0, cz] };
+    const par = ([x, z]) => Math.abs(z - Z1) < 1e-6 ? x - X0 : Math.abs(x - X1) < 1e-6 ? W + (Z1 - z) : Math.abs(z - Z0) < 1e-6 ? W + D + (X1 - x) : 2 * W + D + (z - Z0);
+    const at = u => { u = ((u % L) + L) % L; return u < W ? [X0 + u, Z1] : u < W + D ? [X1, Z1 - (u - W)] : u < 2 * W + D ? [X1 - (u - W - D), Z0] : [X0, Z0 + (u - 2 * W - D)] };
+    const a = proj(sx, sz), b = proj(tx, tz), ua = par(a), ub = par(b); let du = ub - ua; if (du > L / 2) du -= L; if (du < -L / 2) du += L;
+    const corners = [0, W, W + D, 2 * W + D], out = [];
+    if (Math.hypot(a[0] - sx, a[1] - sz) > .05) out.push(a);
+    const steps = corners.map(cu => { let d = cu - ua; if (du >= 0) { d = ((d % L) + L) % L; return d > 1e-6 && d < du - 1e-6 ? d : null } d = -((((ua - cu) % L) + L) % L); return d < -1e-6 && d > du + 1e-6 ? d : null }).filter(d => d !== null).sort((p, q) => Math.abs(p) - Math.abs(q));
+    steps.forEach(d => out.push(at(ua + d)));
+    out.push(b); if (Math.hypot(b[0] - tx, b[1] - tz) > .05) out.push([tx, tz]);
+    return out;
+  },
+  // Hauteur du sol sous les pieds (dalle du rez-de-chaussée une fois coulée)
+  floorAt(x, z) { const sl = this.h.slab[0]; return sl.visible && this.prog(6) >= 1 && x > -7.35 && x < 7.35 && z > -4.85 && z < 4.85 ? .35 : 0 },
+  async walk(w, x, z, y = null, speed = 1.5) {
+    const ground = v => v < .6;
+    if (y === null) y = ground(w.y) ? 0 : w.y;
+    const seg = async (tx, tz, ty, mode) => {
+      const d = Math.hypot(tx - w.x, tz - w.z), dy = ty - w.y; if (d < .02 && Math.abs(dy) < .02) return;
+      const x0 = w.x, z0 = w.z, y0 = w.y, s0 = w.step;
+      if (mode === 'climb') { w.pose = 'climb'; w.tyaw = Math.PI } else { w.tyaw = Math.atan2(tx - x0, tz - z0); w.moving = true }
+      const ms = mode === 'climb' ? Math.abs(dy) / .55 * 1000 : Math.max(d, mode === 'stair' ? Math.abs(dy) * 1.2 : 0) / speed * 1000;
+      await this.anim(ms, e => { w.x = lerp(x0, tx, e); w.z = lerp(z0, tz, e); w.y = mode === 'ground' ? this.floorAt(w.x, w.z) : lerp(y0, ty, e); w.step = s0 + Math.max(d, Math.abs(dy)) * e }, EZ.lin);
+      w.moving = false; if (mode === 'climb') w.pose = null;
+    };
+    const route = async (tx, tz, ty) => {
+      if (ground(w.y) && ground(ty)) { for (const [px, pz] of this.findPath(w.x, w.z, tx, tz)) await seg(px, pz, 0, 'ground') }
+      else for (const [px, pz] of this.ringRoute(ty, w.x, w.z, tx, tz)) await seg(px, pz, ty, 'ring');
+    };
+    // dans la maison, l'étage se rejoint par l'escalier intérieur
+    const inside = (px, pz, F) => px > F.x0 && px < F.x1 && pz > F.z0 && pz < F.z1;
+    if (this.stair && this.stair.visible && !this.scafGF.visible) {
+      const upIn = (py, px, pz) => py > 3 && inside(px, pz, H3.up);
+      if (!upIn(w.y, w.x, w.z) && upIn(y, x, z)) { await route(STAIR.x, STAIR.z0 + .6, 0); await seg(STAIR.x, STAIR.z1, STAIR.y1, 'stair'); await seg(x, z, y, 'ring'); return }
+      if (upIn(w.y, w.x, w.z) && !upIn(y, x, z)) { await seg(STAIR.x, STAIR.z1, w.y, 'ring'); await seg(STAIR.x, STAIR.z0 + .6, STAIR.y0, 'stair'); await route(x, z, 0); return }
+      if (upIn(w.y, w.x, w.z) && upIn(y, x, z)) { await seg(x, z, y, 'ring'); return }
+    }
+    if (Math.abs(y - w.y) > .2 && !(ground(y) && ground(w.y))) {
+      // monter ou descendre par les échelles de l'échafaudage (rez-de-chaussée, puis étage)
+      const A = [-7.55, 5.75], B = [-4.55, 5.25], hi = v => v >= 3.6;
+      const lvl = async (px, pz, py) => ground(py) ? route(px, pz, 0) : route(px, pz, py);
+      if (!hi(w.y) && !hi(y)) { await lvl(A[0], A[1], w.y); await seg(A[0], A[1], ground(y) ? 0 : y, 'climb') }
+      else if (!hi(w.y)) { await lvl(A[0], A[1], w.y); await seg(A[0], A[1], 3.65, 'climb'); if (y > 3.7) { await route(B[0], B[1], 3.65); await seg(B[0], B[1], y, 'climb') } }
+      else if (!hi(y)) { if (w.y > 3.7) { await route(B[0], B[1], w.y); await seg(B[0], B[1], 3.65, 'climb') } await route(A[0], A[1], 3.65); await seg(A[0], A[1], ground(y) ? 0 : y, 'climb') }
+      else { await route(B[0], B[1], w.y); await seg(B[0], B[1], y, 'climb') }
+    }
+    await route(x, z, ground(y) ? 0 : y);
+  },
+  // Descendre dans le bassin par l'échelle, et en remonter
+  async poolIn(w) { const P = H3.pool, lx = P.x0 + .9; await this.walk(w, lx, P.z0 - .45, 0); w.tyaw = 0; await this.seg1(w, lx, P.z0 + .35, -P.depth, 'climb') },
+  async poolOut(w) { const P = H3.pool, lx = P.x0 + .9; await this.seg1(w, lx, P.z0 + .35, -P.depth, 'walk'); await this.seg1(w, lx, P.z0 - .45, 0, 'climb') },
+  async seg1(w, tx, tz, ty, mode) {
+    const x0 = w.x, z0 = w.z, y0 = w.y, d = Math.hypot(tx - x0, tz - z0), s0 = w.step;
+    if (mode === 'climb') w.pose = 'climb'; else { w.tyaw = Math.atan2(tx - x0, tz - z0); w.moving = true }
+    await this.anim(mode === 'climb' ? Math.abs(ty - y0) / .55 * 1000 + 300 : d / 1.4 * 1000, e => { w.x = lerp(x0, tx, e); w.z = lerp(z0, tz, e); w.y = lerp(y0, ty, e); w.step = s0 + d * e }, EZ.lin);
+    w.moving = false; if (mode === 'climb') w.pose = null;
   }
 });
 const _upd = Site3D.prototype.updateCrane;
@@ -2835,7 +3243,7 @@ const JOBS3D = {
     async work(S, todo) {
       S.focus(-10, 2, 12, 26, .5);
       const car = await S.arrive('sedan', -8);
-      const b = S.addWorker(car.x + .5, car.z - 1.3, 0, { vest: 0x3b55b5, hat: 0x2b2b2b, pants: 0x30343a }); b.hips.children[2].visible = true;
+      const b = S.addWorker(car.x + .5, car.z - 1.3, 0, { civil: true, vest: 0x2f4a6e, pants: 0x30343a });
       await S.walk(b, -12.4, 14.2); b.pose = 'reach'; await S.wait(500);
       await S.anim(1800, e => { todo[0].it.p = e }, EZ.io); b.pose = null;
       for (let i = 0; i < 40; i++) S.emit({ add: 1, x: -13, y: 3, z: 13.4, vx: 0, vy: 4, sv: 2.5, g: 4, drag: 1, life: 1.6, size: .18, c: [1, .85, .3] });
@@ -3092,8 +3500,9 @@ const JOBS3D = {
       for (const { it, to } of todo) {
         if (it.kind === 'lawn') {
           S.focus(0, 0, 4, 44);
-          await S.walk(w, pl.x0 + .8, 13); w.pose = 'roll'; const p0 = it.p;
-          await S.anim(Math.max(1200, (to - p0) * 14000), e => { it.p = lerp(p0, to, e); w.x = pl.x0 + (pl.x1 - pl.x0) * it.p - .8; w.z = 13 - Math.abs(Math.sin(S.t * .25)) * 20; w.tyaw = Math.PI / 2; w.moving = true; w.step += .05; const pile = S.h.pile.scale; if (pile.x > .01) pile.multiplyScalar(.997) }, EZ.lin);
+          const p0 = it.p, x0 = pl.x0 + (pl.x1 - pl.x0) * p0;
+          await S.walk(w, x0 - .9, 12.4, 0); w.pose = 'push';
+          await S.anim(Math.max(1200, (to - p0) * 21000), e => { it.p = lerp(p0, to, e); const nx = pl.x0 + (pl.x1 - pl.x0) * it.p - .9; w.step += Math.abs(nx - w.x); w.x = nx; w.z = 12.4; w.tyaw = Math.PI / 2; w.moving = true; const pile = S.h.pile.scale; if (pile.x > .01) pile.multiplyScalar(.997) }, EZ.lin);
           w.moving = false; w.pose = null; continue;
         }
         const g = S.h.plants[S.items[18].indexOf(it) - 1];
@@ -3126,7 +3535,7 @@ const JOBS3D = {
   20: { // Livraison : le propriétaire arrive, coucher de soleil, guirlande, feux d'artifice
     async work(S, todo) {
       S.focus(0, 3, 4, 46, .62);
-      const car = S.addVehicle('sport', 70, H3.lane, 0);
+      const car = S.addVehicle('sport', 70, H3.lane, 0, { color: S.style.car });
       await S.drive(car, -9, H3.lane, { ms: 7000, ease: EZ.out });
       await S.drive(car, -9, 13.2, { ms: 2500 });
       const [night, bulbs] = S.items[20];
@@ -3145,7 +3554,7 @@ SiteScene.prototype.jobs = SITE_JOBS; SiteScene.prototype.cont = CONT_PARTIAL;
 
 /* --- Contrôle : on fait avancer la scène de l'avancement affiché vers l'avancement réel --- */
 const siteCtl = {};
-async function siteStage(ctl, k, f0, f1, fast) {
+async function siteStage(ctl, k, f0, f1, rate) {
   const S = ctl.S, its = S.items[k], n = its.length;
   setRun(ctl, k);
   const todo = [];
@@ -3154,7 +3563,7 @@ async function siteStage(ctl, k, f0, f1, fast) {
     if (to > it.p + 1e-6) todo.push({ it, to });
   });
   const done = f1 >= 1 - 1e-9;
-  S.rate = fast ? 2.2 : 1;
+  S.rate = rate;
   if (todo.length) await S.jobs[k].work(S, todo);
   if (done) {
     if (S.jobs[k].finish) await S.jobs[k].finish(S);
@@ -3173,20 +3582,24 @@ async function siteRun(ctl) {
   ctl.busy = true;
   while (!ctl.skip && ctl.target > ctl.D + 1e-9) {
     const s = Math.floor(ctl.D + 1e-9), k = s + 1, f0 = ctl.D - s, end = Math.min(ctl.target, k);
-    await siteStage(ctl, k, f0, end - s, ctl.target - ctl.D > 1.2);
+    // Peu de sous-objectifs : chaque case fait avancer plusieurs étapes, jouées plus vite. Beaucoup : une fraction d'étape, jouée en détail.
+    await siteStage(ctl, k, f0, end - s, Math.min(3.2, Math.max(1, .55 + (ctl.target - ctl.D) * .55)));
     if (ctl.skip) break;
     ctl.D = end; saveShown(ctl);
   }
   if (ctl.skip || ctl.target < ctl.D - 1e-9) { snapSite(ctl); saveShown(ctl) }
   ctl.busy = false; ctl.skip = false; ctl.S.skip = false; setRun(ctl, 0);
 }
-function saveShown(ctl) { const p = project(ctl.pid); if (p) { p.siteShown = ctl.D; save() } }
+function saveShown(ctl) { if (ctl.noSave) return; const t = findTask(ctl.tid); if (t && t.site) { t.site.shown = ctl.D; save() } }
 
 /* --- Intégration dans la page --- */
-// Le chantier ne mesure que les sous-objectifs de « 1. Finaliser le manuscrit »
-const siteTask = () => db.tasks.find(t => t.title === '1. Finaliser le manuscrit');
-function siteProgress() {
-  const t = siteTask();
+// N'importe quelle tâche peut avoir son chantier : la villa avance avec ses sous-objectifs cochés
+const siteTasksOf = pid => db.tasks.filter(t => t.projectId === pid && t.site?.on);
+function siteTaskFor(pid) {
+  const list = siteTasksOf(pid); if (!list.length) return null;
+  ui.siteSel ||= {}; return list.find(t => t.id === ui.siteSel[pid]) || list[0];
+}
+function siteProgress(t) {
   const total = t ? t.subgoals.length || 1 : 0;
   const done = !t ? 0 : t.done ? total : t.subgoals.length ? t.subgoals.filter(s => s.done).length : 0;
   const ratio = total ? done / total : 0, D = ratio * SITE_N;
@@ -3194,38 +3607,51 @@ function siteProgress() {
   const need = stage >= SITE_N ? 0 : Math.max(1, Math.ceil((stage + 1) / SITE_N * total - 1e-9) - done);
   return { total, done, ratio, D, stage, frac, need };
 }
-function siteInfo(pr) {
-  const [name, line] = SITE_STEPS[pr.stage], next = SITE_STEPS[pr.stage + 1], pct = Math.round(pr.ratio * 100);
-  return `<div class="site-top"><h2>Chantier du manuscrit</h2>${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div>
+const frNum = n => (Math.round(n * 10) / 10).toLocaleString('fr-FR');
+function siteInfo(t, pr) {
+  const [name, line] = SITE_STEPS[pr.stage], next = SITE_STEPS[pr.stage + 1], pct = Math.round(pr.ratio * 100), list = siteTasksOf(t.projectId);
+  const per = pr.total ? SITE_N / pr.total : 0, pace = !t.subgoals.length ? 'Ajoute des sous-objectifs à cette tâche : chacun fera avancer la villa.' : per >= 1 ? `Chaque case cochée fait avancer d'environ ${frNum(per)} étape${per >= 2 ? 's' : ''}.` : `Il faut environ ${frNum(1 / per)} cases par étape.`;
+  return `<div class="site-top"><h2>Chantier · ${esc(t.title)}</h2><div class="tools">${list.length > 1 ? `<select data-change="site-sel" aria-label="Chantier affiché">${list.map(x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select>` : ''}${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div></div>
     <div class="site-stage"><small>Étape ${pr.stage}/${SITE_N}</small>${name} · <span style="font-weight:500">${line}</span></div>
     <div class="site-bar" title="${pct} %"><span style="width:${pct}%"></span></div>
     <div class="site-steps">${SITE_STEPS.slice(1).map((_, i) => `<i class="${i < pr.stage ? 'on' : i === pr.stage ? 'cur' : ''}" style="--f:${Math.round(pr.frac * 100)}%" title="${SITE_STEPS[i + 1][0]}"></i>`).join('')}</div>
-    <div class="site-next">${next ? `« 1. Finaliser le manuscrit » : ${pr.done} / ${pr.total} sous-objectifs. Encore <b>${plural(pr.need, 'case')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>.` : `${pr.total} / ${pr.total} sous-objectifs. Le manuscrit est terminé, la villa aussi !`}</div>`;
+    <div class="site-next">${next ? `« ${esc(t.title)} » : ${pr.done} / ${pr.total} sous-objectifs. Encore <b>${plural(pr.need, 'case')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>. ${pace}` : `${pr.total} / ${pr.total} sous-objectifs. La tâche est terminée, la villa aussi !`}</div>`;
+}
+// Libère les scènes qui ne sont plus affichées (un seul contexte WebGL à la fois)
+function dropSites(keep) {
+  for (const [id, c] of Object.entries(siteCtl)) {
+    if (id === keep || c.el.isConnected) continue;
+    if (c.busy) { c.noSave = true; c.skip = true; c.S.finishAll && c.S.finishAll() }
+    if (c.S && c.S.dispose) c.S.dispose();
+    delete siteCtl[id];
+  }
 }
 function attachSite() {
-  const slot = app.querySelector('.site-slot'), t = siteTask();
-  if (!slot || !t) return;
-  const p = project(t.projectId), pr = siteProgress();
-  let ctl = siteCtl[p.id];
+  const slot = app.querySelector('.site-slot'), t = slot && siteTaskFor(ui.project);
+  if (!slot || !t) { dropSites(null); return }
+  const pr = siteProgress(t);
+  let ctl = siteCtl[t.id];
   if (!ctl) {
     // Premier affichage : la villa est déjà construite jusqu'à l'avancement enregistré (ou réel), sans animation
-    const D = Math.min(p.siteShown ?? pr.D, pr.D);
+    const D = Math.min(t.site.shown ?? pr.D, pr.D);
+    if (t.site.shown == null) { t.site.shown = D; save() }
     const el = document.createElement('section');
     el.className = 'site';
-    el.innerHTML = `<div class="site-wrap"><canvas class="site-scene" role="img" aria-label="Chantier de la villa, qui avance avec le manuscrit"></canvas><div class="site-run" hidden><span>Travaux en cours · <b></b></span><button data-action="site-skip">Passer</button></div></div><div class="site-info"></div>`;
-    ctl = siteCtl[p.id] = { pid: p.id, el, D, target: pr.D, busy: false, skip: false, compact: false, sentinel: document.createElement('div') };
+    el.innerHTML = `<div class="site-wrap"><canvas class="site-scene" role="img" aria-label="Chantier de la villa, qui avance avec les sous-objectifs de la tâche"></canvas><div class="site-run" hidden><span>Travaux en cours · <b></b></span><button data-action="site-skip">Passer</button></div></div><div class="site-info"></div>`;
+    ctl = siteCtl[t.id] = { tid: t.id, el, D, target: pr.D, busy: false, skip: false, compact: false, sentinel: document.createElement('div') };
   }
   slot.replaceWith(ctl.sentinel, ctl.el);
+  dropSites(t.id);
   siteLayout();
   if (!ctl.S) {
     // 3D si possible (Three.js + WebGL), sinon la version 2D
     let cv = ctl.el.querySelector('canvas');
-    try { if (!window.THREE) throw 0; ctl.S = new Site3D(cv, p.name) }
-    catch (e) { const c2 = cv.cloneNode(); cv.replaceWith(c2); cv = c2; ctl.S = new SiteScene(cv, p.name) }
+    try { if (!window.THREE) throw 0; ctl.S = new Site3D(cv, t.title, t.id) }
+    catch (e) { console.warn(e); const c2 = cv.cloneNode(); cv.replaceWith(c2); cv = c2; ctl.S = new SiteScene(cv, t.title) }
     ctl.S.apply(ctl.D);
   }
   ctl.S.start();
-  ctl.el.querySelector('.site-info').innerHTML = siteInfo(pr);
+  ctl.el.querySelector('.site-info').innerHTML = siteInfo(t, pr);
   ctl.target = pr.D;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { if (ctl.D !== ctl.target && !ctl.busy) { snapSite(ctl); saveShown(ctl) } return }
   if (ctl.target > ctl.D + 1e-9) siteRun(ctl);
@@ -3251,8 +3677,8 @@ addEventListener('scroll', siteLayoutSoon, { passive: true });
 addEventListener('resize', siteLayoutSoon);
 
 function replaySite() {
-  const t = siteTask(); if (!t) return;
-  const ctl = siteCtl[t.projectId]; if (!ctl || ctl.busy) return;
+  const t = siteTaskFor(ui.project); if (!t) return;
+  const ctl = siteCtl[t.id]; if (!ctl || ctl.busy) return;
   const s = Math.floor(ctl.target + 1e-9); if (!s) return;
   // On revient au début de la dernière étape franchie, puis on rejoue la construction
   ctl.D = s - 1; ctl.S.apply(ctl.D);
@@ -3425,6 +3851,7 @@ function renderTaskModal() {
     </div>
     ${t.subgoals.length ? '<p class="hint">Avec des sous-objectifs, l\'estimation est la somme de leurs durées.</p>' : ''}
     <label class="check-line"><input type="checkbox" name="flagged" ${t.flagged ? 'checked' : ''}> Priorité (drapeau rouge)</label>
+    <label class="check-line"><input type="checkbox" name="site" ${t.site?.on ? 'checked' : ''}> Chantier 3D : une villa se construit au fil des sous-objectifs cochés</label>
 
     <div class="field"><label>Sous-objectifs</label></div>
     ${t.subgoals.length ? `<div class="sub-head"><span></span><span>Intitulé</span><span>Échéance</span><span>Durée</span><span></span></div>` : ''}
@@ -3457,6 +3884,7 @@ function readDraft() {
   draft.pub = f.pub.value || null;
   if (!f.est.disabled) draft.est = parseDur(f.est.value);
   draft.flagged = f.flagged.checked;
+  if (f.site.checked) draft.site = { shown: null, ...draft.site, on: true }; else if (draft.site) draft.site.on = false;
   f.querySelectorAll('.sub-edit').forEach(row => {
     const s = draft.subgoals.find(x => x.id === row.dataset.sub);
     const v = k => row.querySelector(`[data-f="${k}"]`);
@@ -3606,6 +4034,7 @@ document.addEventListener('change', e => {
   const k = e.target.dataset.change;
   if (k === 'quick-project') e.target.form.theme.innerHTML = themeOptions(e.target.value);
   if (k === 'draft-project') { readDraft(); draft.themeId = null; renderTaskModal() }
+  if (k === 'site-sel') { (ui.siteSel ||= {})[ui.project] = e.target.value; commit() }
 });
 
 document.addEventListener('submit', e => {
