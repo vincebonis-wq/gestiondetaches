@@ -1910,9 +1910,17 @@ function signTexture(lines, bg, fg) {
   });
 }
 // Couleurs données en sRGB (comme en CSS) : on les passe en linéaire pour un rendu fidèle
-const LIN = m => { if (m.color) m.color.convertSRGBToLinear(); if (m.emissive) m.emissive.convertSRGBToLinear(); return m };
-const PHY = o => LIN(new T3.MeshPhysicalMaterial(o));
-const STD = (color, o = {}) => LIN(new T3.MeshStandardMaterial({ color, roughness: o.r ?? .8, metalness: o.m ?? 0, map: o.map || null, transparent: !!o.t, opacity: o.o ?? 1, emissive: o.e || 0x000000, emissiveIntensity: o.ei ?? 1, side: o.side || T3.FrontSide, envMapIntensity: o.env ?? .7 }));
+// Style dessin animé : couleurs vives (saturation relevée), ombrage en aplats (3 tons), reflets brillants pour le métal et le verre
+const _hsl = {};
+const POP = c => { c.getHSL(_hsl); c.setHSL(_hsl.h, Math.min(1, _hsl.s * 1.28 + (_hsl.s > .05 ? .06 : 0)), Math.min(.97, _hsl.l * 1.04 + .015)); return c };
+const LIN = m => { if (m.color) POP(m.color).convertSRGBToLinear(); if (m.emissive) m.emissive.convertSRGBToLinear(); return m };
+const TOON_G = (() => { const d = new Uint8Array([90, 90, 90, 255, 175, 175, 175, 255, 255, 255, 255, 255]); const t = new T3.DataTexture(d, 3, 1, T3.RGBAFormat); t.minFilter = t.magFilter = T3.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true; return t })();
+const TOON_KEYS = ['map', 'transparent', 'opacity', 'emissive', 'emissiveIntensity', 'emissiveMap', 'side', 'vertexColors', 'normalMap', 'alphaTest', 'depthWrite'];
+function TOON(color, o) { const m = new T3.MeshToonMaterial({ color, gradientMap: TOON_G }); for (const k of TOON_KEYS) if (o[k] !== undefined && o[k] !== null) m[k] = o[k]; return m }
+// métal, verre et eau gardent un rendu physique (reflets du ciel) ; tout le reste est en aplats
+const PHY = o => LIN(o.metalness > .5 || o.transparent || (o.clearcoat && o.roughness < .1) ? new T3.MeshPhysicalMaterial(o) : TOON(o.color ?? 0xffffff, o));
+const STD = (color, o = {}) => LIN((o.m ?? 0) >= .6 ? new T3.MeshStandardMaterial({ color, roughness: o.r ?? .8, metalness: o.m ?? 0, map: o.map || null, emissive: o.e || 0x000000, emissiveIntensity: o.ei ?? 1, side: o.side || T3.FrontSide, envMapIntensity: o.env ?? .7 })
+  : TOON(color, { map: o.map || null, transparent: !!o.t, opacity: o.o ?? 1, emissive: new T3.Color(o.e || 0x000000), emissiveIntensity: o.ei ?? 1, side: o.side || T3.FrontSide }));
 function AT(o, x, y, z) { o.position.set(x, y, z); return o }
 function MS(geo, m, cast = true, recv = true) { const x = new T3.Mesh(geo, m); x.castShadow = cast; x.receiveShadow = recv; return x }
 function BX(w, h, d, m, x = 0, y = 0, z = 0, par) { const b = MS(new T3.BoxGeometry(w, h, d), m); b.position.set(x, y, z); if (par) par.add(b); return b }
@@ -1951,7 +1959,7 @@ const H3 = {
   brick: [.5, .25, .22],
   pool: { x0: -4, x1: 9, z0: 6.8, z1: 10.6, depth: 1.6 },
   plot: { x0: -15, x1: 15, z0: -10, z1: 14 },
-  lane: 16.75, crane: [-13, -9], craneH: 22
+  lane: 17.6, crane: [-13, -9], craneH: 22
 };
 // Ouvertures (portes, baies) : aucune brique n'y est posée
 const OPEN3 = [
@@ -1987,12 +1995,12 @@ function brickSlots(fl, key) {
 
 // Relief autour de la parcelle : plat sur le terrain et la route, collines douces ailleurs (moins hautes côté mer)
 const GRASS0 = 0x67984a; // herbe de la parcelle (et des abords, pour qu'aucune couture ne se voie)
-const PLOT0 = { x0: -22, x1: 22, z0: -14, z1: 14.85 };
+const PLOT0 = { x0: -17.3, x1: 17.3, z0: -14, z1: 14.85 };
 const sstep = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t) };
 function terrainH(x, z) {
   const P = H3.pool;
-  for (const X of SLOTS) { const lx = x - X; if (lx > P.x0 - 3.6 && lx < P.x1 + 3.6 && z > P.z0 - 3.6 && z < P.z1 + 3.6) return -4 }
-  const d = Math.min(plotDist(x, z), Math.max(0, Math.abs(z - 17.6) - 3.4));
+  for (const S of SLOTS) { const [lx, lz] = worldToSlot(S, x, z); if (lx > P.x0 - 3.6 && lx < P.x1 + 3.6 && lz > P.z0 - 3.6 && lz < P.z1 + 3.6) return -4 }
+  const d = Math.min(plotDist(x, z), Math.max(0, Math.abs(z - ROAD_C) - ROAD_H));
   if (d <= 0) return -.04;
   const n = vnoise(x * .021, 1.3, z * .021) * .65 + vnoise(x * .063, 4.1, z * .063) * .35;
   const amp = lerp(.18, 1, sstep(-25, 12, z)) * sstep(-52, -34, z);
@@ -2008,12 +2016,12 @@ const VILLA_STYLES = [
 ];
 class Site3D {
   constructor(W, task) {
-    const seed = task.id; this.W = W; this.task = task.id; this.slot = task.site.slot || 0; this.X = SLOTS[this.slot]; this.kind = KINDS[task.site.kind] ? task.site.kind : 'villa';
+    const seed = task.id; this.W = W; this.task = task.id; this.slot = task.site.slot || 0; this.SL = SLOTS[this.slot]; this.X = this.SL.x; this.kind = KINDS[task.site.kind] ? task.site.kind : 'villa';
     this.rng = seeded(seed); this.style = VILLA_STYLES[Math.floor(seeded(seed + '#style')() * VILLA_STYLES.length)];
     this.cv = W.cv; this.name = String(task.title || '').slice(0, 22); this.anims = []; this.t = 0; this.skip = false; this.rate = 1; this.lit = 0;
     this.jobs = JOBS3D; this.cont = CONT3D; this.vehicles = []; this.workers = [];
     this.tx = W.tx; this.R = W.R; this.grassMat = W.grassMat;
-    this.root = new T3.Group(); this.root.position.x = this.X; W.scene.add(this.root); this.scene = this.root;
+    this.root = new T3.Group(); this.root.position.set(this.X, 0, this.SL.z); this.root.rotation.y = this.SL.r ? Math.PI : 0; W.scene.add(this.root); this.scene = this.root;
     this.trees = new T3.Group(); this.root.add(this.trees);
     this.buildSign(); this.buildHouse(); this.buildCrane(); this.buildScaffold(); this.initFx();
     this.items = this.defineItems(); sites3dSlabItems(this); this.applyStyle(); this.applyKind();
@@ -2529,7 +2537,12 @@ Object.assign(Site3D.prototype, {
 
 /* ===== Le monde : une seule côte, une route, un ciel ; chaque chantier occupe sa parcelle ===== */
 // Abscisses des parcelles le long de la route (la première au centre, les suivantes de part et d'autre)
-const SLOTS = [0, 68, -68, 136, -136, 204, -204];
+// Le quartier : deux rangées de parcelles face à face de part et d'autre de l'avenue (la rangée d'en face est retournée)
+const ROW_B = 43, STEP = 35.5;
+const SLOTS = [[0, 0], [STEP, 0], [-STEP, 0], [0, 1], [STEP, 1], [-STEP, 1], [2 * STEP, 0], [-2 * STEP, 0], [2 * STEP, 1], [-2 * STEP, 1]].map(([x, r]) => ({ x, r, z: r ? ROW_B : 0 }));
+// repère local d'une parcelle → monde
+const slotToWorld = (S, x, z) => S.r ? [S.x - x, S.z - z] : [S.x + x, z];
+const worldToSlot = (S, x, z) => S.r ? [S.x - x, S.z - z] : [x - S.x, z];
 const PATH_Z = z0 => -27 + Math.sin(z0 * .035) * 3; // sentier côtier (z en fonction de x)
 class World {
   constructor(canvas) {
@@ -2541,14 +2554,38 @@ class World {
     R.shadowMap.enabled = true; R.shadowMap.type = T3.PCFSoftShadowMap; R.localClippingEnabled = true;
     this.scene = new T3.Scene();
     this.cam = new T3.PerspectiveCamera(30, SW / SH, .5, 1500);
-    this.view = { yaw: .7, pitch: .32, dist: 52, tx: 0, ty: 2.6, tz: 3, cyaw: .7, cpitch: .32, cdist: 52, ctx: 0, cty: 2.6, ctz: 3, user: -99 };
+    this.view = { yaw: .78, pitch: .58, dist: 50, tx: 0, ty: 2.6, tz: 3, cyaw: .78, cpitch: .58, cdist: 50, ctx: 0, cty: 2.6, ctz: 3, user: -99 };
     this.buildSky(); this.buildLand(); this.bakeStatic(); this.buildLife();
     // lumières ponctuelles partagées (intérieur, piscine) : posées sur la parcelle affichée
     this.inLights = [new T3.PointLight(0xffc27a, 0, 14, 2), new T3.PointLight(0xffc27a, 0, 14, 2)]; this.poolLight = new T3.PointLight(0x6fe7ff, 0, 10, 2); this.scene.add(...this.inLights, this.poolLight);
     this.frustum = new T3.Frustum(); this._pm = new T3.Matrix4(); this._sph = new T3.Sphere(new T3.Vector3(), 32);
     this.fps = { n: 0, t: 0, low: 0 };
+    this.initPost();
     this.setNight(0); this.resize(); this.bindControls();
     this.loop = this.loop.bind(this);
+  }
+  // Contours façon dessin animé : la scène est rendue dans une texture, puis un trait sombre souligne chaque rupture de profondeur
+  initPost() {
+    try {
+      const gl2 = this.R.capabilities.isWebGL2, RT = gl2 && T3.WebGLMultisampleRenderTarget ? T3.WebGLMultisampleRenderTarget : T3.WebGLRenderTarget;
+      const rt = this.rt = new RT(4, 4, { depthBuffer: true }); rt.texture.encoding = T3.sRGBEncoding; if (rt.samples !== undefined) rt.samples = 4;
+      rt.depthTexture = new T3.DepthTexture(4, 4); rt.depthTexture.type = T3.UnsignedIntType;
+      this.postU = { tC: { value: rt.texture }, tD: { value: rt.depthTexture }, uPx: { value: new T3.Vector2(1 / 4, 1 / 4) }, uNear: { value: this.cam.near }, uFar: { value: this.cam.far }, uW: { value: 1 } };
+      const mat = new T3.ShaderMaterial({ uniforms: this.postU, depthTest: false, depthWrite: false, toneMapped: false,
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+        fragmentShader: `uniform sampler2D tC, tD; uniform vec2 uPx; uniform float uNear, uFar, uW; varying vec2 vUv;
+          float Z(vec2 p){ float d = texture2D(tD, p).x; return uNear * uFar / (uFar - d * (uFar - uNear)); }
+          void main(){
+            vec4 c = texture2D(tC, vUv); vec2 o = uPx * uW;
+            float z = Z(vUv), l = Z(vUv - vec2(o.x, 0.)), r = Z(vUv + vec2(o.x, 0.)), u = Z(vUv + vec2(0., o.y)), d = Z(vUv - vec2(0., o.y));
+            float sil = max(max(abs(l - z), abs(r - z)), max(abs(u - z), abs(d - z))) / z;
+            float crease = (abs(l + r - 2. * z) + abs(u + d - 2. * z)) / z;
+            float e = max(smoothstep(.03, .09, sil), smoothstep(.012, .04, crease) * .7) * (1. - smoothstep(140., 420., z));
+            gl_FragColor = vec4(mix(c.rgb, c.rgb * .16 + vec3(.03, .025, .04), e * .95), 1.);
+          }` });
+      this.postScene = new T3.Scene(); const q = new T3.Mesh(new T3.PlaneGeometry(2, 2), mat); q.frustumCulled = false; this.postScene.add(q); this.postCam = new T3.Camera();
+      this.post = true;
+    } catch (e) { console.warn('contours indisponibles', e); this.post = false }
   }
   // Décor fixe du monde (arbres, rochers, bancs, collines) fusionné par matériau
   bakeStatic() {
@@ -2569,16 +2606,16 @@ class World {
   removePlot(p) { this.scene.remove(p.root); this.plots = this.plots.filter(x => x !== p); this.slotUsed(p.slot, false); if (this.active === p) this.active = null }
   setActive(p) {
     if (this.active === p) return; this.active = p;
-    const X = p ? p.X : 0; this.sun.target.position.set(X, 0, 3); this.sun.target.updateMatrixWorld();
-    this.inLights[0].position.set(X - 1, 2.2, 2.5); this.inLights[1].position.set(X + 2, 5.4, 2); this.poolLight.position.set(X + 2.5, -.8, 8.7);
-    if (p) { this.over = false; p.focus(0, 2.6, 3, 52, .7) }
+    const [cx, cz] = p ? p.center() : [0, 3]; this.sun.target.position.set(cx, 0, cz); this.sun.target.updateMatrixWorld();
+    if (p) { p.root.updateMatrixWorld(true); [[-1, 2.2, 2.5], [2, 5.4, 2]].forEach(([x, y, z], i) => this.inLights[i].position.copy(p.root.localToWorld(new T3.Vector3(x, y, z)))); this.poolLight.position.copy(p.root.localToWorld(new T3.Vector3(2.5, -.8, 8.7))) }
+    if (p) { this.over = false; this.view.pitch = .58; p.focus(0, 2.6, 3, 50, .78) }
     this.setNight(this.night);
   }
   // Vue d'ensemble : toute la côte et ses constructions
   overview(on) {
     this.over = on;
-    if (on) { const xs = this.plots.map(p => p.X).concat([0]), a = Math.min(...xs), b = Math.max(...xs); this.focus((a + b) / 2, 4, 0, 70 + (b - a) * .75, .62); this.view.pitch = .42 }
-    else if (this.active) { this.view.pitch = .32; this.active.focus(0, 2.6, 3, 52, .7) }
+    if (on) { const xs = this.plots.map(p => p.X).concat([0]), zs = this.plots.map(p => p.SL.z), a = Math.min(...xs), b = Math.max(...xs), r2 = zs.some(z => z > 0); this.focus((a + b) / 2, 2, r2 ? ROAD_C : 3, 75 + (b - a) * .6 + (r2 ? 20 : 0), .78); this.view.pitch = .78 }
+    else if (this.active) { this.view.pitch = .58; this.active.focus(0, 2.6, 3, 50, .78) }
   }
   slotUsed(i, used) { const s = this.slotSigns[i]; if (s) s.visible = !used; const c = this.slotCovers[i]; if (c) c.visible = !used }
   /* ----- Ciel, lumière, mer ----- */
@@ -2639,10 +2676,11 @@ class World {
     // chaque parcelle : sol plat percé à l'endroit de la piscine, recouvert tant qu'elle est libre ; panneau « À vendre »
     this.slotSigns = []; this.slotCovers = [];
     const saleTex = signTexture(['À VENDRE', 'Vue mer'], '#fffdf6', '#c8323c');
-    SLOTS.forEach(X => {
-      sc.add(groundRect(X + PLOT0.x0, PLOT0.z0, X + PLOT0.x1, PLOT0.z1, [X + P.x0, P.z0, X + P.x1, P.z1], this.grassMat));
-      const cv = groundRect(X + P.x0 - .01, P.z0 - .01, X + P.x1 + .01, P.z1 + .01, null, this.grassMat, .004); sc.add(cv); this.slotCovers.push(cv);
-      const s = new T3.Group(); s.position.set(X - 13, 0, 13.3); s.rotation.y = .25; [-1.1, 1.1].forEach(x => s.add(BX(.12, 2.6, .12, STD(0x7a5532), x, 1.3, 0))); BX(3, 1.5, .08, STD(0xffffff, { map: saleTex, r: .6 }), 0, 2.1, .05, s); sc.add(s); this.slotSigns.push(s);
+    SLOTS.forEach(S => {
+      const g = new T3.Group(); g.position.set(S.x, 0, S.z); g.rotation.y = S.r ? Math.PI : 0; sc.add(g);
+      g.add(groundRect(PLOT0.x0, PLOT0.z0, PLOT0.x1, PLOT0.z1, [P.x0, P.z0, P.x1, P.z1], this.grassMat));
+      const cv = groundRect(P.x0 - .01, P.z0 - .01, P.x1 + .01, P.z1 + .01, null, this.grassMat, .004); g.add(cv); this.slotCovers.push(cv);
+      const s = new T3.Group(); s.position.set(-13, 0, 13.3); g.add(s); s.rotation.y = .25; [-1.1, 1.1].forEach(x => s.add(BX(.12, 2.6, .12, STD(0x7a5532), x, 1.3, 0))); BX(3, 1.5, .08, STD(0xffffff, { map: saleTex, r: .6 }), 0, 2.1, .05, s); this.slotSigns.push(s);
     });
     // collines tout autour : relief, teintes d'herbe, zones sèches et rocailleuses, sentier de sable
     const geo = new T3.PlaneGeometry(760, 360, 260, 120); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, 130);
@@ -2664,13 +2702,22 @@ class World {
     // montagnes au loin, dans la brume
     const hillM = STD(0x8c9f8e, { r: 1 });
     [[-330, -260, 120, 60], [-150, -330, 90, 34], [260, -300, 140, 70], [420, -200, 90, 40], [-420, 380, 160, 90], [0, 470, 220, 110], [380, 420, 170, 80]].forEach(([x, z, r, h]) => { const m = MS(blobGeo(1, { detail: 3, amp: .18, dark: 0x6f8577, light: 0x9fb2a2 }), Object.assign(hillM.clone(), { vertexColors: true }), false, false); m.scale.set(r, h, r * .6); m.position.set(x, -8, z); sc.add(m) });
-    // route, marquage, bordures
-    sc.add(groundRect(-420, 15, 420, 20.2, null, STD(0xffffff, { map: tx.asphalt, r: .9 }), .02));
-    const line = new T3.InstancedMesh(new T3.BoxGeometry(3, .02, .18), STD(0xf2ecd0, { r: .6 }), 120); line.receiveShadow = true;
-    const m4 = new T3.Matrix4(); for (let i = 0; i < 120; i++) { m4.makeTranslation(-400 + i * 7, .035, 17.6); line.setMatrixAt(i, m4) } sc.add(line);
-    [14.85, 20.35].forEach(z => sc.add(BX(840, .14, .3, STD(0xcfcac0, { r: .8 }), 0, .07, z)));
+    // l'avenue : chaussée, trottoirs, bordures, marquage central, passages piétons, lampadaires
+    const R0 = 14.85, R1 = ROW_B - 14.85;
+    sc.add(groundRect(-420, R0 + 1.4, 420, R1 - 1.4, null, STD(0xffffff, { map: tx.asphalt, r: .9 }), .02));
+    const walkM = STD(0xd9d4c8, { map: this.tx.concrete, r: .9 }); [[R0, R0 + 1.4], [R1 - 1.4, R1]].forEach(([a, b]) => { const w = BX(840, .12, b - a, walkM, 0, .06, (a + b) / 2); w.castShadow = false; sc.add(w) });
+    [R0 + 1.4, R1 - 1.4].forEach(z => sc.add(BX(840, .16, .22, STD(0xbfb9ad, { r: .8 }), 0, .08, z)));
+    const line = new T3.InstancedMesh(new T3.BoxGeometry(3, .02, .18), STD(0xffd84a, { r: .6 }), 240); line.receiveShadow = true;
+    const m4 = new T3.Matrix4(); for (let i = 0; i < 120; i++) { m4.makeTranslation(-400 + i * 7, .035, ROAD_C - .14); line.setMatrixAt(i, m4); m4.makeTranslation(-400 + i * 7, .035, ROAD_C + .14); line.setMatrixAt(120 + i, m4) } sc.add(line);
+    // bandes de stationnement des chantiers (pointillés blancs)
+    const park = new T3.InstancedMesh(new T3.BoxGeometry(1.2, .02, .12), STD(0xf4f1e8, { r: .6 }), 280); for (let i = 0; i < 140; i++) { m4.makeTranslation(-420 + i * 6, .035, 18.9); park.setMatrixAt(i, m4); m4.makeTranslation(-420 + i * 6, .035, ROW_B - 18.9); park.setMatrixAt(140 + i, m4) } sc.add(park);
+    const lampM = STD(0x2f3438, { m: .6, r: .4 }); this.streetBulbs = STD(0x222222, { e: 0xffd98a, ei: 0, r: .4 });
+    for (let i = -6; i <= 6; i++) [R0 + .7, R1 - .7].forEach((z, k) => { const x = i * STEP + STEP / 2 + (k ? 0 : 0), g = new T3.Group(); g.position.set(x, 0, z); g.add(AT(CY(.07, .1, 4.2, lampM, 8), 0, 2.1, 0)); const arm = BX(1.2, .07, .07, lampM, 0, 4.1, (k ? -1 : 1) * .55); arm.rotation.y = Math.PI / 2; g.add(arm); g.add(AT(MS(new T3.SphereGeometry(.2, 12, 8), this.streetBulbs), 0, 4.0, (k ? -1 : 1) * 1.1)); sc.add(g) });
+    // haies basses entre les parcelles voisines
+    const hedgeM = Object.assign(STD(0xffffff, { r: .95 }), { vertexColors: true });
+    SLOTS.forEach(S => { const g = new T3.Group(); g.position.set(S.x, 0, S.z); g.rotation.y = S.r ? Math.PI : 0; sc.add(g); [PLOT0.x0 - .45, PLOT0.x1 + .45].forEach(x => { for (let z = PLOT0.z0 + 1; z < PLOT0.z1 - 1; z += 1.1) g.add(AT(MS(blobGeo(.6, { detail: 1, dark: 0x2f6a2c, light: 0x6fb04a, amp: .25, sy: .9 }), hedgeM), x, .45, z)) }) });
     // touffes d'herbe et fleurs des champs (instanciées : des milliers pour presque rien)
-    const free = (x, z) => plotDist(x, z) > .5 && !(z > 14.3 && z < 20.9) && Math.abs(z - PATH_Z(x)) > 1.2;
+    const free = (x, z) => plotDist(x, z) > 1.2 && !(z > 14.3 && z < ROW_B - 14.3) && Math.abs(z - PATH_Z(x)) > 1.2;
     const tuft = (() => {
       const pts = [], cl = [], a = new T3.Color(0x3e6a2e).convertSRGBToLinear(), b = new T3.Color(0xa8c86a).convertSRGBToLinear();
       for (let k = 0; k < 7; k++) { const an = k / 7 * 6.28 + rnd(-.3, .3), lean = rnd(.1, .35), h = rnd(.25, .5), w = .035, ca = Math.cos(an), sa = Math.sin(an);
@@ -2689,8 +2736,7 @@ class World {
     // arbres : autour de chaque parcelle et en bosquets sur les collines (jamais entre la caméra et une parcelle)
     this.trees = new T3.Group(); sc.add(this.trees);
     const plant = (type, x, z, s) => { const t = makeTree(type, x, z, s, rng); t.position.y = terrainH(x, z); t.userData.home.y = t.position.y; this.trees.add(t) };
-    const camFree = (x, z) => SLOTS.every(X => !(x > X + 4 && x < X + 60 && z > 18));
-    SLOTS.forEach((X, si) => { [[-24, -14], [-27, -6], [-22, 4], [24, -12], [27, -2], [-34, 9], [33, 10], [-40, -20], [38, -24]].forEach(([x, z], i) => { if (i % 2 === si % 2 || si === 0) plant(i % 3 === 2 ? 'pine' : 'cypress', X + x, z, .9 + (i % 4) * .1) }); [[-19, 12], [-30, -30], [28, -34], [6, -26], [-8, -30]].forEach(([x, z], i) => plant(i % 2 ? 'bush' : 'olive', X + x, z, 1)) });
+    const camFree = (x, z) => z < ROW_B + 16 || Math.abs(x) > 3 * STEP;
     for (let i = 0; i < 110; i++) { let x, z, tries = 0; do { x = R(-250, 250); z = R(-46, 90) } while ((!free(x, z) || plotDist(x, z) < 5 || !camFree(x, z)) && ++tries < 50); const r = rng(); plant(r < .35 ? 'pine' : r < .6 ? 'cypress' : r < .85 ? 'olive' : 'bush', x, z, R(.8, 1.25)) }
     // bancs le long du sentier
     const benchM = STD(0x8a6a48, { map: tx.wood, r: .8 }), ironM = STD(0x2b2f33, { r: .5, m: .6 });
@@ -2763,6 +2809,7 @@ class World {
   resize() {
     const r = this.cv.parentElement.getBoundingClientRect(), w = Math.max(320, r.width || 800), h = Math.round(w * SH / SW);
     this.R.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix();
+    if (this.post) { const b = this.R.getDrawingBufferSize(new T3.Vector2()); this.rt.setSize(b.x, b.y); this.postU.uPx.value.set(1 / b.x, 1 / b.y); this.postU.uW.value = Math.max(1.2, b.y / 430) }
     this.ptScale = this.R.getDrawingBufferSize(new T3.Vector2()).y * .5 / Math.tan(this.cam.fov * Math.PI / 360) / (devicePixelRatio > 1 ? 1.3 : 1);
     for (const p of this.plots) p.fxScale(this.ptScale);
   }
@@ -2788,22 +2835,28 @@ class World {
     // visibilité : seules les parcelles dans le champ de la caméra sont dessinées et animées en détail
     this.cam.updateMatrixWorld(); this._pm.multiplyMatrices(this.cam.projectionMatrix, this.cam.matrixWorldInverse); this.frustum.setFromProjectionMatrix(this._pm);
     let baked1 = false;
-    for (const p of this.plots) { this._sph.center.set(p.X, 3, 3); p.root.visible = this.frustum.intersectsSphere(this._sph); p.tick(dt, p.root.visible); if (!baked1 && !p.baked && !p.busy && !p.anims.length && (p !== this.active || (p.idle = (p.idle || 0) + dt) > 1.5)) { p.bake(); baked1 = true } if (p.anims.length || p.busy) p.idle = 0 }
+    for (const p of this.plots) { { const [cx, cz] = p.center(); this._sph.center.set(cx, 3, cz) } p.root.visible = this.frustum.intersectsSphere(this._sph); p.tick(dt, p.root.visible); if (!baked1 && !p.baked && !p.busy && !p.anims.length && (p !== this.active || (p.idle = (p.idle || 0) + dt) > 1.5)) { p.bake(); baked1 = true } if (p.anims.length || p.busy) p.idle = 0 }
     // la lumière du soir suit la parcelle affichée (allumée quand sa construction est finie)
-    const tgt = this.active ? this.active.lit : 0;
+    const tgt = this.active && !this.over ? this.active.lit : 0;
     if (Math.abs(tgt - this.night) > 1e-3) this.setNight(this.night + (tgt - this.night) * Math.min(1, dt * 1.4));
     if (this.night > .97 && this.active && this.active.lit >= 1 && Math.random() < dt * .9) this.active.firework();
     this.seaU.uTime.value = this.t; this.updateLife(dt);
     this.updateCam(dt);
-    if (!document.hidden) this.R.render(this.scene, this.cam);
+    if (!document.hidden) this.draw();
     requestAnimationFrame(this.loop);
+  }
+  draw() {
+    if (this.post) { this.R.setRenderTarget(this.rt); this.R.render(this.scene, this.cam); this.R.setRenderTarget(null); this.R.render(this.postScene, this.postCam) }
+    else this.R.render(this.scene, this.cam);
   }
 }
 // Distance (dans le plan) à la parcelle la plus proche
-function plotDist(x, z) { let d = 1e9; for (const X of SLOTS) { const lx = x - X, dx = Math.max(PLOT0.x0 - lx, 0, lx - PLOT0.x1), dz = Math.max(PLOT0.z0 - z, 0, z - PLOT0.z1); d = Math.min(d, Math.hypot(dx, dz)) } return d }
+function plotDist(x, z) { let d = 1e9; for (const S of SLOTS) { const [lx, lz] = worldToSlot(S, x, z), dx = Math.max(PLOT0.x0 - lx, 0, lx - PLOT0.x1), dz = Math.max(PLOT0.z0 - lz, 0, lz - PLOT0.z1); d = Math.min(d, Math.hypot(dx, dz)) } return d }
+// l'avenue entre les deux rangées : stationnement des chantiers de chaque côté, deux voies de circulation au milieu
+const ROAD_C = (14.85 + ROW_B - 14.85) / 2, ROAD_H = (ROW_B - 14.85 - 14.85) / 2;
 
 /* ----- La vie du monde : circulation, promeneurs, chien, habitants ----- */
-const TRAFFIC_Z = 19.25; // voie de circulation (les engins de chantier se garent sur l'autre)
+const TRAFFIC_Z = ROW_B / 2; // milieu de l'avenue (chaque sens a sa voie, les chantiers se garent sur les côtés)
 function makeDog(col = 0xb8874f) {
   const g = new T3.Group(), m = STD(col, { r: .8 }), dk = STD(0x2a2420, { r: .7 });
   const body = MS(new T3.SphereGeometry(.22, 12, 8), m); body.scale.set(1.9, 1, 1); body.position.y = .42; g.add(body);
@@ -2828,7 +2881,7 @@ Object.assign(World.prototype, {
     this.dog = makeDog(); this.scene.add(this.dog.g); this.dog.owner = this.walkers[0]; this.dog.x = this.walkers[0].x + 2; this.dog.z = this.walkers[0].z;
   },
   newCar(x, dir, type, color) {
-    const v = makeVehicle(type, { color, label: '' }); v.x = x; v.z = TRAFFIC_Z + (dir > 0 ? 0 : 0); v.yaw = dir > 0 ? Math.PI : 0; v.dir = dir; v.speed = rnd(9, 13); v.moving = true;
+    const v = makeVehicle(type, { color, label: '' }); v.x = x; v.z = TRAFFIC_Z + (dir > 0 ? -1.3 : 1.3); v.yaw = dir > 0 ? Math.PI : 0; v.dir = dir; v.speed = rnd(9, 13); v.moving = true;
     v.g.traverse(o => { if (o.isMesh) o.castShadow = true }); this.scene.add(v.g); return v;
   },
   updatePeople(dt) {
@@ -2884,11 +2937,42 @@ Object.assign(Site3D.prototype, {
   }
 });
 
+/* ----- Récompenses : une étoile et un message s'envolent au-dessus du chantier ----- */
+function rewardTex(text, sub) {
+  return tex(512, 256, (g, w, h) => {
+    g.font = '900 64px system-ui,sans-serif'; const tw = Math.min(w - 20, Math.max(g.measureText(text).width, 200) + 150);
+    g.fillStyle = 'rgba(0,0,0,.25)'; roundRect(g, (w - tw) / 2 + 4, 70, tw, 120, 60); g.fill();
+    g.fillStyle = '#fff7d6'; g.strokeStyle = '#2a2016'; g.lineWidth = 10; roundRect(g, (w - tw) / 2, 64, tw, 120, 60); g.fill(); g.stroke();
+    star(g, (w - tw) / 2 + 62, 124, 38, '#ffcf2e', '#2a2016');
+    g.fillStyle = '#2a2016'; g.textAlign = 'left'; g.fillText(text, (w - tw) / 2 + 112, 140);
+    if (sub) { g.font = '700 30px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = '#ffffff'; g.strokeStyle = '#2a2016'; g.lineWidth = 7; g.strokeText(sub.slice(0, 30), w / 2, 232); g.fillText(sub.slice(0, 30), w / 2, 232) }
+  });
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath() }
+function star(g, x, y, R, fill, line) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? R * .45 : R; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r) } g.closePath(); g.fillStyle = fill; g.fill(); g.lineWidth = 7; g.strokeStyle = line; g.stroke() }
+Object.assign(Site3D.prototype, {
+  reward(text, sub, x = 0, y = 9, z = 0) {
+    const m = new T3.SpriteMaterial({ map: rewardTex(text, sub), transparent: true, depthTest: false, fog: false }), sp = new T3.Sprite(m); sp.renderOrder = 10;
+    sp.position.set(x, y, z); this.root.add(sp);
+    const t0 = this.t, life = 3.2; (this.rewards ||= []).push({ sp, t0, life, y });
+    for (let i = 0; i < 26; i++) { const a = Math.random() * 6.28, v = rnd(3, 6); this.emit({ add: 1, x, y: y - .5, z, vx: Math.cos(a) * v, vy: rnd(2, 6), vz: Math.sin(a) * v, sv: .2, g: 6, drag: 1.2, life: 1.3, size: .35, c: [1, .85, .25] }) }
+  },
+  updateRewards() {
+    for (const r of this.rewards || []) {
+      const k = (this.t - r.t0) / r.life, pop = k < .15 ? EZ.back(k / .15) : 1;
+      r.sp.scale.set(10 * pop, 5 * pop, 1); r.sp.position.y = r.y + k * 3.5; r.sp.material.opacity = k > .75 ? 1 - (k - .75) / .25 : 1;
+      if (k >= 1) { this.root.remove(r.sp); r.sp.material.map.dispose(); r.sp.material.dispose(); r.done = true }
+    }
+    if (this.rewards) this.rewards = this.rewards.filter(r => !r.done);
+  }
+});
+
 /* ----- Une parcelle : sa construction, ses engins, ses ouvriers, dans le repère local de la parcelle ----- */
 Object.defineProperty(Site3D.prototype, 'view', { get() { return this.W.view } });
 Object.defineProperty(Site3D.prototype, 'cam', { get() { return this.W.cam } });
 Object.assign(Site3D.prototype, {
-  focus(x, y, z, dist = 40, yaw) { if (this.W.active === this && !this.W.over) this.W.focus(x + this.X, y, z, dist, yaw) },
+  focus(x, y, z, dist = 40, yaw) { if (this.W.active === this && !this.W.over) { const [wx, wz] = slotToWorld(this.SL, x, z); this.W.focus(wx, y, wz, dist, yaw === undefined ? undefined : yaw + (this.SL.r ? Math.PI : 0)) } },
+  center() { const [x, z] = slotToWorld(this.SL, 0, 3); return [x, z] },
   buildSign() {
     const sc = this.scene;
     this.sign = new T3.Group(); this.sign.position.set(-13, 0, 13.3); this.sign.rotation.y = .25; sc.add(this.sign);
@@ -2923,7 +3007,7 @@ Object.assign(Site3D.prototype, {
     if (this.waterM.normalMap) this.waterM.normalMap.offset.set(this.t * .015, this.t * .008);
     for (const tr of this.h.plants) if (tr.userData.sway) tr.userData.sway.rotation.z = Math.sin(this.t * 1.1 + tr.position.x) * .025;
     if (this.tickKind) this.tickKind(dt);
-    this.updateResidents(dt);
+    this.updateResidents(dt); this.updateRewards();
   },
   // Parcelle au repos et hors de l'action : tous ses éléments fixes sont fusionnés par matériau (quelques dizaines d'appels de dessin au lieu de centaines)
   bake() {
@@ -3331,7 +3415,7 @@ function wgeo() {
   WG.helmet = lathe([[.001, .13], [.06, .125], [.1, .1], [.122, .05], [.128, 0]], 18);
   WG.brim = new T3.CylinderGeometry(.15, .155, .015, 20); WG.brim.translate(0, 0, .025);
   WG.boot = (() => { const g = new T3.BoxGeometry(.11, .09, .26, 2, 1, 3), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const z = p.getZ(i), y = p.getY(i); if (z > .08 && y > 0) p.setY(i, y - .03); if (z > .1) p.setX(i, p.getX(i) * .85) } g.computeVertexNormals(); g.translate(0, -.045, .045); return g })();
-  WG.hand = new T3.SphereGeometry(.042, 10, 8); WG.hand.scale(.8, 1.15, .6);
+  WG.hand = new T3.SphereGeometry(.056, 10, 8); WG.hand.scale(.85, 1.1, .7);
   return WG;
 }
 function makeWorker(o = {}) {
@@ -3343,10 +3427,10 @@ function makeWorker(o = {}) {
   torso.add(MS(G.torso, civil ? STD(o.vest || 0x3b55b5, { r: .7 }) : shirt));
   if (!civil) { torso.add(MS(G.vest, vestM)); [.2, .36].forEach(y => torso.add(AT(MS(G.band, refl), 0, y, 0))); const belt = MS(new T3.TorusGeometry(.162, .022, 6, 18), STD(0x4a3422, { r: .7 })); belt.rotation.x = Math.PI / 2; belt.position.y = .02; torso.add(belt); torso.add(AT(BX(.08, .1, .05, STD(0x4a3422, { r: .7 })), .13, -.02, .1)) }
   const neck = MS(new T3.CylinderGeometry(.045, .055, .09, 10), skin); neck.position.y = .64; torso.add(neck);
-  const head = new T3.Group(); head.position.y = .76; torso.add(head);
+  const head = new T3.Group(); head.position.y = .8; head.scale.setScalar(1.38); torso.add(head);
   head.add(MS(G.head, skin)); head.add(AT(MS(G.nose, skin), 0, -.005, .11)); [-1, 1].forEach(sd => head.add(AT(MS(G.ear, skin), sd * .103, 0, 0)));
   const hair = MS(G.hair, hairM); hair.position.set(0, .005, -.01); hair.rotation.x = -.45; head.add(hair);
-  [-1, 1].forEach(sd => head.add(AT(MS(new T3.SphereGeometry(.011, 6, 5), STD(0x1b1b1b, { r: .3 })), sd * .036, .015, .102)));
+  [-1, 1].forEach(sd => { head.add(AT(MS(new T3.SphereGeometry(.026, 10, 8), STD(0xffffff, { r: .3 })), sd * .036, .02, .094)); head.add(AT(MS(new T3.SphereGeometry(.013, 8, 6), STD(0x1b1b1b, { r: .3 })), sd * .036, .02, .116)) });
   if (rnd1() < .3) head.add(AT(MS(new T3.SphereGeometry(.085, 12, 8, 0, Math.PI * 2, Math.PI * .55, Math.PI * .45), hairM), 0, -.02, .02));
   if (!civil) { const hm = STD(o.hat || 0xf2c94c, { r: .35, m: .05 }); const hel = AT(MS(G.helmet, hm), 0, .035, -.005); hel.scale.set(1.02, 1.05, 1.08); head.add(hel); head.add(AT(MS(G.brim, hm), 0, .04, 0)); hair.visible = false }
   const limb = (par, x, y, r0, r1, L, m) => { const j = new T3.Group(); j.position.set(x, y, 0); par.add(j); j.add(MS(G.limb(r0, r1, L), m)); const k = MS(G.joint, m); k.scale.setScalar(r0); j.add(k); return j };
@@ -3368,7 +3452,7 @@ function makeWorker(o = {}) {
       const s = Math.sin(ph), c = Math.cos(ph);
       lt = [s * .5, -s * .5]; lk = [Math.max(0, -c) * .8 + .05, Math.max(0, c) * .8 + .05];
       as = w.carry ? [-1.05, -1.05] : [-s * .45, s * .45]; ae = w.carry ? [-.75, -.75] : [-.35 - Math.max(0, s) * .2, -.35 - Math.max(0, -s) * .2];
-      hy = .94 + Math.abs(c) * .028; tw = s * .12; lean = .05; hb = Math.abs(s) * .02;
+      hy = .93 + Math.abs(c) * .06; tw = s * .16; lean = .07; hb = Math.abs(s) * .04;
     } else { const br = Math.sin(t * 1.6 + w.seed); as = w.carry ? [-1.05, -1.05] : [br * .03, -br * .03]; ae = w.carry ? [-.75, -.75] : [-.18, -.18]; hy = .95 + br * .004 }
     if (P === 'hammer') { as[1] = -2.2 + Math.max(0, Math.sin(t * 11)) * 1.6; ae[1] = -.4; lean = .2 }
     if (P === 'reach') { as = [-1.35 + Math.sin(t * 6 + 1) * .2, -1.45 + Math.sin(t * 6) * .2]; ae = [-.35, -.35]; lean = .1 }
@@ -4025,6 +4109,7 @@ async function siteStage(ctl, k, f0, f1, rate) {
   if (done) {
     if (S.jobs[k].finish) await S.jobs[k].finish(S);
     if (ctl.active) toast(`Étape terminée : ${stepsOf(ctl.S.kind)[k][0]}`, stepsOf(ctl.S.kind)[k][1]);
+    if (S.reward) S.reward(`Étape ${k}`, stepsOf(S.kind)[k][0], 0, 10, 0);
     if (k < SITE_N) await S.leaveAll();
   }
 }
