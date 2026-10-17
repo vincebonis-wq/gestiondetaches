@@ -2056,7 +2056,7 @@ class Site3D {
     [[-7.4, 7.4, 4.4, 4.9], [7.0, 7.6, -4.9, 4.9], [-7.4, 7.4, -4.9, -4.4], [-7.6, -7.0, -4.9, 4.9]].forEach(([x0, x1, z0, z1]) => { const b = BX(x1 - x0, .05, z1 - z0, trM, (x0 + x1) / 2, .02, (z0 + z1) / 2); b.visible = false; sc.add(b); h.trench.push(b) });
     // cordons de déblais le long de chaque côté de la tranchée (ils servent au remblai, disparaissent avec la dalle)
     const spM = Object.assign(STD(0xffffff, { r: 1 }), { vertexColors: true });
-    h.spoil = [[.5, 11.6, 0], [13.8, .5, 1], [.5, -11.6, 0], [-13.8, .5, 1]].map(([x, z, r]) => { const m = MS(blobGeo(1, { detail: 1, dark: 0x6e5236, light: 0x9b7650, amp: .25, seed: x + z }), spM); m.position.set(x, 0, z); m.rotation.y = r * Math.PI / 2; m.visible = false; m.castShadow = true; sc.add(m); return m });
+    h.spoil = [[-5.5, 10.2, 0], [13.8, -1, 1], [5.5, -10.2, 0], [-13.8, 1, 1]].map(([x, z, r]) => { const m = MS(blobGeo(1, { detail: 1, dark: 0x6e5236, light: 0x9b7650, amp: .25, seed: x + z }), spM); m.position.set(x, 0, z); m.rotation.y = r * Math.PI / 2; m.visible = false; m.castShadow = true; sc.add(m); return m });
     // Coffrages et fers
     const woodM = STD(0xffffff, { map: tx.wood, r: .8 }), steel = STD(0x6b7177, { r: .5, m: .6 });
     h.forms = [[0, .3, 4.95, 15.2, .6, .08], [0, .3, -4.95, 15.2, .6, .08], [7.55, .3, 0, .08, .6, 9.9], [-7.55, .3, 0, .08, .6, 9.9]].map(([x, y, z, w, hh, d]) => { const b = BX(w, hh, d, woodM, x, y, z); b.visible = false; sc.add(b); return b });
@@ -4089,59 +4089,49 @@ const JOBS3D = {
       await S.drive(v, 15, 2, { yaw: 0 });
     }
   },
-  4: { // Terrassement : la pelleteuse décape le terrain puis creuse la tranchée ; chaque godet part dans la benne du camion, qui s'en va plein
-    park(S) { S.addVehicle('excavator', -9, 8.7, Math.PI); S.addVehicle('dump', -11.3, 13.7, 0) },
+  4: { // Terrassement (une minute) : la pelleteuse décape en deux arrêts en chargeant le camion, puis creuse la tranchée en deux positions
+    pace: 1.6,
+    park(S) { S.addVehicle('excavator', -12, 3, Math.PI); S.addVehicle('dump', -14.3, 8.6, 0) },
     async work(S, todo) {
       let ex = S.vehicles.find(x => x.type === 'excavator'), du = S.vehicles.find(x => x.type === 'dump');
-      // la pelleteuse entre la première ; le camion attend sur la voie puis vient se placer à côté d'elle
-      if (!ex) { [ex, du] = await Promise.all([S.arrive('excavator', -4), S.arrive('dump', 10)]); await S.drive(ex, -12, 9, { yaw: Math.PI }) }
-      // place le camion parallèle à la pelleteuse, benne à portée du bras ; s'il est plein, il part et un autre arrive
-      const place = async (bx, bz, yaw) => {
-        if (du.load > .85) { const old = du; await S.toLane(old); S.leave(old); du = await S.arrive('dump', 12) }
-        const tx = bx - 2.3 * Math.cos(yaw), tz = bz + 2.3 * Math.sin(yaw), back = Math.cos(du.yaw - yaw) > .5 && vLocal(du, tx, tz)[0] > 1; // (bx, bz) : centre de la benne
-        // de loin, le camion vient d'abord se mettre dans l'axe, 9 m en retrait, puis avance droit jusqu'à la pelleteuse
-        if (!back && (Math.hypot(du.x - tx, du.z - tz) > 10 || Math.abs(du.z - H3.lane) < 1)) {
-          const sx = tx + 9 * Math.cos(yaw), sz = tz - 9 * Math.sin(yaw);
-          // depuis la voie, s'il a dépassé l'entrée, il recule d'abord en ligne droite le long de la voie
-          if (Math.abs(du.z - H3.lane) < 1 && du.x < sx + 4) await S.drive(du, sx + 6, H3.lane, { yaw: 0, reverse: true });
-          await S.drive(du, sx, sz, { yaw });
-        }
-        await S.drive(du, tx, tz, { yaw, reverse: back || undefined });
+      if (!ex) [ex, du] = await Promise.all([S.arrive('excavator', -4), S.arrive('dump', 10)]);
+      const dirt = todo.filter(d => d.it.kind === 'dirt'), tr = todo.filter(d => d.it.kind !== 'dirt'), Z = 3, TZ = Z + 5.6;
+      // place le camion (tourné vers la sortie) benne en face de la pelleteuse ; depuis la voie il recule d'abord le long de la route, se met dans l'axe, puis avance
+      const place = async bx => {
+        const tx = bx - 2.3, back = Math.cos(du.yaw) > .5 && vLocal(du, tx, TZ)[0] > 1;
+        if (Math.abs(du.z - H3.lane) < 1) { if (du.x < tx + 13) await S.drive(du, tx + 15, H3.lane, { yaw: 0, reverse: true }); await S.drive(du, tx + 9, TZ, { yaw: 0 }) }
+        await S.drive(du, tx, TZ, { yaw: 0, reverse: back || undefined });
       };
-      const zs = [12.3, 8.7, 4.6, -.5, -6.75], stops = [-6.5, 8.5];
-      for (const { it, to } of todo) {
-        if (it.kind === 'dirt') {
-          // décapage d'une bande : la pelleteuse s'arrête, prend deux godets devant elle, les vide dans la benne, avance
-          const k = S.items[4].indexOf(it), z = zs[k], tz = Math.min(H3.lane, z + 5.6); // le camion se tient toujours côté terrain déjà décapé
-          for (let si = 0; si < stops.length; si++) {
-            const xs = stops[si], pa = clamp01((xs - 7.5 + 14) / 29), pb = clamp01((xs + 7.5 + 14) / 29);
-            if (to <= pa + 1e-6 || it.p >= pb - 1e-6) continue;
-            S.focus(xs, 1, z + 2, 30);
-            // d'une bande à l'autre, la pelleteuse recule en ligne plutôt que de faire demi-tour ; le camion dégage d'abord le passage
-            // nouvelle bande : le camion ressort sur la voie, la pelleteuse change de bande, puis le camion revient se placer
-            // même bande : le camion (tourné vers la sortie) recule d'un arrêt pendant que la pelleteuse avance
-            const exGo = () => S.drive(ex, xs - 5, z, { yaw: Math.PI, reverse: Math.cos(ex.yaw - Math.PI) > .5 && ex.x > xs - 4 || undefined });
-            if (Math.abs(ex.z - z) > 1) { await exGo(); await place(xs - 5, tz, 0) } // la pelleteuse s'éloigne vers l'arrière, le camion suit
-            else if (du.load > .85 || Math.abs(du.z - tz) > 1) { await exGo(); await place(xs - 5, tz, 0) } else await Promise.all([exGo(), place(xs - 5, tz, 0)]);
-            const p0 = Math.max(it.p, pa), p1 = Math.min(to, pb);
-            for (let n = 0; n < 2; n++) await S.scoop(ex, du, xs - 2.3 + n * 3.6, z + (n ? .6 : -.6), () => { const a = it.p, b = lerp(p0, p1, (n + 1) / 2); S.anim(700, e => { it.p = Math.max(it.p, lerp(a, b, e)) }) }, .5);
-          }
-        } else {
-          // tranchée des fondations, côté par côté
-          const k = S.items[4].indexOf(it) - 5, P = [[0, 8.4, 0, 4.65, 1], [10.6, 0, 7.3, 0, 0], [0, -8.4, 0, -4.65, 1], [-10.6, 0, -7.3, 0, 0]][k];
-          S.focus(P[0] * .7, 1, P[1] * .7, 30);
-          // la tranchée : la terre est déposée en cordon à côté, elle servira au remblai ; le camion, plein, repart
-          const ey = P[4] ? Math.PI : (P[0] > 0 ? Math.PI / 2 : -Math.PI / 2);
-          if (du && k === 0) { const old = du; du = null; await S.toLane(old); S.leave(old) }
-          await S.drive(ex, P[0] + (P[4] ? -3 : 0), P[1] + (P[4] ? 0 : -3), { yaw: ey });
-          const hp = S.h.spoil[k].position, hx = hp.x, hz = hp.z;
-          const p0 = it.p, spots = [-4, 0, 4];
-          for (let s = 0; s < 3; s++) {
-            const x = P[4] ? spots[s] : P[2], z = P[4] ? P[3] : spots[s];
-            await S.scoop(ex, null, x, z, () => { it.p = Math.min(to, p0 + (to - p0) * (s + 1) / 3) }, 1, { to: [hx + rnd(-.6, .6), hz + rnd(-.6, .6)] });
+      if (dirt.length) {
+        // décapage : deux arrêts au milieu du terrain ; chaque godet découvre la terre sur toute la largeur des bandes
+        const stops = [-7, 8], edge = [-14, .5, 15];
+        for (let si = 0; si < 2; si++) {
+          const xs = stops[si], pa = (edge[si] + 14) / 29, pb = (edge[si + 1] + 14) / 29;
+          if (dirt.every(d => d.to <= pa + 1e-6 || d.it.p >= pb - 1e-6)) continue;
+          S.focus(xs, 1, Z + 2, 34);
+          const exGo = () => S.drive(ex, xs - 5, Z, { yaw: Math.PI });
+          if (si === 0 || Math.abs(du.z - TZ) > 1) { await exGo(); await place(xs - 5) } else await Promise.all([exGo(), place(xs - 5)]);
+          for (let n = 0; n < 2; n++) await S.scoop(ex, du, xs - 2 + n * 3.4, Z + (n ? 2.5 : -2.5), () => {
+            const goal = lerp(pa, pb, (n + 1) / 2);
+            dirt.forEach(d => { const a = d.it.p, b = Math.min(d.to, Math.max(a, goal)); S.anim(900, e => { d.it.p = Math.max(d.it.p, lerp(a, b, e)) }) });
+          }, .5);
+        }
+        dirt.forEach(d => d.it.p = d.to);
+      }
+      if (tr.length) {
+        // le camion repart avec sa terre ; la tranchée est creusée depuis deux coins, la terre déposée en cordon pour le remblai
+        if (du) { const old = du; du = null; await S.toLane(old); S.leave(old) }
+        const P = [[-10.5, 7, Math.PI, [0, 3]], [10.5, -7, 0, [1, 2]]], mid = [[-4, 4.65], [7.3, -1.5], [4, -4.65], [-7.3, 1.5]];
+        for (const [x, z, yaw, sides] of P) {
+          const mine = tr.filter(d => sides.includes(S.items[4].indexOf(d.it) - 5)); if (!mine.length) continue;
+          S.focus(x * .6, 1, z * .6, 30);
+          await S.drive(ex, x, z, { yaw });
+          for (const d of mine) {
+            const k = S.items[4].indexOf(d.it) - 5, [mx, mz] = mid[k], hp = S.h.spoil[k].position, a = d.it.p;
+            await S.scoop(ex, null, mx, mz, () => S.anim(1800, e => { d.it.p = lerp(a, d.to, e) }), 1, { to: [hp.x, hp.z] });
+            d.it.p = d.to;
           }
         }
-        it.p = to;
       }
       await S.tuck(ex);
     }
@@ -4427,7 +4417,7 @@ async function siteStage(ctl, k, f0, f1, rate) {
     if (it.skip) it.p = to; else if (to > it.p + 1e-6) todo.push({ it, to });
   });
   const done = f1 >= 1 - 1e-9;
-  S.rate = rate;
+  S.rate = rate * (S.jobs[k].pace || 1);
   if (todo.length) await S.jobs[k].work(S, todo);
   if (done) {
     if (S.jobs[k].finish) await S.jobs[k].finish(S);
