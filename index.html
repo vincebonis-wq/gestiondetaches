@@ -2270,8 +2270,8 @@ class Site3D {
     add(16, 'parasol', p => { h.parasol.visible = p > 0; h.canopy.scale.set(Math.max(.05, EZ.back(clamp01(p))), 1, Math.max(.05, EZ.back(clamp01(p)))) });
     h.furn.forEach(g => add(17, 'furn', p => { g.visible = p > 0; g.scale.setScalar(Math.max(.001, EZ.back(clamp01(p)))) }));
     add(18, 'lawn', p => { h.lawn.visible = p > 0; h.lawnPlane.constant = pl.x0 + p * (pl.x1 - pl.x0); h.roll.visible = p > 0 && p < 1; const rx = h.roll.position.x = h.lawnPlane.constant; h.roll.rotation.z = -p * 40; h.roll.children.forEach(c => { const k = c.userData.skip; c.visible = !k || rx < k[0] || rx > k[1]; c.scale.set(1 - p * .5, 1, 1 - p * .5) }); h.roll.position.y = .35 * (1 - p * .5) });
-    h.plants.forEach(g => add(18, 'plant', p => { g.visible = p > 0; g.scale.setScalar(Math.max(.001, EZ.back(clamp01(p)))) }));
-    h.stones.forEach(s => add(19, 'stonepath', p => { s.visible = p > 0; s.position.y = .03 + (1 - p) * .8 }));
+    h.plants.forEach((_, i) => add(18, 'plant', p => { const g = h.plants[i]; g.visible = p > 0; g.scale.setScalar(Math.max(.001, EZ.back(clamp01(p)))) }));
+    h.stones.forEach(s => add(19, 'stonepath', p => { s.visible = p > 0; s.position.y = (s.userData.y0 ?? .03) + (1 - p) * .8 }));
     h.lamps.forEach(g => { const bulb = g.children[1]; bulb.material = this.bulbM.clone(); add(19, 'lamp', p => { g.visible = p > 0; g.scale.y = Math.max(.001, clamp01(p * 2)); bulb.material.emissiveIntensity = p > .5 ? (p - .5) * 2 * 2.2 : 0 }) });
     add(19, 'wlight', p => { h.wallLights.visible = p > 0; this.bulbM.emissiveIntensity = Math.max(this.bulbM.emissiveIntensity, p * 1.5) });
     add(20, 'night', p => this.setNight(p));
@@ -2459,8 +2459,8 @@ KINDS.empire = { label: 'Manoir business', the: 'le manoir', sign: 'EMPIRE', sig
   7: ['Premiers clients', 'Brique après brique, le rez-de-chaussée monte'], 8: ['Passer un palier', 'La dalle de l\'étage est coulée'], 9: ['Montée en gamme', 'L\'étage s\'élève rang après rang'],
   10: ['Toit-terrasse VIP', 'La grue pose le toit et le socle doré du cœur'], 11: ['Image de marque', 'Façade blanche, liserés dorés'], 12: ['Vitrine', 'Grandes baies teintées : on voit grand'],
   13: ['Piscine : investir', 'La pelleteuse creuse le bassin'], 14: ['Piscine : dorure', 'Mosaïque or au fond du bassin'], 15: ['Cash-flow', 'Le camion-citerne remplit la piscine'],
-  16: ['Networking', 'Terrasse et transats pour recevoir'], 17: ['Le QG', 'Les déménageurs installent les bureaux'], 18: ['Croissance', 'Le jardin pousse, la courbe de croissance monte'],
-  19: ['Le cœur en feu', 'Le cœur s\'embrase sur le toit : la passion qui fait vendre'], 20: ['Empire livré', 'Bienvenue dans ton empire'] } };
+  16: ['Networking', 'Terrasse et transats pour recevoir'], 17: ['Le QG', 'Les déménageurs installent les bureaux'], 18: ['Le jardin des affaires', 'Topiaire €, arbre à billets, piles d\'or et courbe de croissance'],
+  19: ['Le cœur en feu', 'Tapis rouge, bandeau boursier, et le cœur s\'embrase sur le toit'], 20: ['Empire livré', 'L\'hélico se pose : bienvenue dans ton empire'] } };
 Object.assign(KINDS.boutique, { min: 12 }); Object.assign(KINDS.mas, { min: 15 }); Object.assign(KINDS.eco, { min: 16 }); Object.assign(KINDS.villa, { min: 20 });
 const KIND_ORDER = ['cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
 // Étapes réellement jouées pour une architecture (plain-pied : pas d'étage ; sans piscine : pas de bassin)
@@ -2593,8 +2593,68 @@ Object.assign(Site3D.prototype, {
       [.8, 1.4, 2.1, 3].forEach((y, i) => BX(.5, y, .5, gold, -1.05 + i * .7, .2 + y / 2, 0, h.k.chart));
       const ar = new T3.Group(); ar.position.set(-1.2, 1.6, .45); ar.rotation.z = .62; BX(3.3, .16, .16, red, 1.65, 0, 0, ar); const tip = AT(MS(new T3.ConeGeometry(.3, .6, 4), red), 3.5, 0, 0); tip.rotation.z = -Math.PI / 2; ar.add(tip); h.k.chart.add(ar);
       h.k.chart.traverse(o => { if (o.isMesh) o.castShadow = true }); h.k.chart.visible = false; sc.add(h.k.chart);
+      this.empireStyle(gold, red);
     }
     h.k.show = show;
+  },
+  // Le manoir business : siège social noir et or, jardin des affaires, tapis rouge, héliport
+  empireStyle(gold, red) {
+    const h = this.h, sc = this.scene, col = c => new T3.Color(c).convertSRGBToLinear(), leaf = STD(0x3c8a3c, { r: .85 }), black = STD(0x1f2026, { r: .3 }), ink = STD(0x2a2b30, { r: .25, m: .1 });
+    // rez-de-chaussée anthracite, étage blanc ; lames de bardage en lingots d'or ; terrasse en marbre noir
+    h.faces.slice(0, 4).forEach(f => f.g.children.forEach(m => { m.material.color.copy(col(0x3a3c44)); m.material.needsUpdate = true }));
+    h.slats.children.forEach(b => b.material = gold); h.stone.g.children.forEach(m => { m.material.color.copy(col(0x34353c)); m.material.needsUpdate = true }); h.planks.forEach(b => b.material = ink);
+    h.canopy.material = STD(0xc8102e, { r: .7, side: T3.DoubleSide }); h.lamps.forEach(g => g.children[0].material = gold);
+    // tapis rouge de la rue à la porte (il remplace le pas japonais)
+    const carpet = STD(0xb3122a, { r: .9 }), cg = new T3.BoxGeometry(1.3, .03, 1.72);
+    h.stones.forEach(st => { st.geometry = cg; st.material = carpet; st.position.x = -5.8; st.userData.y0 = .1 });
+    // plaque « EMPIRE » sur la façade, à côté de la baie
+    const pt = tex(512, 160, (g, w, hh) => { g.fillStyle = '#16171b'; g.fillRect(0, 0, w, hh); g.strokeStyle = '#e8bf4a'; g.lineWidth = 8; g.strokeRect(10, 10, w - 20, hh - 20); g.fillStyle = '#f2c94c'; g.textAlign = 'center'; g.font = '700 84px Georgia,serif'; g.fillText('EMPIRE', w / 2, 112) });
+    h.k.plate = BX(3, .94, .06, STD(0xffffff, { map: pt, r: .4, e: 0xffffff, ei: 0 }), 5.2, 2.05, 4.75, sc); h.k.plate.material.emissiveMap = pt; h.k.plate.visible = false; h.k.plateM = h.k.plate.material;
+    // bandeau boursier lumineux sous le toit : il défile en continu
+    const tt = tex(2048, 64, (g, w, hh) => { g.fillStyle = '#0d0f12'; g.fillRect(0, 0, w, hh); g.font = '700 38px ui-monospace,Menlo,monospace'; g.textBaseline = 'middle'; let x = 10; for (const [t, c] of [['CA ▲ +300 %', '#5ee08a'], ['CLIENTS ▲ +48', '#5ee08a'], ['LEADS ▲ +1 250', '#5ee08a'], ['PANIER MOYEN ▲ 2 400 €', '#f2c94c'], ['AVIS ★★★★★', '#f2c94c'], ['DOUTES ▼ −90 %', '#ff6b6b'], ['MRR ▲ +62 %', '#5ee08a']]) { g.fillStyle = c; g.fillText(t, x, hh / 2 + 2); x += g.measureText(t).width + 70 } }, [1, 1]);
+    tt.wrapT = T3.ClampToEdgeWrapping; tt.repeat.set(.4, 1);
+    h.k.tickM = STD(0xffffff, { map: tt, r: .5, e: 0xffffff, ei: .9 }); h.k.tickM.emissiveMap = tt; h.k.tickT = tt;
+    h.k.ticker = BX(12.6, .46, .05, h.k.tickM, 1.95, 6.4, 4.64, sc); h.k.ticker.visible = false;
+    // le jardin des affaires : chaque plante devient un symbole
+    const pot = (g, r = .55) => { g.add(AT(CY(r, r * .8, .7, gold, 16), 0, .35, 0)); g.add(AT(CY(r * .92, r * .92, .06, STD(0x4a3426, { r: 1 }), 16), 0, .7, 0)) };
+    const make = (kind, x, z) => {
+      const g = new T3.Group(); g.position.set(x, 0, z); g.userData.home = g.position.clone(); g.userData.type = 'bush'; g.userData.s = 1;
+      if (kind === 'euro') {
+        // topiaire géant en forme de « € », sur un socle noir
+        g.userData.s = 2.4; BX(3.2, .4, 1, black, 0, .2, 0, g);
+        const e = new T3.Group(); e.position.y = 2; const arc = MS(new T3.TorusGeometry(1.05, .3, 10, 28, Math.PI * 1.55), leaf); arc.rotation.z = Math.PI * .225; e.add(arc);
+        [.22, -.22].forEach(y => BX(1.7, .26, .5, leaf, -.65, y, 0, e)); g.add(e); g.rotation.y = .35;
+      } else if (kind === 'money') {
+        // l'arbre à billets : un tronc, une ramure de billets verts et quelques pièces d'or
+        g.userData.s = 1.6; g.add(AT(CY(.16, .24, 2.6, STD(0x6b4a32, { r: .9 }), 8), 0, 1.3, 0));
+        const bill = STD(0x8fd07a, { r: .7 }), billD = STD(0x5fa65a, { r: .7 }), bg = new T3.BoxGeometry(.62, .02, .3), cg = new T3.CylinderGeometry(.14, .14, .04, 12);
+        for (let i = 0; i < 70; i++) { const a = i * 2.4, yy = (i / 70) * 2 - 1, r = Math.sqrt(1 - yy * yy) * 1.4; const m = MS(i % 9 === 0 ? cg : bg, i % 9 === 0 ? gold : i % 3 ? bill : billD); m.position.set(Math.cos(a) * r, 3.4 + yy * 1.1, Math.sin(a) * r); m.rotation.set(rnd(-1, 1), a, rnd(-1, 1)); g.add(m) }
+      } else if (kind === 'topi') { pot(g); g.add(AT(MS(new T3.SphereGeometry(.75, 14, 10), leaf), 0, 1.45, 0)); g.add(AT(MS(new T3.SphereGeometry(.45, 12, 8), leaf), 0, 2.45, 0)) }
+      else if (kind === 'cone') { pot(g, .5); g.add(AT(MS(new T3.ConeGeometry(.75, 3.2, 14), leaf), 0, 2.3, 0)); g.add(AT(MS(new T3.SphereGeometry(.16, 10, 8), gold), 0, 3.95, 0)) }
+      else if (kind === 'coins') {
+        // des piles de pièces d'or
+        const cg = new T3.CylinderGeometry(.42, .42, .1, 18); [[0, 0, 9], [.75, .25, 6], [-.6, .4, 4], [.15, -.7, 3]].forEach(([cx, cz, n]) => { for (let i = 0; i < n; i++) g.add(AT(MS(cg, gold), cx + rnd(-.03, .03), .05 + i * .1, cz + rnd(-.03, .03))) });
+      }
+      g.traverse(o => { if (o.isMesh) o.castShadow = true }); return g;
+    };
+    const plan = ['euro', 'money', 'topi', 'cone', 'cone', 'coins', 'coins', 'topi'];
+    h.plants = h.plants.map((g, i) => { const o = make(plan[i], g.position.x, g.position.z); o.visible = g.visible; o.scale.copy(g.scale); sc.remove(g); sc.add(o); return o });
+    // bouée en anneau d'or dans la piscine
+    const P = H3.pool; h.k.float = AT(MS(new T3.TorusGeometry(.6, .2, 10, 24), gold), (P.x0 + P.x1) / 2 + 2, -.12, (P.z0 + P.z1) / 2); h.k.float.rotation.x = Math.PI / 2; h.k.float.visible = false; sc.add(h.k.float);
+    // poteaux dorés et cordon rouge à l'entrée du tapis
+    h.k.rope = new T3.Group(); [-6.75, -4.85].forEach(x => { h.k.rope.add(AT(CY(.06, .06, .95, gold, 10), x, .48, 13)); h.k.rope.add(AT(CY(.16, .2, .06, gold, 12), x, .03, 13)); h.k.rope.add(AT(MS(new T3.SphereGeometry(.09, 10, 8), gold), x, .98, 13)) });
+    [-1, 1].forEach(sd => { const r = CY(.035, .035, 1.4, STD(0xb3122a, { r: .8 }), 6); r.rotation.x = Math.PI / 2; r.position.set(-5.8 + sd * .95, .82, 12.3); h.k.rope.add(r) });
+    h.k.rope.visible = false; sc.add(h.k.rope);
+    // l'héliport derrière le manoir, et l'hélicoptère qui se pose à la livraison
+    const pad = h.k.pad = new T3.Group(); pad.position.set(4, 0, -7.6); pad.add(AT(CY(2.3, 2.3, .08, black, 32), 0, .04, 0)); pad.add(AT(MS(new T3.TorusGeometry(1.95, .07, 6, 40), gold), 0, .09, 0)); pad.children[1].rotation.x = Math.PI / 2;
+    const wht = STD(0xf4f1ea, { r: .6 }); BX(.22, .02, 1.5, wht, -.45, .09, 0, pad); BX(.22, .02, 1.5, wht, .45, .09, 0, pad); BX(.7, .02, .22, wht, 0, .09, 0, pad); pad.visible = false; sc.add(pad);
+    const heli = h.k.heli = new T3.Group(), hull = STD(0x1d2433, { r: .3, m: .2 });
+    const body = MS(new T3.SphereGeometry(.9, 18, 12), hull); body.scale.set(1.5, .95, .95); heli.add(AT(body, 0, 1.25, 0)); const win = MS(new T3.SphereGeometry(.7, 14, 10), PHY({ color: 0x8fd3f0, roughness: .05, metalness: .2 })); win.scale.set(.9, .75, .85); heli.add(AT(win, .75, 1.4, 0));
+    BX(.05, .2, 1.95, gold, -.1, 1.25, 0, heli).scale.set(1, 1, .98); const boom = CY(.12, .2, 2.6, hull, 10); boom.rotation.z = Math.PI / 2; heli.add(AT(boom, -2.3, 1.45, 0)); BX(.5, .7, .06, hull, -3.5, 1.8, 0, heli);
+    [-.55, .55].forEach(zz => { const sk = CY(.05, .05, 2.4, STD(0x9aa0a6, { m: .8 }), 6); sk.rotation.z = Math.PI / 2; heli.add(AT(sk, 0, .08, zz)); [-.6, .5].forEach(xx => heli.add(AT(CY(.04, .04, .55, STD(0x9aa0a6, { m: .8 }), 6), xx, .35, zz))) });
+    heli.add(AT(CY(.08, .08, .4, hull, 8), 0, 2.25, 0)); const rot = h.k.rotor2 = new T3.Group(); rot.position.y = 2.45; BX(5.2, .04, .2, STD(0x2b2f36, { r: .5 }), 0, 0, 0, rot); BX(.2, .04, 5.2, STD(0x2b2f36, { r: .5 }), 0, 0, 0, rot); heli.add(rot);
+    heli.position.set(4, 0, -7.6); heli.rotation.y = -.6; heli.traverse(o => { if (o.isMesh) o.castShadow = true }); heli.visible = false; sc.add(heli);
+    h.k.noBake.push(heli, h.k.ticker, h.k.float);
   },
   // Volumes : plain-pied (le toit descend sur le rez-de-chaussée), sans piscine, sans enduit ; les éléments écartés ne seront jamais construits
   applyShape() {
@@ -2616,14 +2676,16 @@ Object.assign(Site3D.prototype, {
     const h = this.h, k = h.k; if (!k || this.kind === 'villa') return;
     if (this.kind === 'boutique') { k.awning.visible = this.prog(12) >= 1; k.shop.visible = this.prog(12) >= 1 }
     if (this.kind === 'mas') { k.shut.visible = this.prog(12) >= 1; k.lav.visible = this.prog(18) > 0; k.lav.scale.setScalar(Math.max(.01, this.prog(18))) }
-    if (this.kind === 'empire') { k.base.visible = this.prog(10) >= 1; const p = this.prog(19), e = EZ.out(clamp01(p * 1.4)); k.heart.visible = p > 0; k.heart.scale.setScalar(Math.max(.01, e) * 1.3); k.flames.forEach(f => f.visible = p >= .55); k.chart.visible = this.prog(18) > 0; k.chart.scale.set(1, Math.max(.01, this.prog(18)), 1) }
+    if (this.kind === 'empire') { k.base.visible = this.prog(10) >= 1; const p = this.prog(19), e = EZ.out(clamp01(p * 1.4)); k.heart.visible = p > 0; k.heart.scale.setScalar(Math.max(.01, e) * 1.3); k.flames.forEach(f => f.visible = p >= .55); k.chart.visible = this.prog(18) > 0; k.chart.scale.set(1, Math.max(.01, this.prog(18)), 1);
+      k.plate.visible = this.prog(11) >= 1; k.ticker.visible = p > 0; k.pad.visible = this.prog(18) >= .3; k.rope.visible = this.prog(19) >= .5; k.float.visible = this.items[15][0].p >= .95;
+      const L = this.items[20][0].p; k.heli.visible = L > 0; k.heli.position.y = (1 - EZ.out(clamp01(L * 1.2))) * 14; k.heli.userData.spin = L > 0 && L < 1 ? 1 : .15 }
     if (this.kind === 'eco') { k.lily.visible = this.items[15][0].p >= .95; k.reeds.visible = this.prog(14) >= 1; k.pv.visible = this.prog(19) > 0; k.pv.scale.setScalar(Math.max(.01, Math.min(1, this.prog(19) * 1.5))); k.wind.visible = this.prog(19) >= .5; k.veg.visible = this.prog(18) > 0; k.veg.scale.y = Math.max(.01, this.prog(18)); k.tank.visible = this.prog(11) >= 1 }
   },
   // Obstacles propres à l'architecture (pour les déplacements des ouvriers)
   navExtra() {
     const k = this.h.k; if (!k) return [];
     if (this.kind === 'mas' && k.lav.visible) return [[-13.6, 1.65, 0, 2.6, 13.6]];
-    if (this.kind === 'empire' && k.chart.visible) return [[-13.4, -3, 0, 3.2, 1.4]];
+    if (this.kind === 'empire') { const o = []; if (k.chart.visible) o.push([-13.4, -3, 0, 3.2, 1.4]); if (k.pad.visible) o.push([4, -7.6, 2.4]); if (k.rope.visible) o.push([-6.75, 13, .25], [-4.85, 13, .25]); return o }
     if (this.kind === 'eco') { const o = []; if (k.wind.visible) o.push([13, -8.5, .4]); if (k.veg.visible) o.push([3.6, -7.6, 0, 4, 3.6]); if (k.tank.visible) o.push([7.8, -5.2, .8]); return o }
     return [];
   },
@@ -2631,8 +2693,10 @@ Object.assign(Site3D.prototype, {
     const k = this.h.k; if (k && k.rotor && k.wind.visible) k.rotor.rotation.z += dt * 2.2;
     // les flammes dansent, le cœur bat doucement
     if (k && k.flames && k.heart.visible) { k.ft += dt; const t = k.ft; k.flames.forEach(f => { const ph = f.userData.ph; f.scale.set(1 + Math.sin(t * 7 + ph) * .08, 1 + Math.sin(t * 9.3 + ph) * .16 + Math.sin(t * 3.1 + ph) * .06, 1); f.rotation.y = Math.sin(t * 2 + ph) * .25 }); if (this.prog(19) >= 1) k.heart.scale.setScalar(1.3 * (1 + Math.max(0, Math.sin(t * 2.4)) ** 6 * .07)) }
+    if (k && k.tickT && k.ticker.visible) k.tickT.offset.x = (k.tickT.offset.x + dt * .035) % 1;
+    if (k && k.heli && k.heli.visible) { k.rotor2.rotation.y += dt * 30 * k.heli.userData.spin; k.float.rotation.z += dt * .3; k.float.position.y = -.12 + Math.sin((k.ft || 0) * 1.5) * .03 }
   },
-  setLightsKind(L) { const k = this.h.k; if (k && k.signM) k.signM.emissiveIntensity = L * 1.4; if (k && k.fireM) { k.fireM[0].emissiveIntensity = .9 + L * .8; k.fireM[1].emissiveIntensity = 1 + L; k.fireM[2].emissiveIntensity = .35 + L * .6 } }
+  setLightsKind(L) { const k = this.h.k; if (k && k.signM) k.signM.emissiveIntensity = L * 1.4; if (k && k.fireM) { k.fireM[0].emissiveIntensity = .9 + L * .8; k.fireM[1].emissiveIntensity = 1 + L; k.fireM[2].emissiveIntensity = .35 + L * .6 } if (k && k.plateM) k.plateM.emissiveIntensity = L * .9 }
 });
 
 /* ===== Le monde : une seule côte, une route, un ciel ; chaque chantier occupe sa parcelle ===== */
@@ -4237,7 +4301,7 @@ const JOBS3D = {
       if (!v) { v = await S.arrive('van', -1, { label: 'ÉLECTRICITÉ', color: 0xb5487a }); [w] = await S.crew(v, 1) }
       for (const { it } of todo) {
         const k = S.items[19].indexOf(it);
-        if (it.kind === 'stonepath') { const s = S.h.stones[k]; S.focus(-5, 0, 9, 20); w.setCarry(MS(new T3.CylinderGeometry(.38, .4, .06, 14), STD(0xe3dccb))); await S.walk(w, s.position.x + .6, s.position.z); w.setCarry(null); w.pose = 'kneel'; await S.anim(700, e => { it.p = e }, EZ.out); w.pose = null; continue }
+        if (it.kind === 'stonepath') { const s = S.h.stones[k]; S.focus(-5, 0, 9, 20); w.setCarry(S.kind === 'empire' ? (() => { const r = CY(.12, .12, 1.3, STD(0xb3122a, { r: .9 }), 10); r.rotation.z = Math.PI / 2; return r })() : MS(new T3.CylinderGeometry(.38, .4, .06, 14), STD(0xe3dccb))); await S.walk(w, s.position.x + .6, s.position.z); w.setCarry(null); w.pose = 'kneel'; await S.anim(700, e => { it.p = e }, EZ.out); w.pose = null; continue }
         if (it.kind === 'wlight') { await S.anim(1500, e => { it.p = e }); continue }
         const g = S.h.lamps[k - 5]; S.focus(g.position.x, 1.5, g.position.z - 2, 20);
         await S.walk(w, g.position.x + .7, g.position.z - .5); w.pose = 'reach';
