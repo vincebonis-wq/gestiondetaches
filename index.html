@@ -3229,7 +3229,8 @@ Object.assign(Site3D.prototype, {
 Object.defineProperty(Site3D.prototype, 'view', { get() { return this.W.view } });
 Object.defineProperty(Site3D.prototype, 'cam', { get() { return this.W.cam } });
 Object.assign(Site3D.prototype, {
-  focus(x, y, z, dist = 40, yaw) { if (this.W.active === this && !this.W.over) { const [wx, wz] = slotToWorld(this.SL, x, z); this.W.focus(wx, y, wz, dist, yaw === undefined ? undefined : yaw + (this.SL.r ? Math.PI : 0)) } },
+  // caméra de suivi : toujours assez large pour voir l'action et son contexte (grue, camion, maison), recentrée vers la parcelle
+  focus(x, y, z, dist = 40, yaw) { if (this.W.active === this && !this.W.over) { dist = Math.max(dist * 1.25, 44); x = lerp(x, 0, .35); z = lerp(z, 3, .35); const [wx, wz] = slotToWorld(this.SL, x, z); this.W.focus(wx, y, wz, dist, yaw === undefined ? undefined : yaw + (this.SL.r ? Math.PI : 0)) } },
   center() { const [x, z] = slotToWorld(this.SL, 0, 3); return [x, z] },
   buildSign() {
     const sc = this.scene;
@@ -3823,11 +3824,11 @@ Object.assign(Site3D.prototype, {
     const c = this.crane, [mx, mz] = H3.crane, dx = x - mx, dz = z - mz;
     let phi = Math.atan2(-dz, dx); while (phi - c.phi > Math.PI) phi -= 2 * Math.PI; while (phi - c.phi < -Math.PI) phi += 2 * Math.PI;
     const r = Math.max(3, Math.min(34, Math.hypot(dx, dz))), L = Math.max(1.5, H3.craneH + .2 - y - .35);
-    if (!o.direct) await this.tween(c, { L: Math.min(c.L, 5) }, Math.max(300, (c.L - 5) / 2.2 * 1000));
-    const dur = Math.max(Math.abs(phi - c.phi) / .32, Math.abs(r - c.r) / 2.6) * 1000 + 400;
+    if (!o.direct) await this.tween(c, { L: Math.min(c.L, 5) }, Math.max(250, (c.L - 5) / 3.2 * 1000));
+    const dur = Math.max(Math.abs(phi - c.phi) / .5, Math.abs(r - c.r) / 4) * 1000 + 300;
     await this.tween(c, { phi, r }, dur, EZ.sine);
-    await this.tween(c, { L }, Math.abs(L - c.L) / 2.0 * 1000 + 300, EZ.sine);
-    await this.wait(o.settle ?? 500);
+    await this.tween(c, { L }, Math.abs(L - c.L) / 3.2 * 1000 + 250, EZ.sine);
+    await this.wait(o.settle ?? 350);
   },
   hang(obj) { const s = this.crane.slot; while (s.children.length) s.remove(s.children[0]); if (obj) { obj.position.set(0, -.15 - (obj.userData.hangH || 0), 0); obj.rotation.set(0, 0, 0); s.add(obj) } },
   // Brique lancée d'un point à un autre : trajectoire balistique réelle (gravité)
@@ -4008,7 +4009,7 @@ Site3D.prototype.updateCrane = function (dt) { this.craneFollow(dt); _upd.call(t
 
 /* ----- Chorégraphies des 20 étapes, en 3D ----- */
 const CONT3D = new Set(['string', 'dirt', 'trench', 'slab', 'course', 'fascia', 'paint', 'stone', 'slats', 'cover', 'tiles', 'coping', 'water', 'lawn', 'night', 'bulbs']);
-const PAL3 = 180; // briques par palette
+const PAL3 = 600; // briques par palette (deux palettes montent un étage)
 const V3 = (x, y, z) => new T3.Vector3(x, y, z);
 const carryBox = (w, h, d, c, o = {}) => { const m = BX(w, h, d, STD(c, o)); m.castShadow = true; return m };
 // Position de travail du maçon : sur l'échafaudage, face à la brique
@@ -4042,12 +4043,12 @@ Object.assign(Site3D.prototype, {
     let mason = this.workers[0]; if (!mason) [mason] = await this.crew(truck, 1);
     if (c.a < 1) await this.anim(4000, e => this.setCrane(e), EZ.out);
     // cadence : un mur entier se monte en un peu plus d'une minute
-    const total = todo.reduce((a, { it, to }) => a + Math.max(0, Math.round(to * B.slots[it.ci].length) - Math.round(it.p * B.slots[it.ci].length)), 0), gap = Math.max(25, Math.min(130, 60000 / Math.max(1, total)));
+    const total = todo.reduce((a, { it, to }) => a + Math.max(0, Math.round(to * B.slots[it.ci].length) - Math.round(it.p * B.slots[it.ci].length)), 0), gap = Math.max(12, Math.min(90, 24000 / Math.max(1, total))), per = Math.max(1, Math.round(total / 350));
     for (const { it, to } of todo) {
       const row = B.slots[it.ci], n0 = Math.round(it.p * row.length), n1 = Math.round(to * row.length);
       if (n1 <= n0) { it.p = to; continue }
       const first = row[n0], spot = masonSpot(key, first);
-      this.focus(first.x * .6, first.y, first.z * .6, 30);
+      this.focus(-6, 9.5, -2, 64); // grue entière (flèche comprise), camion et murs dans le cadre
       await Promise.all([this.walk(mason, spot[0], spot[2], spot[1]), (async () => { if (!c.pallet) await this.pickPallet(truck) })()]);
       let placed = n0, inAir = 0;
       for (let j = n0; j < n1; j++) {
@@ -4068,7 +4069,8 @@ Object.assign(Site3D.prototype, {
         c.pallet.userData.left--; c.pallet.userData.fill(c.pallet.userData.left / PAL3);
         inAir++;
         this.throwBrick(from, V3(b.x, b.y, b.z), b.rot, .5, () => { inAir--; placed++; it.p = Math.max(it.p, placed / row.length); this.emit({ x: b.x, y: b.y, z: b.z, vx: 0, vy: .4, sv: .4, g: 1, drag: 2, life: .5, size: .25, c: [.9, .85, .8], a: .6 }, 2) });
-        await this.wait(this.rate > 1.5 ? Math.min(gap, 60) : gap);
+        // plusieurs briques par image quand le mur est long : la cadence ne dépend pas de la fluidité de l'écran
+        if ((j - n0) % per === per - 1) await this.wait(gap * per);
       }
       while (inAir > 0) await this.wait(50);
       it.p = to; mason.pose = null;
@@ -4084,7 +4086,7 @@ Object.assign(Site3D.prototype, {
     const wy = y > 1 ? y - .3 : 0, hx = it.x0 + it.w * p0;
     let w = this.workers.find(q => q.hose); if (!w) { w = this.addWorker(this.vehicles.includes(v) ? v.x - 2 : hx, H3.lane - 1.8); w.hose = true }
     await Promise.all([this.tween(v.bt, { x: hx, y: y + 2.2, z: 0 }, 2200, EZ.sine), this.walk(w, hx + .55, .6, wy)]);
-    w.pose = 'reach'; const ms = Math.max(800, (to - p0) * 9000);
+    w.pose = 'reach'; const ms = Math.max(800, (to - p0) * 6000);
     await this.anim(ms, (e, raw) => {
       it.p = lerp(p0, to, e); v.bt.x = it.x0 + it.w * it.p; v.bt.z = Math.sin(raw * ms / 1000 * .55) * 3.8; v.bt.y = y + 2.2;
       const ox = w.x, oz = w.z; w.x = v.bt.x + .55; w.z = v.bt.z + .6; w.y = wy; w.step += Math.hypot(w.x - ox, w.z - oz); w.tyaw = Math.atan2(v.bt.x - w.x, v.bt.z - w.z);
@@ -4209,7 +4211,7 @@ const JOBS3D = {
     }
   },
   6: { // La pompe à béton coule la dalle
-    park(S) { S.addVehicle('mixer', 6) },
+    pace: 1.4, park(S) { S.addVehicle('mixer', 6) },
     async work(S, todo) {
       let v = S.vehicles.find(x => x.type === 'mixer'); if (!v) v = await S.arrive('mixer', 6);
       S.focus(0, 1.5, 4, 32);
@@ -4218,8 +4220,8 @@ const JOBS3D = {
     },
     async finish(S) { S.focus(-6, 8, -2, 50); await S.anim(5000, e => S.setCrane(e), EZ.out); await S.anim(2600, e => S.setScaf('gf', e), EZ.out) }
   },
-  7: { park(S) { const v = S.addVehicle('flatbed', -3); for (let i = 0; i < 3; i++) { const p = makePallet(); p.position.set(-2 + i * 1.25, 0, 0); v.cargo.add(p) } S.addWorker(-8, 5.4) }, async work(S, todo) { await S.brickStage(todo, 'gf') } },
-  8: {
+  7: { pace: 1.8, park(S) { const v = S.addVehicle('flatbed', -3); for (let i = 0; i < 3; i++) { const p = makePallet(); p.position.set(-2 + i * 1.25, 0, 0); v.cargo.add(p) } S.addWorker(-8, 5.4) }, async work(S, todo) { await S.brickStage(todo, 'gf') } },
+  8: { pace: 1.6,
     park(S) { S.addVehicle('mixer', 6) },
     async work(S, todo) {
       let v = S.vehicles.find(x => x.type === 'mixer'); if (!v) v = await S.arrive('mixer', 6);
@@ -4229,13 +4231,14 @@ const JOBS3D = {
     },
     async finish(S) { await S.anim(2600, e => S.setScaf('up', e), EZ.out) }
   },
-  9: { park(S) { JOBS3D[7].park(S) }, async work(S, todo) { await S.brickStage(todo, 'up') } },
+  9: { pace: 2.2, park(S) { JOBS3D[7].park(S) }, async work(S, todo) { await S.brickStage(todo, 'up') } },
   10: { // La grue pose les panneaux de toiture
+    pace: 2.4,
     park(S) { const v = S.addVehicle('flatbed', -3); for (let i = 0; i < 4; i++) v.cargo.add(BX(4.6, .28, 2.2, STD(0x3a3f44, { r: .7 }), 0, .15 + i * .3, 0)) },
     async work(S, todo) {
       let v = S.vehicles.find(x => x.type === 'flatbed');
       if (!v) { v = await S.arrive('flatbed', -3); for (let i = 0; i < 7; i++) v.cargo.add(BX(4.6, .28, 2.2, STD(0x3a3f44, { r: .7 }), 0, .15 + i * .3, 0)) }
-      S.focus(2, 5, 0, 36);
+      S.focus(-5, 9.5, -2, 64); // toute la grue dans le cadre
       for (const { it, to } of todo) {
         if (it.kind === 'fascia') { await S.anim(3000, e => { it.p = e }); continue }
         const b = S.h.roof[S.items[10].indexOf(it)];
