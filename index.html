@@ -4263,8 +4263,8 @@ const JOBS3D = {
         S.focus(x * .7, Math.max(1.5, y), z * .7, 26);
         await S.walk(w, x, z, y); w.pose = it.kind === 'paint' ? 'roll' : 'kneel';
         const p0 = it.p, isZ = Math.abs(z) > Math.abs(x) || it.kind === 'stone';
-        await S.anim(Math.max(1200, (to - p0) * 8000), e => {
-          it.p = lerp(p0, to, e); const o = Math.sin(e * 14) * span;
+        await S.anim(Math.max(1000, (to - p0) * 3500), e => {
+          it.p = lerp(p0, to, e); const o = Math.sin(e * 8) * span;
           if (isZ) w.x = x + o * .9; else w.z = z + o * .9;
           if (it.kind === 'paint' && Math.random() < .4) S.emit({ x: w.x, y: y + 1.4, z: w.z + (isZ ? -Math.sign(z) * .5 : 0), vx: 0, vy: .2, sv: .3, g: .5, drag: 2, life: .8, size: .3, grow: .5, c: [1, 1, 1], a: .5 });
         }, EZ.lin);
@@ -4284,7 +4284,7 @@ const JOBS3D = {
         w.setCarry(door ? carryBox(.9, 2, .08, 0x6b4428) : Object.assign(BX(1.4, 1.6, .04, S.glassM), { castShadow: false }));
         const up = pane.userData.y > 3.5, gx = pane.position.x, gz = pane.position.z, out = Math.abs(gz) > 3 ? Math.sign(gz) : 0;
         await S.walk(w, out ? gx : gx - 1, out ? gz + out * 1.0 : gz, up ? (pane.userData.y > 4.5 ? 4.95 : 3.65) : 0);
-        w.setCarry(null); w.pose = 'reach'; await S.anim(1400, e => { it.p = e }, EZ.out); w.pose = null;
+        w.setCarry(null); w.pose = 'reach'; await S.anim(900, e => { it.p = e }, EZ.out); w.pose = null;
       });
     },
     async finish(S) { S.focus(0, 3, 2, 46); await Promise.all(S.workers.map(w => S.walk(w, w.x > 0 ? 3 : -3, 7.5, 0))); await S.anim(3500, e => { S.setScaf('up', 1 - e); S.setScaf('gf', 1 - e) }, EZ.in); S.setScaf('up', 0); S.setScaf('gf', 0) }
@@ -4378,15 +4378,20 @@ const JOBS3D = {
       let v = S.vehicles.find(x => x.type === 'pickup'), w = S.workers[0];
       if (!v) { v = await S.arrive('pickup', 8); for (let i = 0; i < 4; i++) v.cargo.add(AT(sapling('olive', S.rng), -.6 + (i % 2) * .7, 0, i < 2 ? -.4 : .4)); [w] = await S.crew(v, 1, { vest: 0x2f8a4a }) }
       const pl = H3.plot;
-      for (const { it, to } of todo) {
-        if (it.kind === 'lawn') {
+      for (const { it, to } of todo.filter(d => d.it.kind === 'lawn')) {
+        {
           S.focus(0, 0, 4, 44);
           const p0 = it.p, rx = () => pl.x0 + (pl.x1 - pl.x0) * it.p - .62;
           await S.walk(w, rx(), 12.4, 0); w.tyaw = Math.PI / 2; await S.wait(300); w.pose = 'push';
           // les mains restent posées sur le rouleau pendant qu'il avance
-          await S.anim(Math.max(1200, (to - p0) * 26000), e => { it.p = lerp(p0, to, e); const nx = rx(); w.step += Math.abs(nx - w.x) * .8; w.x = nx; w.z = 12.4; w.tyaw = Math.PI / 2; w.moving = true; const pile = S.h.pile.scale; if (pile.x > .01) pile.multiplyScalar(.997) }, EZ.lin);
+          await S.anim(Math.max(1200, (to - p0) * 12000), e => { it.p = lerp(p0, to, e); const nx = rx(); w.step += Math.abs(nx - w.x) * .8; w.x = nx; w.z = 12.4; w.tyaw = Math.PI / 2; w.moving = true; const pile = S.h.pile.scale; if (pile.x > .01) pile.multiplyScalar(.997) }, EZ.lin);
           w.moving = false; w.pose = null; continue;
         }
+      }
+      // deux jardiniers se partagent les plantations
+      const plants = todo.filter(d => d.it.kind !== 'lawn');
+      let w2 = S.workers[1]; if (plants.length > 1 && !w2) w2 = S.addWorker(v.x - .6, v.z - 1.7, 0, { vest: 0x3f7d3a });
+      await teams3(S, w2 ? [w, w2] : [w], plants, async (w, { it }) => {
         const g = S.h.plants[S.items[18].indexOf(it) - 1], gx = g.position.x, gz = g.position.z;
         S.focus(gx * .85, 1, gz * .85 + 1.5, 18);
         // 1. prendre un jeune plant dans la benne du pick-up
@@ -4401,8 +4406,8 @@ const JOBS3D = {
         const hole = MS(new T3.CircleGeometry(.42, 16), STD(0x3e2a18, { r: 1 }), false, true); hole.rotation.x = -Math.PI / 2; hole.position.set(gx, .03, gz); hole.scale.setScalar(.01); S.scene.add(hole);
         // 3. creuser : trois pelletées, la terre s'envole et s'entasse à côté
         w.pose = 'dig';
-        for (let k = 0; k < 3; k++) {
-          await S.anim(1300, e => { w.dp = e; hole.scale.setScalar(Math.max(.01, (k + Math.min(1, e / .5)) / 3)); if (e > .72) mound.scale.setScalar(Math.max(.01, (k + (e - .72) / .28) / 3)) }, EZ.lin);
+        for (let k = 0; k < 2; k++) {
+          await S.anim(1300, e => { w.dp = e; hole.scale.setScalar(Math.max(.01, (k + Math.min(1, e / .5)) / 2)); if (e > .72) mound.scale.setScalar(Math.max(.01, (k + (e - .72) / .28) / 2)) }, EZ.lin);
           for (let i = 0; i < 7; i++) S.clod(gx + rnd(-.2, .2), .35, gz + rnd(-.2, .2), (gx + .45 - gx) * 1.8 + rnd(-.4, .4), rnd(1.8, 3), (-.55) * 1.8 + rnd(-.4, .4));
         }
         w.pose = null; w.dp = 0; w.setTool(null);
@@ -4418,9 +4423,9 @@ const JOBS3D = {
         w.pose = null; w.setTool(null);
         // 7. l'arbre prend racine et grandit
         S.scene.remove(sp); it.p = Math.max(it.p, .2); const p0 = it.p;
-        await S.anim(3200, e => { it.p = lerp(p0, 1, e) }, EZ.out);
+        await S.anim(2000, e => { it.p = lerp(p0, 1, e) }, EZ.out);
         await S.walk(w, gx + 2, gz + 1.5, 0);
-      }
+      });
       S.h.pile.scale.set(.001, .001, .001);
     }
   },
@@ -4456,6 +4461,8 @@ const JOBS3D = {
   }
 };
 // Deux équipes se partagent la liste
+// Durée visée : environ une minute par étape (les étapes riches sont jouées un peu plus vite)
+Object.entries({ 2: 2.1, 3: 1.5, 5: 1.6, 8: 1.9, 11: 3.4, 12: 3.6, 13: 2.3, 14: 1.1, 16: 2, 17: 1.6, 18: 3.4, 19: 1.4 }).forEach(([k, p]) => { JOBS3D[k].pace = p });
 async function teams3(S, ws, todo, fn) { await Promise.all(ws.map((w, i) => (async () => { for (let j = i; j < todo.length; j += ws.length) await fn(w, todo[j]) })())) }
 
 // Version 2D (secours si la 3D ne peut pas démarrer)
