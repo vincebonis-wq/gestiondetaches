@@ -668,6 +668,19 @@ if (!db.siteTaches) {
   db.siteTaches = true;
   try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
 }
+// Ajout ponctuel : la saga Dune (loisir), six livres, avec sa construction à part : la grande dune de Shai-Hulud. Une seule fois.
+if (!db.duneSaga) {
+  let pj = db.projects.find(p => /loisir/i.test(p.name));
+  if (!pj) { pj = { id: uid(), name: 'Loisirs', color: PALETTE[4], objective: '' }; db.projects.push(pj) }
+  const last = Math.max(0, ...db.tasks.filter(t => t.projectId === pj.id).map(t => t.order ?? 0));
+  db.tasks.push({
+    id: uid(), projectId: pj.id, themeId: null, title: 'Lire la saga Dune', due: null, flagged: false, done: false, est: 0, order: last + 1, createdAt: Date.now(),
+    site: { on: true, shown: 0, slot: 10, kind: 'dune', since: Date.now() },
+    subgoals: ['Dune', 'Le Messie de Dune', 'Les Enfants de Dune', 'L\'Empereur-Dieu de Dune', 'Les Hérétiques de Dune', 'La Maison des Mères'].map(s => ({ id: uid(), title: s, due: null, est: 0, done: false }))
+  });
+  db.duneSaga = true;
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+}
 }
 runMigrations();
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
@@ -2006,7 +2019,7 @@ const PLOT0 = { x0: -17.3, x1: 17.3, z0: -14, z1: 14.85 };
 const sstep = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t) };
 function terrainH(x, z) {
   const P = H3.pool;
-  for (const S of SLOTS) { const [lx, lz] = worldToSlot(S, x, z); if (lx > P.x0 - 3.6 && lx < P.x1 + 3.6 && lz > P.z0 - 3.6 && lz < P.z1 + 3.6) return -4 }
+  for (const S of SLOTS) { if (S.special) continue; const [lx, lz] = worldToSlot(S, x, z); if (lx > P.x0 - 3.6 && lx < P.x1 + 3.6 && lz > P.z0 - 3.6 && lz < P.z1 + 3.6) return -4 }
   const d = Math.min(plotDist(x, z), Math.max(0, Math.abs(z - ROAD_C) - ROAD_H));
   if (d <= 0) return -.04;
   const n = vnoise(x * .021, 1.3, z * .021) * .65 + vnoise(x * .063, 4.1, z * .063) * .35;
@@ -2031,7 +2044,7 @@ class Site3D {
     this.root = new T3.Group(); this.root.position.set(this.X, 0, this.SL.z); this.root.rotation.y = this.SL.r ? Math.PI : 0; W.scene.add(this.root); this.scene = this.root;
     this.trees = new T3.Group(); this.root.add(this.trees);
     this.buildSign(); this.buildHouse(); this.buildCrane(); this.buildScaffold(); this.initFx();
-    this.items = this.defineItems(); sites3dSlabItems(this); this.applyStyle(); this.applyKind(); this.deco = siteDeco(task); if (this.deco) this.applyDeco();
+    this.items = this.defineItems(); sites3dSlabItems(this); this.applyStyle(); this.applyKind(); if (this.kind === 'dune') this.jobs = Object.fromEntries(Array.from({ length: SITE_N }, (_, i) => [i + 1, DUNE_JOBS[i + 1] || { async work() {} }])); this.deco = siteDeco(task); if (this.deco) this.applyDeco();
     this.bindClip(); this.fxScale(W.ptScale || 400); this.setLights(W.night);
   }
   /* ----- La villa et toutes ses parties ----- */
@@ -2307,6 +2320,7 @@ class Site3D {
     const coverDirt = this.prog(4) > 0; h.cover.forEach(g => { const want = coverDirt ? this.tx.dirt : this.tx.det; if (g.material.map !== want) { g.material.map = want; g.material.color.set(coverDirt ? 0xffffff : GRASS0).convertSRGBToLinear(); g.material.needsUpdate = true } });
     this.kindSync(); if (this.deco) this.decoSync();
     // sans piscine : l'emplacement du bassin reste de la terre, puis se couvre de gazon avec le reste du jardin
+    if (this.kind === 'dune') { h.cover.forEach(g => g.visible = false); this.sign.visible = false; return }
     if (KINDS[this.kind].noPool) { const lawn = this.prog(18) >= 1, m = this.h.lawn.material; h.cover.forEach(g => { g.visible = true; g.material.opacity = 1; if (lawn) { g.material.map = m.map; g.material.color.copy(m.color); g.material.needsUpdate = true } }) }
   }
   /* ----- Particules (poussière, béton, eau, étincelles) et mottes de terre ----- */
@@ -2416,15 +2430,16 @@ class Site3D {
     this.unbake && this.unbake();
     const s = D >= SITE_N - 1e-9 ? SITE_N : Math.floor(D + 1e-9), f = s >= SITE_N ? 0 : Math.max(0, D - s);
     for (let k = 1; k <= SITE_N; k++) { const its = this.items[k], n = its.length; its.forEach((it, i) => { it.p = k <= s ? 1 : k === s + 1 ? (this.cont.has(it.kind) ? clamp01(f * n - i) : (f * n - i >= 1 - 1e-9 ? 1 : 0)) : 0; it.wet = 1 }) }
-    this.setCrane(s >= 6 && s < 10 ? 1 : 0); this.crane.phi = .9; this.crane.r = 18; this.crane.L = 8; this.crane.ox = this.crane.oz = this.crane.vx = this.crane.vz = 0; this.crane.slot.clear?.(); while (this.crane.slot.children.length) this.crane.slot.remove(this.crane.slot.children[0]);
-    this.setScaf('gf', s >= 6 && s < 12 ? 1 : 0); this.setScaf('up', s >= 8 && s < 12 && !KINDS[this.kind].low ? 1 : 0);
+    const DU = this.kind === 'dune';
+    this.setCrane(!DU && s >= 6 && s < 10 ? 1 : 0); this.crane.phi = .9; this.crane.r = 18; this.crane.L = 8; this.crane.ox = this.crane.oz = this.crane.vx = this.crane.vz = 0; this.crane.slot.clear?.(); while (this.crane.slot.children.length) this.crane.slot.remove(this.crane.slot.children[0]);
+    this.setScaf('gf', !DU && s >= 6 && s < 12 ? 1 : 0); this.setScaf('up', s >= 8 && s < 12 && !KINDS[this.kind].low ? 1 : 0);
     for (const v of this.vehicles) this.scene.remove(v.g); for (const w of this.workers) this.scene.remove(w.g);
     this.vehicles = []; this.workers = []; this.clods = []; this.fxN.list = []; this.fxA.list = [];
-    const pile = s >= 13 && s < 18 ? 1 : 0; this.h.pile.scale.set(Math.max(.001, 2.6 * pile), Math.max(.001, 1.3 * pile), Math.max(.001, 2 * pile));
+    const pile = !DU && s >= 13 && s < 18 ? 1 : 0; this.h.pile.scale.set(Math.max(.001, 2.6 * pile), Math.max(.001, 1.3 * pile), Math.max(.001, 2 * pile));
     this.syncItems(true);
     this.focus(0, 2.6, 3, 52, .7);
     const k = s + 1; if (k <= SITE_N && f > 0 && this.jobs[k].park) this.jobs[k].park(this);
-    if (s >= SITE_N) { this.addVehicle('sport', -9, 13.2, Math.PI / 2, { color: KINDS[this.kind]?.car || this.style.car }); this.spawnResidents() } else this.clearResidents();
+    if (DU) this.clearResidents(); else if (s >= SITE_N) { this.addVehicle('sport', -9, 13.2, Math.PI / 2, { color: KINDS[this.kind]?.car || this.style.car }); this.spawnResidents() } else this.clearResidents();
   }
 }
 /* ----- Types de constructions : même chantier, autre architecture, autre vie une fois livrée ----- */
@@ -2466,7 +2481,14 @@ KINDS.empire = { label: 'Manoir business', the: 'le manoir', sign: 'EMPIRE', sig
   16: ['Networking', 'Terrasse et transats pour recevoir'], 17: ['Le QG', 'Les déménageurs installent les bureaux'], 18: ['Le jardin des affaires', 'Topiaire €, arbre à billets, piles d\'or et courbe de croissance'],
   19: ['Le cœur en feu', 'Tapis rouge, bandeau boursier, et le cœur s\'embrase sur le toit'], 20: ['Empire livré', 'L\'hélico se pose : bienvenue dans ton empire'] } };
 Object.assign(KINDS.boutique, { min: 12 }); Object.assign(KINDS.mas, { min: 15 }); Object.assign(KINDS.eco, { min: 16 }); Object.assign(KINDS.villa, { min: 20 });
-const KIND_ORDER = ['cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
+// La dune de Shai-Hulud : pas une maison, un paysage ; six étapes, une par livre de la saga
+const DUNE_ACT = [1, 2, 3, 5, 7, 20];
+KINDS.dune = { label: 'Dune de Shai-Hulud', the: 'la dune', sign: 'DUNE', signBg: '#a8742f', min: 6, low: true, noPool: true, act: DUNE_ACT, skip: Array.from({ length: 20 }, (_, i) => i + 1).filter(k => !DUNE_ACT.includes(k)), over: {
+  0: ['Le désert d\'Arrakis', 'Le vent attend le premier livre'], 1: ['Dune', 'Le marteleur bat le sable : la dune commence à se former'],
+  2: ['Le Messie de Dune', 'La dune grandit, un sietch se creuse dans la roche'], 3: ['Les Enfants de Dune', 'L\'épice affleure, orange, au pied de la dune'],
+  5: ['L\'Empereur-Dieu de Dune', 'La crête se dresse, le rocher des guetteurs émerge'], 7: ['Les Hérétiques de Dune', 'Les tentes des Fremen se dressent au pied de la dune'],
+  20: ['La Maison des Mères', 'Shai-Hulud surgit du sable sous le regard des Fremen'] } };
+const KIND_ORDER = ['dune', 'cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
 // Étapes réellement jouées pour une architecture (plain-pied : pas d'étage ; sans piscine : pas de bassin)
 function kindSkips(kind) { const K = KINDS[kind] || KINDS.villa, s = new Set(); if (K.low) [8, 9].forEach(k => s.add(k)); if (K.noPool) [13, 14, 15].forEach(k => s.add(k)); (K.skip || []).forEach(k => s.add(k)); return s }
 const activeStages = kind => { const sk = kindSkips(kind); return Array.from({ length: SITE_N }, (_, i) => i + 1).filter(k => !sk.has(k)) };
@@ -2574,6 +2596,7 @@ Object.assign(Site3D.prototype, {
       const pg = new T3.ExtrudeGeometry(sh, { depth: w, bevelEnabled: false }); pg.rotateY(Math.PI / 2); pg.translate(-w / 2, -.15, 0);
       const tm = STD(0x6a7078, { map: T.tiles, r: .7 }); h.roof.forEach(b => { b.geometry = pg; b.material = tm }); h.fascia.children.forEach(b => b.scale.set(1, .5, 1));
     }
+    if (K === 'dune') { this.buildDune(); h.k.show = show; return }
     if (K === 'empire') {
       // façade blanche à liserés dorés, toit noir, baies teintées, mosaïque or
       const gold = STD(0xf2c443, { m: .25, r: .35, e: 0x5a3a00, ei: .25 }), red = STD(0xd3182a, { r: .35, e: 0x8a0a16, ei: .3 });
@@ -2664,6 +2687,7 @@ Object.assign(Site3D.prototype, {
   applyShape() {
     const KD = KINDS[this.kind] || KINDS.villa, h = this.h, sk = kindSkips(this.kind), skip = it => { it.skip = true; it.set = () => {} };
     for (const k of sk) this.items[k].forEach(skip);
+    if (KD.act) for (let k = 1; k <= SITE_N; k++) this.items[k].forEach(it => { it.set = () => {} });
     if (KD.low) {
       const w = 14.9 / 6; h.roof.forEach((b, i) => { b.userData.y0 = 3.5; b.position.x = -7.45 + (i + .5) * w; b.scale.set(w / (13.6 / 6 + .01), 1, 9.9 / 9.4) });
       this.items[10].filter(it => it.kind === 'fascia').forEach(skip);
@@ -2680,6 +2704,7 @@ Object.assign(Site3D.prototype, {
     const h = this.h, k = h.k; if (!k || this.kind === 'villa') return;
     if (this.kind === 'boutique') { k.awning.visible = this.prog(12) >= 1; k.shop.visible = this.prog(12) >= 1 }
     if (this.kind === 'mas') { k.shut.visible = this.prog(12) >= 1; k.lav.visible = this.prog(18) > 0; k.lav.scale.setScalar(Math.max(.01, this.prog(18))) }
+    if (this.kind === 'dune') return this.duneSync();
     if (this.kind === 'empire') { k.base.visible = this.prog(10) >= 1; const p = this.prog(19), e = EZ.out(clamp01(p * 1.4)); k.heart.visible = p > 0; k.heart.scale.setScalar(Math.max(.01, e) * 1.3); k.flames.forEach(f => f.visible = p >= .55); k.chart.visible = this.prog(18) > 0; k.chart.scale.set(1, Math.max(.01, this.prog(18)), 1);
       k.plate.visible = this.prog(11) >= 1; k.ticker.visible = p > 0; k.pad.visible = this.prog(18) >= .3; k.rope.visible = this.prog(19) >= .5; k.float.visible = this.items[15][0].p >= .95;
       const L = this.items[20][0].p; k.heli.visible = L > 0; k.heli.position.y = (1 - EZ.out(clamp01(L * 1.2))) * 14; k.heli.userData.spin = L > 0 && L < 1 ? 1 : .15 }
@@ -2696,6 +2721,7 @@ Object.assign(Site3D.prototype, {
   },
   navAll() { const a = this.navExtra(), b = this._decoNav || []; this._decoNav = null; return a.concat(b) },
   tickKind(dt) {
+    if (this.kind === 'dune') return this.tickDune(dt);
     const k = this.h.k; if (k && k.rotor && k.wind.visible) k.rotor.rotation.z += dt * 2.2;
     // les flammes dansent, le cœur bat doucement
     if (k && k.flames && k.heart.visible) { k.ft += dt; const t = k.ft; k.flames.forEach(f => { const ph = f.userData.ph; f.scale.set(1 + Math.sin(t * 7 + ph) * .08, 1 + Math.sin(t * 9.3 + ph) * .16 + Math.sin(t * 3.1 + ph) * .06, 1); f.rotation.y = Math.sin(t * 2 + ph) * .25 }); if (this.prog(19) >= 1) k.heart.scale.setScalar(1.3 * (1 + Math.max(0, Math.sin(t * 2.4)) ** 6 * .07)) }
@@ -2759,11 +2785,90 @@ Object.assign(Site3D.prototype, {
   }
 });
 
+/* ----- La dune de Shai-Hulud : la dune grandit livre après livre, le ver surgit au dernier ----- */
+Object.assign(Site3D.prototype, {
+  buildDune() {
+    const sc = this.scene, k = this.h.k, sand = STD(0xe0a45a, { r: .95 }), sandD = STD(0xc98a44, { r: 1 }), rock = STD(0x7a5236, { r: .95 }), cloth = STD(0x6e4e32, { r: .9, side: T3.DoubleSide });
+    this.sign.visible = false; this.h.bushes.forEach(b => b.visible = false); this.trees.visible = false;
+    // le sol du désert, et des dunes basses tout autour
+    const floor = MS(new T3.PlaneGeometry(72, 40), sand, false, true); floor.rotation.x = -Math.PI / 2; floor.position.set(0, .03, -5.6); sc.add(floor); // le sable s'arrête au trottoir
+    [[-26, -8, 9, 2.6], [25, -9, 10, 3.2], [-27, 7, 6, 1.5], [27, 6, 7, 1.8], [0, -22, 14, 3.6], [-14, -20, 8, 2.4], [15, -19, 9, 2.8]].forEach(([x, z, r, hh]) => { const m = MS(blobGeo(1, { detail: 2, dark: 0xc98a44, light: 0xe7b672, amp: .08, sy: 1 }), Object.assign(STD(0xffffff, { r: 1 }), { vertexColors: true })); m.scale.set(r, hh, r * .7); m.position.set(x, -.2, z); sc.add(m) });
+    // la grande dune : un relief qui monte avec les livres (face abrupte côté route, comme une barkhane)
+    const geo = new T3.PlaneGeometry(40, 30, 80, 60); geo.rotateX(-Math.PI / 2); const pos = geo.attributes.position, base = new Float32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i), main = 12 * Math.exp(-((x / 11) ** 2) - (z / (z > 0 ? 5.5 : 8.5)) ** 2);
+      let y = main + 5 * Math.exp(-(((x - 11) / 6) ** 2) - ((z + 4) / 5) ** 2) + 4 * Math.exp(-(((x + 12) / 6) ** 2) - ((z + 5) / 4.5) ** 2);
+      y += .15 * Math.sin(x * 1.7 + z * .6) * Math.min(1, y / 2);
+      const fade = Math.min(1, (20 - Math.abs(x)) / 3, (15 - Math.abs(z)) / 3); base[i] = Math.max(0, y * Math.max(0, fade));
+    }
+    k.duneG = 0; k.duneBase = base; k.dune = MS(geo, sand); k.dune.position.set(0, 0, -1.5); k.dune.castShadow = true; k.dune.receiveShadow = true; sc.add(k.dune); this.setDune(.04);
+    // livre 1 : le marteleur planté dans le sable
+    k.thumper = new T3.Group(); k.thumper.position.set(-4.5, 0, 6.6); k.thumper.add(AT(CY(.07, .09, 1.5, STD(0x5a4a3a, { m: .4, r: .5 }), 8), 0, .75, 0)); k.thRam = AT(CY(.2, .2, .25, STD(0x8a7a6a, { m: .6, r: .4 }), 10), 0, 1.3, 0); k.thumper.add(k.thRam); k.thumper.visible = false; sc.add(k.thumper);
+    // livre 2 : le sietch, une porte dans la roche
+    k.sietch = new T3.Group(); k.sietch.position.set(13, 0, 3); const rk = MS(blobGeo(1, { detail: 2, dark: 0x5e3e28, light: 0x8e6644, amp: .22 }), Object.assign(STD(0xffffff, { r: .95 }), { vertexColors: true })); rk.scale.set(4.2, 3.6, 3.4); rk.position.y = 1.2; k.sietch.add(rk); BX(1.1, 1.9, .3, STD(0x1e140c, { r: 1 }), -1.6, .95, 2.6, k.sietch).rotation.y = -.5; k.sietch.visible = false; sc.add(k.sietch);
+    // livre 3 : l'épice qui affleure
+    k.spice = new T3.Group(); const sp = STD(0xe2782a, { r: .8, e: 0xb04a10, ei: .35 }); [[-9, 7], [-2, 9.5], [4, 8.6], [8, 6.5], [-12, 3], [11, 9.5]].forEach(([x, z], i) => { const d = MS(new T3.CircleGeometry(.9 + (i % 3) * .4, 16), sp, false, true); d.rotation.x = -Math.PI / 2; d.position.set(x, .06, z); d.scale.set(1, 1.6, 1); k.spice.add(d) }); k.spice.visible = false; sc.add(k.spice);
+    // livre 4 : le rocher des guetteurs
+    k.rocks = new T3.Group(); [[9.5, 9.5, 2.6, 1.3], [12, 11, 1.6, .9], [7.5, 11.5, 1.2, .6]].forEach(([x, z, r, hh]) => { const m = MS(blobGeo(1, { detail: 1, dark: 0x4e3424, light: 0x7a5638, amp: .3 }), Object.assign(STD(0xffffff, { r: .95 }), { vertexColors: true })); m.scale.set(r, hh, r * .8); m.position.set(x, hh * .4, z); m.castShadow = true; k.rocks.add(m) }); k.rocks.visible = false; sc.add(k.rocks);
+    // livre 5 : le campement fremen, tentes et étendards
+    k.camp = new T3.Group(); [[-10, 9.5, 1], [-7, 11, .8], [-12.5, 11.8, .9]].forEach(([x, z, s]) => { const t = new T3.Group(); t.position.set(x, 0, z); t.scale.setScalar(s); const cone = MS(new T3.ConeGeometry(1.8, 1.7, 4, 1, true), cloth); cone.position.y = .85; cone.rotation.y = Math.PI / 4; t.add(cone); t.add(AT(CY(.04, .04, 3.2, STD(0x3a2a1c), 6), .9, 1.6, -.9)); const fl = MS(new T3.PlaneGeometry(.9, .5), STD(0x3a2418, { r: .8, side: T3.DoubleSide }), false, false); fl.position.set(1.35, 2.9, -.9); t.add(fl); t.userData.flag = fl; k.camp.add(t) }); k.camp.traverse(o => { if (o.isMesh) o.castShadow = true }); k.camp.visible = false; sc.add(k.camp);
+    // livre 6 : Shai-Hulud, anneaux de sable et gueule garnie de dents
+    const ring = tex(64, 16, (g, w, hh) => { g.fillStyle = '#8f6a42'; g.fillRect(0, 0, w, hh); g.fillStyle = '#7a5532'; for (let i = 0; i < 4; i++) g.fillRect(i * 16, 0, 5, hh); g.fillStyle = 'rgba(255,230,180,.25)'; for (let i = 0; i < 4; i++) g.fillRect(i * 16 + 7, 0, 3, hh) }, [26, 1]);
+    const path = new T3.CatmullRomCurve3([V3(6, -10, -4), V3(6, 0, -1.5), V3(5, 7, .5), V3(3.5, 12, 3), V3(2, 15.5, 5.5)]);
+    k.worm = new T3.Group(); const tg = new T3.TubeGeometry(path, 120, 2.6, 20), tp = tg.attributes.position, tuv = tg.attributes.uv, c = new T3.Vector3(), q = new T3.Vector3();
+    // le corps s'épaissit vers la gueule et porte des bourrelets annelés
+    for (let i = 0; i < tp.count; i++) { const u = tuv.getX(i); path.getPointAt(u, c); q.set(tp.getX(i), tp.getY(i), tp.getZ(i)).sub(c).multiplyScalar((.7 + .34 * u) * (1 + .025 * Math.cos(u * Math.PI * 2 * 44))).add(c); tp.setXYZ(i, q.x, q.y, q.z) }
+    tg.computeVertexNormals(); const body = MS(tg, STD(0xffffff, { map: ring, r: .9 })); body.castShadow = true; k.worm.add(body);
+    const end = path.getPoint(1), tan = path.getTangent(1), mouth = new T3.Group(); mouth.position.copy(end); mouth.lookAt(end.clone().add(tan)); k.worm.add(mouth);
+    mouth.add(MS(new T3.TorusGeometry(2.75, .42, 10, 32), STD(0xb88a56, { r: .9 }))); mouth.add(AT(MS(new T3.CircleGeometry(2.3, 32), STD(0x241208, { r: 1 })), 0, 0, -.25));
+    const tooth = new T3.ConeGeometry(.13, 1.3, 5), tm = STD(0xf0e2c4, { r: .5 }); for (let r = 0; r < 2; r++) for (let i = 0; i < 40; i++) { const a = (i + r * .5) / 40 * Math.PI * 2, rr = r ? 1.55 : 2.2, t = MS(tooth, tm); t.position.set(Math.cos(a) * rr, Math.sin(a) * rr, -.1 - r * .35); t.rotation.z = a + Math.PI / 2; t.rotation.x = -.35; mouth.add(t) }
+    k.worm.scale.setScalar(1.35); k.worm.visible = false; sc.add(k.worm); k.noBake = [k.worm, k.thumper];
+    // les deux lunes d'Arrakis
+    k.moons = new T3.Group(); k.moons.add(AT(MS(new T3.SphereGeometry(9, 24, 16), STD(0xf3e3c0, { r: .9, e: 0xf3e3c0, ei: .45 }), false, false), -34, 62, -95)); k.moons.add(AT(MS(new T3.SphereGeometry(3.6, 16, 12), STD(0xe8a070, { r: .9, e: 0xe8a070, ei: .45 }), false, false), -8, 50, -98)); sc.add(k.moons);
+    // les Fremen (robe, turban, lance)
+    const fremen = (x, z, y = 0, pose = null) => { const w = makeWorker({ civil: true, vest: 0x6e4e32, pants: 0x4e3826, shirt: 0x8a6a48, hat: 0x5a3e2a }); w.x = x; w.z = z; w.y = y; w.pose = pose; w.g.add(AT(CY(.025, .025, 2.6, STD(0x3a2a1c, { r: .7 }), 6), .32, 1.25, .05)); w.g.visible = false; sc.add(w.g); return w };
+    k.f1 = fremen(-5.2, 7.4); k.fremen = [fremen(9.5, 9.6, 1.25), fremen(8.2, 12.6), fremen(-8.5, 12.8), fremen(-6.6, 13.2), fremen(-4.8, 12.6, 0, 'sit')];
+    [k.f1, ...k.fremen].forEach(w => { w.tyaw = w.yaw = Math.atan2(2 - w.x, 5.5 - w.z) });
+    k.ft = 0;
+  },
+  setDune(g) { const k = this.h.k, pos = k.dune.geometry.attributes.position; for (let i = 0; i < pos.count; i++) pos.setY(i, k.duneBase[i] * g); pos.needsUpdate = true; k.dune.geometry.computeVertexNormals(); k.duneG = g },
+  duneB() { return DUNE_ACT.reduce((a, s) => a + this.prog(s), 0) },
+  duneSync() {
+    const k = this.h.k, b = this.duneB(), g = Math.max(.04, Math.min(1, b / 5.3)), grow = (o, t) => { o.visible = b > t; if (o.visible) o.scale.setScalar(Math.max(.01, EZ.out(clamp01((b - t) * 2.5)))) };
+    if (Math.abs(g - k.duneG) > .003) this.setDune(g);
+    k.thumper.visible = b > .1 && this.prog(20) < .5; k.f1.g.visible = b > .1 && this.prog(20) < .3;
+    grow(k.sietch, 1.3); k.spice.visible = b > 2.3; grow(k.rocks, 3.3); grow(k.camp, 4.3);
+    const e = this.prog(20); k.worm.visible = e > 0; k.worm.position.y = -26 * (1 - EZ.out(clamp01(e * 1.15)));
+    k.fremen.forEach((w, i) => { w.g.visible = e > .45 + i * .06 });
+  },
+  tickDune(dt) {
+    const k = this.h.k; if (!k || !k.dune) return; k.ft += dt; const t = k.ft;
+    if (k.thumper.visible) k.thRam.position.y = 1.3 + Math.abs(Math.sin(t * 2.2)) * .25;
+    if (k.worm.visible && this.prog(20) >= 1) { k.worm.rotation.y = Math.sin(t * .35) * .05; k.worm.position.y = Math.sin(t * .6) * .25 }
+    k.camp.children.forEach((c, i) => { if (c.userData.flag) c.userData.flag.rotation.y = Math.sin(t * 3 + i) * .4 });
+    [k.f1, ...k.fremen].forEach(w => { if (w.g.visible) w.update(dt, this) });
+  }
+});
+// Un livre lu : la dune monte, le vent soulève le sable ; au dernier, le ver surgit
+const DUNE_JOBS = Object.fromEntries(DUNE_ACT.map(k => [k, {
+  async work(S, todo) {
+    const last = k === 20; S.focus(last ? 3 : 0, last ? 12 : 4, last ? 0 : 0, last ? 66 : 58);
+    const p0 = todo.map(d => d.it.p), ms = last ? 18000 : 14000;
+    await S.anim(ms, e => {
+      todo.forEach((d, i) => { d.it.p = lerp(p0[i], d.to, e) });
+      if (Math.random() < .6) { const x = rnd(-14, 14); S.emit({ x, y: rnd(2, 8), z: rnd(-6, 2), vx: 3, vy: .4, sv: .8, g: .3, drag: .6, life: 2.2, size: 1.2, grow: 1.6, c: [.88, .68, .42], a: .35 }) }
+      if (last && e > .05 && e < .8) for (let j = 0; j < 3; j++) S.emit({ x: 6 + rnd(-3, 3), y: rnd(4, 9), z: rnd(-3, 2), vx: rnd(-3, 3), vy: rnd(2, 6), vz: rnd(-1, 3), sv: 1, g: 4, drag: .8, life: 1.8, size: 1.4, grow: 1.4, c: [.86, .64, .38], a: .5 });
+    }, EZ.io);
+  }
+}]));
+
 /* ===== Le monde : une seule côte, une route, un ciel ; chaque chantier occupe sa parcelle ===== */
 // Abscisses des parcelles le long de la route (la première au centre, les suivantes de part et d'autre)
 // Le quartier : deux rangées de parcelles face à face de part et d'autre de l'avenue (la rangée d'en face est retournée)
 const ROW_B = 43, STEP = 35.5;
 const SLOTS = [[0, 0], [STEP, 0], [-STEP, 0], [0, 1], [STEP, 1], [-STEP, 1], [2 * STEP, 0], [-2 * STEP, 0], [2 * STEP, 1], [-2 * STEP, 1]].map(([x, r]) => ({ x, r, z: r ? ROW_B : 0 }));
+// une parcelle à l'écart, au bout de l'avenue : le désert des loisirs (la dune de Shai-Hulud)
+SLOTS.push({ x: -3 * STEP - 8, r: 0, z: 0, special: true });
 // repère local d'une parcelle → monde
 const slotToWorld = (S, x, z) => S.r ? [S.x - x, S.z - z] : [S.x + x, z];
 const worldToSlot = (S, x, z) => S.r ? [S.x - x, S.z - z] : [x - S.x, z];
@@ -2903,6 +3008,7 @@ class World {
     this.slotSigns = []; this.slotCovers = [];
     const saleTex = signTexture(['À VENDRE', 'Vue mer'], '#fffdf6', '#c8323c');
     SLOTS.forEach(S => {
+      if (S.special) { this.slotSigns.push(null); this.slotCovers.push(null); return }
       const g = new T3.Group(); g.position.set(S.x, 0, S.z); g.rotation.y = S.r ? Math.PI : 0; sc.add(g);
       g.add(groundRect(PLOT0.x0, PLOT0.z0, PLOT0.x1, PLOT0.z1, [P.x0, P.z0, P.x1, P.z1], this.grassMat));
       const cv = groundRect(P.x0 - .01, P.z0 - .01, P.x1 + .01, P.z1 + .01, null, this.grassMat, .004); g.add(cv); this.slotCovers.push(cv);
@@ -2941,7 +3047,7 @@ class World {
     for (let i = -6; i <= 6; i++) [R0 + .7, R1 - .7].forEach((z, k) => { const x = i * STEP + STEP / 2 + (k ? 0 : 0), g = new T3.Group(); g.position.set(x, 0, z); g.add(AT(CY(.07, .1, 4.2, lampM, 8), 0, 2.1, 0)); const arm = BX(1.2, .07, .07, lampM, 0, 4.1, (k ? -1 : 1) * .55); arm.rotation.y = Math.PI / 2; g.add(arm); g.add(AT(MS(new T3.SphereGeometry(.2, 12, 8), this.streetBulbs), 0, 4.0, (k ? -1 : 1) * 1.1)); sc.add(g) });
     // haies basses entre les parcelles voisines
     const hedgeM = Object.assign(STD(0xffffff, { r: .95 }), { vertexColors: true });
-    SLOTS.forEach(S => { const g = new T3.Group(); g.position.set(S.x, 0, S.z); g.rotation.y = S.r ? Math.PI : 0; sc.add(g); [PLOT0.x0 - .45, PLOT0.x1 + .45].forEach(x => { for (let z = PLOT0.z0 + 1; z < PLOT0.z1 - 1; z += 1.1) g.add(AT(MS(blobGeo(.6, { detail: 1, dark: 0x2f6a2c, light: 0x6fb04a, amp: .25, sy: .9 }), hedgeM), x, .45, z)) }) });
+    SLOTS.forEach(S => { if (S.special) return; const g = new T3.Group(); g.position.set(S.x, 0, S.z); g.rotation.y = S.r ? Math.PI : 0; sc.add(g); [PLOT0.x0 - .45, PLOT0.x1 + .45].forEach(x => { for (let z = PLOT0.z0 + 1; z < PLOT0.z1 - 1; z += 1.1) g.add(AT(MS(blobGeo(.6, { detail: 1, dark: 0x2f6a2c, light: 0x6fb04a, amp: .25, sy: .9 }), hedgeM), x, .45, z)) }) });
     // touffes d'herbe et fleurs des champs (instanciées : des milliers pour presque rien)
     const free = (x, z) => plotDist(x, z) > 1.2 && !(z > 14.3 && z < ROW_B - 14.3) && Math.abs(z - PATH_Z(x)) > 1.2;
     const tuft = (() => {
@@ -4519,8 +4625,10 @@ function saveShown(ctl) { const t = findTask(ctl.tid); if (t && t.site) { t.site
 const siteTasksOf = pid => db.tasks.filter(t => t.projectId === pid && t.site?.on);
 function siteSlots() {
   const list = db.tasks.filter(t => t.site?.on).sort((a, b) => (a.site.since || a.createdAt || 0) - (b.site.since || b.createdAt || 0)), used = new Set(); let changed = false;
-  list.forEach(t => { const s = t.site.slot; if (s != null && s < SLOTS.length && !used.has(s)) used.add(s); else if (s != null) { t.site.slot = null; changed = true } });
-  list.forEach(t => { if (t.site.slot == null) { let k = 0; while (used.has(k)) k++; if (k < SLOTS.length) { t.site.slot = k; used.add(k); changed = true } } });
+  const SP = SLOTS.findIndex(x => x.special);
+  list.forEach(t => { const s = t.site.slot, want = t.site.kind === 'dune'; if (s != null && s < SLOTS.length && !used.has(s) && (s === SP) === want) used.add(s); else if (s != null) { t.site.slot = null; changed = true } });
+  list.forEach(t => { if (t.site.slot == null && t.site.kind === 'dune' && !used.has(SP)) { t.site.slot = SP; used.add(SP); changed = true } });
+  list.forEach(t => { if (t.site.slot == null) { let k = 0; while (used.has(k) || SLOTS[k]?.special) k++; if (k < SLOTS.length) { t.site.slot = k; used.add(k); changed = true } } });
   if (changed) save();
   return list.filter(t => t.site.slot != null);
 }
