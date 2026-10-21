@@ -4602,7 +4602,7 @@ function setRun(ctl, k) {
   if (!ctl.active || !worldEl) return;
   const run = worldEl.querySelector('.site-run');
   run.hidden = !k;
-  if (k) run.querySelector('b').textContent = `${stepsOf(ctl.S.kind)[k][0]} — ${stepsOf(ctl.S.kind)[k][1]}`;
+  if (k) run.querySelector('b').textContent = stepsOf(ctl.S.kind)[k][0];
 }
 function snapSite(ctl) { ctl.D = ctl.target; ctl.S.skip = false; ctl.S.apply(ctl.D) }
 async function siteRun(ctl) {
@@ -4649,12 +4649,12 @@ function siteProgress(t) {
 }
 const frNum = n => (Math.round(n * 10) / 10).toLocaleString('fr-FR');
 function siteInfo(t, pr) {
-  const K = KINDS[t.site.kind] || KINDS.villa, ST = stepsOf(t.site.kind), act = pr.act, n = pr.n, cur = pr.stage ? ST[act[pr.stage - 1]] : ST[0], next = pr.stage < n ? ST[act[pr.stage]] : null, [name, line] = cur, pct = Math.round(pr.ratio * 100), all = siteSlots();
+  const K = KINDS[t.site.kind] || KINDS.villa, ST = stepsOf(t.site.kind), act = pr.act, n = pr.n, cur = pr.stage ? ST[act[pr.stage - 1]] : ST[0], next = pr.stage < n ? ST[act[pr.stage]] : null, [name] = cur, pct = Math.round(pr.ratio * 100), all = siteSlots();
   const per = pr.total ? n / pr.total : 0, pace = !t.subgoals.length ? `Ajoute des sous-objectifs à cette tâche : chacun fera avancer ${K.the}.` : per >= 1 ? `Chaque case cochée fait avancer d'environ ${frNum(per)} étape${per >= 2 ? 's' : ''}.` : `Il faut environ ${frNum(1 / per)} cases par étape.`;
   const pname = id => project(id)?.name || '';
   const small = t.subgoals.length < (K.min || 0) ? `<div class="site-warn">${esc(K.label)} demande au moins ${K.min} sous-objectifs (cette tâche en a ${t.subgoals.length}). Ajoute-en, ou choisis une construction plus petite dans la tâche.</div>` : '';
   return `<div class="site-top"><h2>${esc(K.label)} · ${esc(t.title)}</h2><div class="tools">${all.length > 1 ? `<select data-change="site-sel" aria-label="Construction affichée">${all.map(x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc((KINDS[x.site.kind] || KINDS.villa).label)} · ${esc(x.title)}${x.projectId !== t.projectId ? ' (' + esc(pname(x.projectId)) + ')' : ''}</option>`).join('')}</select>` : ''}${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div></div>
-    <div class="site-stage"><small>Étape ${pr.stage}/${n}</small>${name} · <span style="font-weight:500">${line}</span></div>
+    <div class="site-stage"><small>Étape ${pr.stage}/${n}</small>${name}</div>
     <div class="site-bar" title="${pct} %"><span style="width:${pct}%"></span></div>
     <div class="site-steps" style="grid-template-columns:repeat(${n},1fr)">${act.map((k, i) => `<i class="${i < pr.stage ? 'on' : i === pr.stage ? 'cur' : ''}" style="--f:${Math.round(pr.frac * 100)}%" title="${ST[k][0]}"></i>`).join('')}</div>
     <div class="site-next">${next ? `« ${esc(t.title)} » : ${pr.done} / ${pr.total} sous-objectifs. Encore <b>${plural(pr.need, 'case')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>. ${pace}` : `${pr.total} / ${pr.total} sous-objectifs. La tâche est terminée, ${K.the} aussi !`}</div>${small}`;
