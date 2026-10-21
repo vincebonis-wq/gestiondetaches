@@ -2471,7 +2471,7 @@ Object.assign(KINDS, {
     10: ['Toiture', 'La grue pose la charpente couverte d\'ardoises'], 11: ['Bardage', 'Le bois habille les façades'], 16: ['Terrasse', 'Lames de bois et chaises longues'], 20: ['Chalet livré', 'Un feu de cheminée t\'attend'] } }
 });
 // Le manoir business : maison de riche, cœur en feu sur le toit, chaque étape parle d'entreprise
-KINDS.empire = { label: 'Manoir business', the: 'le manoir', sign: 'EMPIRE', signBg: '#9e1b2a', min: 10, skip: [2], car: 0xd4a73a, over: {
+KINDS.empire = { label: 'Manoir business', the: 'le manoir', sign: 'FÉROCE', signBg: '#9e1b2a', min: 10, skip: [2], car: 0xd4a73a, over: {
   0: ['L\'idée', 'Un terrain, une vision : ton futur empire'], 1: ['Levée de fonds', 'L\'investisseuse signe, le panneau passe à « Vendu »'],
   3: ['Place nette', 'Le bulldozer dégage tout ce qui freine le projet'], 4: ['Fondations', 'On creuse profond : un empire se bâtit sur du solide'],
   5: ['Structurer l\'offre', 'Coffrages et fers à béton, chaque pièce à sa place'], 6: ['Le socle', 'La dalle est coulée : ta proposition de valeur'],
@@ -2634,8 +2634,8 @@ Object.assign(Site3D.prototype, {
     // tapis rouge de la rue à la porte (il remplace le pas japonais)
     const carpet = STD(0xb3122a, { r: .9 }), cg = new T3.BoxGeometry(1.3, .03, 1.72);
     h.stones.forEach(st => { st.geometry = cg; st.material = carpet; st.position.x = -5.8; st.userData.y0 = .1 });
-    // plaque « EMPIRE » sur la façade, à côté de la baie
-    const pt = tex(512, 160, (g, w, hh) => { g.fillStyle = '#16171b'; g.fillRect(0, 0, w, hh); g.strokeStyle = '#e8bf4a'; g.lineWidth = 8; g.strokeRect(10, 10, w - 20, hh - 20); g.fillStyle = '#f2c94c'; g.textAlign = 'center'; g.font = '700 84px Georgia,serif'; g.fillText('EMPIRE', w / 2, 112) });
+    // plaque « FÉROCE » sur la façade, à côté de la baie
+    const pt = tex(512, 160, (g, w, hh) => { g.fillStyle = '#16171b'; g.fillRect(0, 0, w, hh); g.strokeStyle = '#e8bf4a'; g.lineWidth = 8; g.strokeRect(10, 10, w - 20, hh - 20); g.fillStyle = '#f2c94c'; g.textAlign = 'center'; g.font = '700 84px Georgia,serif'; g.fillText('FÉROCE', w / 2, 112) });
     h.k.plate = BX(3, .94, .06, STD(0xffffff, { map: pt, r: .4, e: 0xffffff, ei: 0 }), 5.2, 2.05, 4.75, sc); h.k.plate.material.emissiveMap = pt; h.k.plate.visible = false; h.k.plateM = h.k.plate.material;
     // bandeau boursier lumineux sous le toit : il défile en continu
     const tt = tex(2048, 64, (g, w, hh) => { g.fillStyle = '#0d0f12'; g.fillRect(0, 0, w, hh); g.font = '700 38px ui-monospace,Menlo,monospace'; g.textBaseline = 'middle'; let x = 10; for (const [t, c] of [['CA ▲ +300 %', '#5ee08a'], ['CLIENTS ▲ +48', '#5ee08a'], ['LEADS ▲ +1 250', '#5ee08a'], ['PANIER MOYEN ▲ 2 400 €', '#f2c94c'], ['AVIS ★★★★★', '#f2c94c'], ['DOUTES ▼ −90 %', '#ff6b6b'], ['MRR ▲ +62 %', '#5ee08a']]) { g.fillStyle = c; g.fillText(t, x, hh / 2 + 2); x += g.measureText(t).width + 70 } }, [1, 1]);
