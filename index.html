@@ -681,6 +681,15 @@ if (!db.duneSaga) {
   db.duneSaga = true;
   try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
 }
+// Ajout ponctuel : l'app chakras a sa construction à part, le cairn des chakras, entre la maison du livre et la mer. Une seule fois.
+if (!db.appCairn) {
+  const t = db.tasks.find(t => /app chakras/i.test(t.title));
+  if (t) {
+    if (t.site) { t.site.on = true; t.site.kind = 'cairn'; t.site.slot = null } else t.site = { on: true, shown: 0, kind: 'cairn', since: Date.now() };
+    db.appCairn = true;
+    try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+  }
+}
 }
 runMigrations();
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
@@ -2044,7 +2053,7 @@ class Site3D {
     this.root = new T3.Group(); this.root.position.set(this.X, 0, this.SL.z); this.root.rotation.y = this.SL.r ? Math.PI : 0; W.scene.add(this.root); this.scene = this.root;
     this.trees = new T3.Group(); this.root.add(this.trees);
     this.buildSign(); this.buildHouse(); this.buildCrane(); this.buildScaffold(); this.initFx();
-    this.items = this.defineItems(); sites3dSlabItems(this); this.applyStyle(); this.applyKind(); if (this.kind === 'dune') this.jobs = Object.fromEntries(Array.from({ length: SITE_N }, (_, i) => [i + 1, DUNE_JOBS[i + 1] || { async work() {} }])); this.deco = siteDeco(task); if (this.deco) this.applyDeco();
+    this.items = this.defineItems(); sites3dSlabItems(this); this.applyStyle(); this.applyKind(); if (KINDS[this.kind].jobs) this.jobs = Object.fromEntries(Array.from({ length: SITE_N }, (_, i) => [i + 1, KINDS[this.kind].jobs()[i + 1] || { async work() {} }])); this.deco = siteDeco(task); if (this.deco) this.applyDeco();
     this.bindClip(); this.fxScale(W.ptScale || 400); this.setLights(W.night);
   }
   /* ----- La villa et toutes ses parties ----- */
@@ -2314,13 +2323,13 @@ class Site3D {
     const h = this.h, villa = this.items[20][0].p >= 1, site = this.prog(2) > 0 || this.prog(3) > 0, sold = this.items[1][0].p;
     this.signFront.material.map = villa ? this.signTex.villa : site && sold >= 1 ? this.signTex.site : this.signTex.sale; this.signFront.material.needsUpdate = true;
     this.signBoard.rotation.y = villa || (site && sold >= 1) ? 0 : Math.PI * EZ.io(clamp01(sold));
-    this.stair.visible = this.prog(8) >= 1 && !KINDS[this.kind].low;
+    this.stair.visible = this.prog(8) >= 1 && !KINDS[this.kind].low && !KINDS[this.kind].scene;
     const slabDone = this.prog(6) >= 1;
     if (slabDone) { h.stakes.forEach(g => g.visible = false); h.strings.forEach(l => l.visible = false); h.forms.forEach(b => b.visible = false); h.rebar.forEach(g => g.visible = false); h.trench.forEach(b => b.visible = false); h.spoil.forEach(b => b.visible = false) }
     const coverDirt = this.prog(4) > 0; h.cover.forEach(g => { const want = coverDirt ? this.tx.dirt : this.tx.det; if (g.material.map !== want) { g.material.map = want; g.material.color.set(coverDirt ? 0xffffff : GRASS0).convertSRGBToLinear(); g.material.needsUpdate = true } });
     this.kindSync(); if (this.deco) this.decoSync();
     // sans piscine : l'emplacement du bassin reste de la terre, puis se couvre de gazon avec le reste du jardin
-    if (this.kind === 'dune') { h.cover.forEach(g => g.visible = false); this.sign.visible = false; return }
+    if (KINDS[this.kind].scene) { h.cover.forEach(g => g.visible = false); this.sign.visible = false; return }
     if (KINDS[this.kind].noPool) { const lawn = this.prog(18) >= 1, m = this.h.lawn.material; h.cover.forEach(g => { g.visible = true; g.material.opacity = 1; if (lawn) { g.material.map = m.map; g.material.color.copy(m.color); g.material.needsUpdate = true } }) }
   }
   /* ----- Particules (poussière, béton, eau, étincelles) et mottes de terre ----- */
@@ -2430,9 +2439,9 @@ class Site3D {
     this.unbake && this.unbake();
     const s = D >= SITE_N - 1e-9 ? SITE_N : Math.floor(D + 1e-9), f = s >= SITE_N ? 0 : Math.max(0, D - s);
     for (let k = 1; k <= SITE_N; k++) { const its = this.items[k], n = its.length; its.forEach((it, i) => { it.p = k <= s ? 1 : k === s + 1 ? (this.cont.has(it.kind) ? clamp01(f * n - i) : (f * n - i >= 1 - 1e-9 ? 1 : 0)) : 0; it.wet = 1 }) }
-    const DU = this.kind === 'dune';
+    const DU = !!KINDS[this.kind].scene;
     this.setCrane(!DU && s >= 6 && s < 10 ? 1 : 0); this.crane.phi = .9; this.crane.r = 18; this.crane.L = 8; this.crane.ox = this.crane.oz = this.crane.vx = this.crane.vz = 0; this.crane.slot.clear?.(); while (this.crane.slot.children.length) this.crane.slot.remove(this.crane.slot.children[0]);
-    this.setScaf('gf', !DU && s >= 6 && s < 12 ? 1 : 0); this.setScaf('up', s >= 8 && s < 12 && !KINDS[this.kind].low ? 1 : 0);
+    this.setScaf('gf', !DU && s >= 6 && s < 12 ? 1 : 0); this.setScaf('up', !DU && s >= 8 && s < 12 && !KINDS[this.kind].low ? 1 : 0);
     for (const v of this.vehicles) this.scene.remove(v.g); for (const w of this.workers) this.scene.remove(w.g);
     this.vehicles = []; this.workers = []; this.clods = []; this.fxN.list = []; this.fxA.list = [];
     const pile = !DU && s >= 13 && s < 18 ? 1 : 0; this.h.pile.scale.set(Math.max(.001, 2.6 * pile), Math.max(.001, 1.3 * pile), Math.max(.001, 2 * pile));
@@ -2483,12 +2492,20 @@ KINDS.empire = { label: 'Manoir business', the: 'le manoir', sign: 'FÉROCE', si
 Object.assign(KINDS.boutique, { min: 12 }); Object.assign(KINDS.mas, { min: 15 }); Object.assign(KINDS.eco, { min: 16 }); Object.assign(KINDS.villa, { min: 20 });
 // La dune de Shai-Hulud : pas une maison, un paysage ; six étapes, une par livre de la saga
 const DUNE_ACT = [1, 2, 3, 5, 7, 20];
-KINDS.dune = { label: 'Dune de Shai-Hulud', the: 'la dune', sign: 'DUNE', signBg: '#a8742f', min: 6, low: true, noPool: true, act: DUNE_ACT, skip: Array.from({ length: 20 }, (_, i) => i + 1).filter(k => !DUNE_ACT.includes(k)), over: {
+KINDS.dune = { label: 'Dune de Shai-Hulud', the: 'la dune', sign: 'DUNE', signBg: '#a8742f', min: 6, low: true, noPool: true, scene: true, jobs: () => DUNE_JOBS, act: DUNE_ACT, skip: Array.from({ length: 20 }, (_, i) => i + 1).filter(k => !DUNE_ACT.includes(k)), over: {
   0: ['Le désert d\'Arrakis', 'Le vent attend le premier livre'], 1: ['Dune', 'Le marteleur bat le sable : la dune commence à se former'],
   2: ['Le Messie de Dune', 'La dune grandit, un sietch se creuse dans la roche'], 3: ['Les Enfants de Dune', 'L\'épice affleure, orange, au pied de la dune'],
   5: ['L\'Empereur-Dieu de Dune', 'La crête se dresse, le rocher des guetteurs émerge'], 7: ['Les Hérétiques de Dune', 'Les tentes des Fremen se dressent au pied de la dune'],
   20: ['La Maison des Mères', 'Shai-Hulud surgit du sable sous le regard des Fremen'] } };
-const KIND_ORDER = ['dune', 'cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
+// Le cairn des chakras (l'app des lecteurs) : un écran de téléphone posé face à la mer, sept pierres en équilibre ; treize étapes
+const CAIRN_ACT = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20];
+KINDS.cairn = { label: 'Cairn des chakras', the: 'le cairn', sign: 'CHAKRAS', signBg: '#b8923a', min: 13, noPool: true, scene: true, jobs: () => CAIRN_JOBS, act: CAIRN_ACT, skip: Array.from({ length: 20 }, (_, i) => i + 1).filter(k => !CAIRN_ACT.includes(k)), over: {
+  0: ['Le belvédère', 'Face à la mer, derrière la maison du livre, une place attend l\'application'], 1: ['Le tracé', 'Les ouvriers plantent les piquets : un écran de téléphone se dessine au sol'],
+  2: ['La dalle ivoire', 'L\'écran sort de terre, lisse comme une page'], 3: ['Le cadre doré', 'Un liseré d\'or entoure l\'écran'], 4: ['La roue manque / trop', 'Les sept couleurs se posent sur la roue du bilan'],
+  5: ['Racine', 'La pierre rouge, large et stable, pose la base'], 6: ['Sacré', 'La pierre orange trouve son équilibre'], 7: ['Plexus solaire', 'La pierre jaune s\'allume au centre'],
+  8: ['Cœur', 'La pierre verte, au milieu du cairn'], 9: ['Gorge', 'La pierre bleue s\'élève'], 10: ['Troisième œil', 'La pierre indigo, presque au sommet'], 11: ['Sommet', 'La pierre violette couronne le cairn'],
+  12: ['La bulle de cohérence', 'Au-dessus du cairn, une bulle respire : cinq secondes, cinq secondes'], 20: ['En équilibre', 'Les sept pierres s\'élèvent et flottent ; un lecteur médite face à la mer'] } };
+const KIND_ORDER = ['dune', 'cairn', 'cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
 // Étapes réellement jouées pour une architecture (plain-pied : pas d'étage ; sans piscine : pas de bassin)
 function kindSkips(kind) { const K = KINDS[kind] || KINDS.villa, s = new Set(); if (K.low) [8, 9].forEach(k => s.add(k)); if (K.noPool) [13, 14, 15].forEach(k => s.add(k)); (K.skip || []).forEach(k => s.add(k)); return s }
 const activeStages = kind => { const sk = kindSkips(kind); return Array.from({ length: SITE_N }, (_, i) => i + 1).filter(k => !sk.has(k)) };
@@ -2597,6 +2614,7 @@ Object.assign(Site3D.prototype, {
       const tm = STD(0x6a7078, { map: T.tiles, r: .7 }); h.roof.forEach(b => { b.geometry = pg; b.material = tm }); h.fascia.children.forEach(b => b.scale.set(1, .5, 1));
     }
     if (K === 'dune') { this.buildDune(); h.k.show = show; return }
+    if (K === 'cairn') { this.buildCairn(); h.k.show = show; return }
     if (K === 'empire') {
       // façade blanche à liserés dorés, toit noir, baies teintées, mosaïque or
       const gold = STD(0xf2c443, { m: .25, r: .35, e: 0x5a3a00, ei: .25 }), red = STD(0xd3182a, { r: .35, e: 0x8a0a16, ei: .3 });
@@ -2705,6 +2723,7 @@ Object.assign(Site3D.prototype, {
     if (this.kind === 'boutique') { k.awning.visible = this.prog(12) >= 1; k.shop.visible = this.prog(12) >= 1 }
     if (this.kind === 'mas') { k.shut.visible = this.prog(12) >= 1; k.lav.visible = this.prog(18) > 0; k.lav.scale.setScalar(Math.max(.01, this.prog(18))) }
     if (this.kind === 'dune') return this.duneSync();
+    if (this.kind === 'cairn') return this.cairnSync();
     if (this.kind === 'empire') { k.base.visible = this.prog(10) >= 1; const p = this.prog(19), e = EZ.out(clamp01(p * 1.4)); k.heart.visible = p > 0; k.heart.scale.setScalar(Math.max(.01, e) * 1.3); k.flames.forEach(f => f.visible = p >= .55); k.chart.visible = this.prog(18) > 0; k.chart.scale.set(1, Math.max(.01, this.prog(18)), 1);
       k.plate.visible = this.prog(11) >= 1; k.ticker.visible = p > 0; k.pad.visible = this.prog(18) >= .3; k.rope.visible = this.prog(19) >= .5; k.float.visible = this.items[15][0].p >= .95;
       const L = this.items[20][0].p; k.heli.visible = L > 0; k.heli.position.y = (1 - EZ.out(clamp01(L * 1.2))) * 14; k.heli.userData.spin = L > 0 && L < 1 ? 1 : .15 }
@@ -2722,6 +2741,7 @@ Object.assign(Site3D.prototype, {
   navAll() { const a = this.navExtra(), b = this._decoNav || []; this._decoNav = null; return a.concat(b) },
   tickKind(dt) {
     if (this.kind === 'dune') return this.tickDune(dt);
+    if (this.kind === 'cairn') return this.tickCairn(dt);
     const k = this.h.k; if (k && k.rotor && k.wind.visible) k.rotor.rotation.z += dt * 2.2;
     // les flammes dansent, le cœur bat doucement
     if (k && k.flames && k.heart.visible) { k.ft += dt; const t = k.ft; k.flames.forEach(f => { const ph = f.userData.ph; f.scale.set(1 + Math.sin(t * 7 + ph) * .08, 1 + Math.sin(t * 9.3 + ph) * .16 + Math.sin(t * 3.1 + ph) * .06, 1); f.rotation.y = Math.sin(t * 2 + ph) * .25 }); if (this.prog(19) >= 1) k.heart.scale.setScalar(1.3 * (1 + Math.max(0, Math.sin(t * 2.4)) ** 6 * .07)) }
@@ -2862,16 +2882,158 @@ const DUNE_JOBS = Object.fromEntries(DUNE_ACT.map(k => [k, {
   }
 }]));
 
+/* ----- Le cairn des chakras : l'application posée face à la mer, un écran ivoire, la roue du bilan, sept pierres en équilibre ----- */
+const CHAKRA_C = [0xc4221c, 0xe0601a, 0xe8b020, 0x2f9a4e, 0x2a72c4, 0x3a3ca0, 0x8240b8];
+const CAIRN_R = [1.05, .95, .86, .77, .68, .6, .52];
+// rectangle aux coins arrondis (l'écran du téléphone), dans le plan du sol
+function phoneShape(w, d, r) {
+  const s = new T3.Shape(), x = -w / 2, y = -d / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + d - r); s.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+  s.lineTo(x + r, y + d); s.quadraticCurveTo(x, y + d, x, y + d - r); s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); return s;
+}
+const flatExtrude = (shape, depth) => { const g = new T3.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 10 }); g.rotateX(-Math.PI / 2); return g };
+Object.assign(Site3D.prototype, {
+  buildCairn() {
+    const sc = this.scene, k = this.h.k, gold = STD(0xd6a537, { r: .35, e: 0x5a3a00, ei: .2 }), wood = STD(0x9a6a40, { map: this.tx.wood, r: .8 });
+    this.sign.visible = false; this.h.bushes.forEach(b => b.visible = false); this.trees.visible = false;
+    k.dyn = new T3.Group(); sc.add(k.dyn); k.noBake = [k.dyn];
+    // le tracé : quatre piquets et un cordeau doré
+    k.stakes = [[8.3, 4.6], [8.3, -4.6], [-8.3, 4.6], [-8.3, -4.6]].map(([x, z]) => { const g = new T3.Group(); g.position.set(x, 0, z); g.add(AT(CY(.05, .06, 1, wood, 6), 0, .5, 0)); g.add(AT(CY(.08, .08, .08, gold, 8), 0, 1, 0)); g.visible = false; sc.add(g); return g });
+    k.string = new T3.Group(); [[0, 4.6, 16.6, .03], [0, -4.6, 16.6, .03], [8.3, 0, .03, 9.2], [-8.3, 0, .03, 9.2]].forEach(([x, z, w, d]) => BX(w, .03, d, gold, x, .55, z, k.string)); k.string.visible = false; sc.add(k.string);
+    // l'écran : dalle ivoire aux coins arrondis
+    k.slab = MS(flatExtrude(phoneShape(16, 8.6, 1.6), .3), STD(0xf6efe0, { r: .7 })); k.slab.visible = false; sc.add(k.slab);
+    // le cadre doré, l'œilleton de la caméra et la barre d'accueil
+    const fr = phoneShape(16.6, 9.2, 1.9); fr.holes.push(phoneShape(16, 8.6, 1.6)); k.frame = new T3.Group(); k.frame.add(MS(flatExtrude(fr, .42), gold));
+    BX(.4, .05, 1.8, gold, -7.25, .32, 0, k.frame); BX(.22, .05, 2.6, gold, 7.3, .32, 0, k.frame); k.frame.visible = false; sc.add(k.frame);
+    // la roue du bilan : sept secteurs, « manque » au centre, « trop » au bord
+    k.wheel = new T3.Group(); k.wheel.position.y = .305; k.dyn.add(k.wheel);
+    const flat = (geo, m) => { const o = MS(geo, m, false, true); o.rotation.x = -Math.PI / 2; return o };
+    k.wheelBase = new T3.Group(); k.wheelBase.add(flat(new T3.CircleGeometry(3.75, 64), STD(0xeee2c6, { r: .8 }))); k.wheelBase.add(AT(flat(new T3.RingGeometry(3.62, 3.78, 64), gold), 0, .006, 0)); k.wheelBase.add(AT(flat(new T3.RingGeometry(2.38, 2.46, 64), gold), 0, .006, 0)); k.wheelBase.add(AT(flat(new T3.CircleGeometry(1.2, 40), STD(0xe9d6a8, { r: .6 })), 0, .007, 0)); k.wheelBase.visible = false; k.wheel.add(k.wheelBase);
+    k.sec = CHAKRA_C.map((c, j) => {
+      const a0 = Math.PI / 2 + j * Math.PI * 2 / 7 + .03, da = Math.PI * 2 / 7 - .06, g = new T3.Group(), m = STD(c, { r: .6, e: c, ei: 0 }), mi = STD(new T3.Color(c).lerp(new T3.Color(0xffffff), .3).getHex(), { r: .7, e: c, ei: 0 });
+      g.add(AT(flat(new T3.RingGeometry(1.28, 2.36, 10, 1, a0, da), mi), 0, .01, 0)); g.add(AT(flat(new T3.RingGeometry(2.48, 3.58, 12, 1, a0, da), m), 0, .01, 0)); g.userData.m = [m, mi]; g.visible = false; k.wheel.add(g); return g;
+    });
+    // les sept pierres du cairn, de la racine (large) au sommet (petite)
+    const peb = new T3.SphereGeometry(1, 28, 16); let y = .3; k.stoneY = []; k.drop = [0, 0, 0, 0, 0, 0, 0];
+    k.stones = CHAKRA_C.map((c, i) => { const r = CAIRN_R[i], sy = r * .42; y += sy; k.stoneY.push(y); y += sy - .05; const m = MS(peb, STD(c, { r: .45, e: c, ei: 0 })); m.scale.set(r, sy, r * .9); m.rotation.y = i * 1.3; m.visible = false; k.dyn.add(m); return m });
+    // la caisse de pierres, près du sentier
+    k.cart = new T3.Group(); k.cart.position.set(10.6, 0, 6.6); BX(1.8, .55, 1.2, wood, 0, .3, 0, k.cart); [-.7, .7].forEach(x => k.cart.add(AT(CY(.3, .3, .1, STD(0x3a2a1c), 12), x, .3, .64).rotateX(Math.PI / 2))); k.cart.visible = false; sc.add(k.cart);
+    k.cartS = CHAKRA_C.map((c, i) => { const m = MS(peb, k.stones[i].material); m.scale.set(.32, .16, .3); m.position.set(10.6 - .55 + (i % 4) * .37, .66 + (i > 3 ? .14 : 0), 6.6 + (i > 3 ? .2 : -.2)); m.visible = false; k.dyn.add(m); return m });
+    // la bulle de cohérence cardiaque, et les icônes de l'app qui tournent autour
+    k.bubble = new T3.Group(); k.bubble.position.set(0, 7.4, 0); k.bubble.add(MS(new T3.SphereGeometry(1.7, 32, 20), STD(0xffb8c8, { t: true, o: .42, e: 0xff8fae, ei: .45 }), false, false)); k.bubble.add(MS(new T3.SphereGeometry(.42, 16, 12), STD(0xf6d27a, { e: 0xf0b840, ei: .9 }), false, false)); k.bubble.visible = false; k.dyn.add(k.bubble);
+    const icon = draw => tex(128, 128, (g, w, h) => { g.fillStyle = '#f7f0e0'; rr(g, 6, 6, w - 12, h - 12, 26); g.fill(); g.strokeStyle = '#c9a03a'; g.lineWidth = 6; g.stroke(); draw(g, w, h) });
+    const hex = c => '#' + c.toString(16).padStart(6, '0');
+    const ICONS = [
+      g => CHAKRA_C.forEach((c, i) => { g.fillStyle = hex(c); g.beginPath(); g.moveTo(64, 64); g.arc(64, 64, 38, i / 7 * 6.283 - 1.57, (i + 1) / 7 * 6.283 - 1.57); g.fill() }),
+      g => { g.fillStyle = '#c9a03a'; for (let i = 0; i < 5; i++) { g.save(); g.translate(64, 86); g.rotate((i - 2) * .5); g.beginPath(); g.ellipse(0, -26, 11, 26, 0, 0, 6.283); g.fill(); g.restore() } },
+      g => { g.fillStyle = '#9a5cc8'; g.font = '700 54px Georgia,serif'; g.textAlign = 'center'; g.fillText('21', 64, 84) },
+      g => { g.strokeStyle = '#3f8fd8'; g.lineWidth = 7; g.beginPath(); for (let x = 22; x <= 106; x += 2) g.lineTo(x, 64 + Math.sin((x - 22) / 84 * 6.283 * 1.5) * 22); g.stroke() }
+    ];
+    k.icons = ICONS.map(d => { const m = MS(new T3.BoxGeometry(1.2, 1.2, .12), STD(0xffffff, { map: icon(d), e: 0xffffff, ei: .12 }), false, false); m.visible = false; k.dyn.add(m); return m });
+    // les 21 lumières du parcours de 21 jours, tout autour du cadre
+    k.lights = phoneShape(16.3, 8.9, 1.75).getSpacedPoints(21).slice(0, 21).map(p => { const m = MS(new T3.SphereGeometry(.13, 10, 8), STD(0xfff1c8, { e: 0xffcf6a, ei: 0 }), false, false); m.position.set(p.x, .5, -p.y); m.visible = false; k.dyn.add(m); return m });
+    // le rayon de lumière au-dessus du sommet, une fois l'équilibre trouvé
+    k.beam = MS(new T3.CylinderGeometry(.3, .7, 30, 20, 1, true), new T3.MeshBasicMaterial({ color: 0xffc860, transparent: true, opacity: 0, depthWrite: false, blending: T3.AdditiveBlending, side: T3.DoubleSide }), false, false); k.beam.position.y = 20; k.beam.visible = false; k.dyn.add(k.beam);
+    // les ouvriers (gilet doré), puis le lecteur qui médite sur son coussin
+    k.home = [[9.4, 7.7], [11.8, 8.1], [10.4, 9.3]];
+    k.crew = k.home.map(([x, z]) => { const w = makeWorker({ vest: 0xd9b24a, hat: 0xf6efe0 }); w.x = x; w.z = z; w.tyaw = w.yaw = Math.PI; w.g.visible = false; k.dyn.add(w.g); return w });
+    k.cushion = AT(CY(.5, .55, .18, STD(0x9a5cc8, { r: .8 }), 18), -3.6, .39, 1.9); k.cushion.visible = false; k.dyn.add(k.cushion);
+    k.reader = makeWorker({ civil: true, vest: 0xf3ead8, shirt: 0xf3ead8, pants: 0xe2d4b8 }); k.reader.x = -3.6; k.reader.z = 1.9; k.reader.y = .48; k.reader.pose = 'sit'; k.reader.tyaw = k.reader.yaw = Math.atan2(3.6, -1.9); k.reader.g.visible = false; k.dyn.add(k.reader.g);
+    k.carry = -1; k.busy = false; k.ft = 0;
+  },
+  cairnP(i) { return this.prog(CAIRN_ACT[i]) },
+  cairnSync() {
+    const k = this.h.k, P = i => this.cairnP(i), p0 = P(0), p1 = P(1), p2 = P(2), p3 = P(3), p11 = P(11), p12 = P(12);
+    k.stakes.forEach((g, j) => { g.visible = p0 > j / 4 && p1 < 1 }); k.string.visible = p0 >= 1 && p1 < .5;
+    k.slab.visible = p1 > 0; k.slab.position.y = -.32 * (1 - EZ.out(p1));
+    k.frame.visible = p2 > 0; k.frame.position.y = -.44 * (1 - EZ.out(p2));
+    k.wheelBase.visible = p3 > 0;
+    k.sec.forEach((g, j) => { const s = clamp01(p3 * 7 - j); g.visible = s > 0; g.scale.setScalar(Math.max(.01, .4 + .6 * EZ.out(s))) });
+    k.stones.forEach((m, i) => { const q = P(4 + i); m.visible = q > 0; k.drop[i] = (1 - EZ.out(clamp01(q * 2))) * 1.6; m.material.emissiveIntensity = q >= 1 ? .1 : q > .5 ? Math.sin((q - .5) * 2 * Math.PI) * 1.1 + .1 * (q - .5) * 2 : 0; k.sec[i].userData.m.forEach(mm => mm.emissiveIntensity = q >= 1 ? .08 : 0) });
+    k.cart.visible = p0 > 0 && p12 < 1; k.cartS.forEach((m, i) => { m.visible = k.cart.visible && P(4 + i) <= 0 && k.carry !== i });
+    k.bubble.visible = p11 > 0; k.bubbleG = EZ.out(clamp01(p11 * 1.3));
+    k.icons.forEach((m, j) => { const s = clamp01((p11 - .25 - j * .15) * 4); m.visible = s > 0; m.scale.setScalar(Math.max(.01, EZ.back(s))) });
+    k.lift = EZ.io(clamp01(p12 * 1.6));
+    k.lights.forEach((m, j) => { m.visible = p1 >= 1; m.material.emissiveIntensity = p12 * 21 > j ? 1.1 : 0 });
+    k.beam.visible = p12 > .55; k.beam.material.opacity = .16 * clamp01((p12 - .55) * 3);
+    k.cushion.visible = k.reader.g.visible = p12 > .75;
+    k.crew.forEach(w => { w.g.visible = (p0 > 0 || k.busy) && p12 < 1 });
+  },
+  tickCairn(dt) {
+    const k = this.h.k; if (!k || !k.stones) return; k.ft += dt; const t = k.ft, L = k.lift || 0;
+    k.stones.forEach((m, i) => { if (!m.visible) return; m.position.set(Math.sin(t * .7 + i) * .03 * (1 - L), k.stoneY[i] + k.drop[i] + L * (.4 + i * .3) + Math.sin(t * 1.2 + i * .8) * .07 * L, 0); m.rotation.z = Math.sin(t * .8 + i * 1.7) * .025; m.rotation.y = i * 1.3 + t * .25 * L * (i % 2 ? 1 : -1) });
+    // la bulle respire : cinq secondes d'inspiration, cinq d'expiration
+    if (k.bubble.visible) { const b = (k.bubbleG || 0) * (1 + .22 * Math.sin(t * Math.PI / 5)); k.bubble.scale.setScalar(Math.max(.01, b)); k.bubble.position.y = 7.4 + L * 1.4 }
+    k.icons.forEach((m, j) => { if (!m.visible) return; const a = t * .18 + j * Math.PI / 2; m.position.set(Math.cos(a) * 5.4, 4 + L * 1.6 + Math.sin(t * .9 + j) * .25, Math.sin(a) * 3.2); m.rotation.y = -a + Math.PI / 2 });
+    if (k.beam.visible) k.beam.material.opacity = (.12 + Math.sin(t * 1.3) * .04) * clamp01((this.cairnP(12) - .55) * 3);
+    [...k.crew, k.reader].forEach(w => { if (w.g.visible) w.update(dt, this) });
+  }
+});
+// Chaque étape de l'app : les ouvriers posent, la magie allume
+const cairnSet = (todo, p0, v) => todo.forEach((d, i) => { d.it.p = lerp(p0[i], d.to, v) });
+const cairnGo = (S, w, pts) => pts.reduce((pr, [x, y, z]) => pr.then(() => S.seg1(w, x, z, y, 'walk')), Promise.resolve());
+const cairnFace = (w, x, z) => { w.tyaw = Math.atan2(x - w.x, z - w.z) };
+const sparkle = (S, x, y, z, c, n = 1) => { for (let j = 0; j < n; j++) S.emit({ x: x + rnd(-.6, .6), y: y + rnd(0, .5), z: z + rnd(-.6, .6), vy: rnd(.6, 1.6), sv: .4, g: -.2, drag: .5, life: 1.6, size: .22, grow: .3, c, a: .9, add: true }) };
+const rgb = c => [(c >> 16 & 255) / 255, (c >> 8 & 255) / 255, (c & 255) / 255];
+const CAIRN_JOBS = {
+  1: { async work(S, todo) {
+    const k = S.h.k, [a, b] = k.crew, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 1.5, 1, 46);
+    const plant = async (w, j, x, z) => { await cairnGo(S, w, [[0, x, z + .6]]); cairnFace(w, x, z); w.pose = 'hammer'; await S.wait(1100); w.pose = null; k.done1 = (k.done1 || 0) + 1; cairnSet(todo, p0, k.done1 / 4) };
+    k.done1 = 0; await Promise.all([plant(a, 0, 8.3, 4.6).then(() => plant(a, 1, 8.3, -4.6)), plant(b, 2, -8.3, 4.6).then(() => plant(b, 3, -8.3, -4.6))]);
+    cairnSet(todo, p0, 1); k.busy = false;
+  } },
+  2: { async work(S, todo) {
+    const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.focus(0, 1, 1, 44);
+    await Promise.all(k.crew.map((w, i) => cairnGo(S, w, [[0, -5 + i * 5, 5.4]]).then(() => { cairnFace(w, -5 + i * 5, 0); w.pose = 'kneel' })));
+    await S.anim(9000, e => { cairnSet(todo, p0, e); if (Math.random() < .5) S.emit({ x: rnd(-8, 8), y: .3, z: rnd(-4, 4), vy: .6, sv: .5, g: .2, drag: .6, life: 1.6, size: .7, grow: 1.2, c: [.92, .88, .8], a: .35 }) }, EZ.io);
+    k.crew.forEach(w => w.pose = null); k.busy = false;
+  } },
+  3: { async work(S, todo) {
+    const k = S.h.k, p0 = todo.map(d => d.it.p), pts = phoneShape(16.3, 8.9, 1.75).getSpacedPoints(60); k.busy = true; S.focus(0, 1, 1, 44);
+    k.crew.forEach(w => { w.pose = 'reach' });
+    await S.anim(8000, e => { cairnSet(todo, p0, e); const p = pts[(Math.random() * 60) | 0]; sparkle(S, p.x, .4, -p.y, [1, .85, .4], 2) }, EZ.io);
+    k.crew.forEach(w => w.pose = null); k.busy = false;
+  } },
+  4: { async work(S, todo) {
+    const k = S.h.k, p0 = todo.map(d => d.it.p), w = k.crew[0]; k.busy = true; S.focus(0, 1, 1, 40);
+    await Promise.all([cairnGo(S, w, [[0, 1.4, 5], [.3, 1.4, 4.1]]), ...k.crew.slice(1).map((v, i) => cairnGo(S, v, [[0, k.home[i + 1][0], k.home[i + 1][1]]]))]);
+    cairnFace(w, 0, 0); w.pose = 'kneel';
+    await S.anim(10000, e => { cairnSet(todo, p0, e); const j = Math.min(6, (e * 7) | 0), a = Math.PI / 2 + (j + .5) * Math.PI * 2 / 7; sparkle(S, Math.cos(a) * 2.6, .4, -Math.sin(a) * 2.6, rgb(CHAKRA_C[j])) }, EZ.lin);
+    w.pose = null; await cairnGo(S, w, [[0, 1.4, 5], [0, ...k.home[0]]]); k.busy = false;
+  } },
+  20: { async work(S, todo) {
+    const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.focus(0, 4, 0, 54);
+    const away = Promise.all(k.crew.map((w, i) => S.wait(i * 700).then(() => cairnGo(S, w, [[0, 12 + i, 11.2], [0, 24 + i * 2, 11.6]]))));
+    await S.anim(16000, e => { cairnSet(todo, p0, e); if (e > .1 && Math.random() < .7) { const i = (Math.random() * 7) | 0, st = k.stones[i]; sparkle(S, st.position.x, st.position.y, st.position.z, rgb(CHAKRA_C[i])) } if (e > .7 && e < .8) sparkle(S, -3.6, .6, 1.9, [1, .9, .7], 2) }, EZ.io);
+    await away; k.busy = false; S.kindSync();
+  } }
+};
+// les sept pierres : un ouvrier prend la pierre dans la caisse, la pose sur le cairn ; elle s'allume
+CHAKRA_C.forEach((c, i) => { CAIRN_JOBS[5 + i] = { async work(S, todo) {
+  const k = S.h.k, p0 = todo.map(d => d.it.p), w = k.crew[i % 3], side = (i % 2 ? -1 : 1) * .5; k.busy = true; S.focus(0, 2, 0, 40);
+  await cairnGo(S, w, [[0, 10.6, 7.5]]); cairnFace(w, 10.6, 6.6); w.pose = 'reach'; await S.wait(500); w.pose = null;
+  k.carry = i; const s = MS(k.stones[i].geometry, k.stones[i].material); s.scale.set(CAIRN_R[i] * .55, CAIRN_R[i] * .23, CAIRN_R[i] * .5); w.setCarry(s); S.kindSync();
+  await cairnGo(S, w, [[0, side, 5], [.3, side, 1.8]]); cairnFace(w, 0, 0); w.pose = 'reach';
+  await S.anim(4500, e => { if (e > .15 && w.carry) { w.setCarry(null); k.carry = -1 } cairnSet(todo, p0, e); if (e > .5) sparkle(S, 0, k.stoneY[i], 0, rgb(c)) }, EZ.lin);
+  w.pose = null; await cairnGo(S, w, [[0, side, 5], [0, ...k.home[i % 3]]]); w.tyaw = Math.PI; k.busy = false;
+} } });
+CAIRN_JOBS[12] = { async work(S, todo) {
+  const k = S.h.k, p0 = todo.map(d => d.it.p); S.focus(0, 5, 0, 48);
+  await S.anim(11000, e => { cairnSet(todo, p0, e); if (Math.random() < .6) sparkle(S, rnd(-1.5, 1.5), 6 + rnd(0, 2), rnd(-1.5, 1.5), [1, .78, .85]) }, EZ.io);
+} };
+
 /* ===== Le monde : une seule côte, une route, un ciel ; chaque chantier occupe sa parcelle ===== */
 // Abscisses des parcelles le long de la route (la première au centre, les suivantes de part et d'autre)
 // Le quartier : deux rangées de parcelles face à face de part et d'autre de l'avenue (la rangée d'en face est retournée)
 const ROW_B = 43, STEP = 35.5;
 const SLOTS = [[0, 0], [STEP, 0], [-STEP, 0], [0, 1], [STEP, 1], [-STEP, 1], [2 * STEP, 0], [-2 * STEP, 0], [2 * STEP, 1], [-2 * STEP, 1]].map(([x, r]) => ({ x, r, z: r ? ROW_B : 0 }));
 // une parcelle à l'écart, au bout de l'avenue : le désert des loisirs (la dune de Shai-Hulud)
-SLOTS.push({ x: -3 * STEP - 8, r: 0, z: 0, special: true });
+SLOTS.push({ x: -3 * STEP - 8, r: 0, z: 0, special: true, kind: 'dune' });
+// derrière la maison du livre, au-delà du sentier, au bord de la falaise : le cairn des chakras
+SLOTS.push({ x: 0, r: 0, z: -38.5, special: true, kind: 'cairn' });
 // repère local d'une parcelle → monde
-const slotToWorld = (S, x, z) => S.r ? [S.x - x, S.z - z] : [S.x + x, z];
-const worldToSlot = (S, x, z) => S.r ? [S.x - x, S.z - z] : [x - S.x, z];
+const slotToWorld = (S, x, z) => S.r ? [S.x - x, S.z - z] : [S.x + x, S.z + z];
+const worldToSlot = (S, x, z) => S.r ? [S.x - x, S.z - z] : [x - S.x, z - S.z];
 const PATH_Z = z0 => -27 + Math.sin(z0 * .035) * 3; // sentier côtier (z en fonction de x)
 class World {
   constructor(canvas) {
@@ -4625,9 +4787,10 @@ function saveShown(ctl) { const t = findTask(ctl.tid); if (t && t.site) { t.site
 const siteTasksOf = pid => db.tasks.filter(t => t.projectId === pid && t.site?.on);
 function siteSlots() {
   const list = db.tasks.filter(t => t.site?.on).sort((a, b) => (a.site.since || a.createdAt || 0) - (b.site.since || b.createdAt || 0)), used = new Set(); let changed = false;
-  const SP = SLOTS.findIndex(x => x.special);
-  list.forEach(t => { const s = t.site.slot, want = t.site.kind === 'dune'; if (s != null && s < SLOTS.length && !used.has(s) && (s === SP) === want) used.add(s); else if (s != null) { t.site.slot = null; changed = true } });
-  list.forEach(t => { if (t.site.slot == null && t.site.kind === 'dune' && !used.has(SP)) { t.site.slot = SP; used.add(SP); changed = true } });
+  // les constructions à part (dune, cairn) ont leur parcelle réservée ; les autres prennent les parcelles de l'avenue
+  const SP = kind => SLOTS.findIndex(x => x.special && x.kind === kind);
+  list.forEach(t => { const s = t.site.slot, sp = SP(t.site.kind); if (s != null && s < SLOTS.length && !used.has(s) && (sp >= 0 ? s === sp : !SLOTS[s].special)) used.add(s); else if (s != null) { t.site.slot = null; changed = true } });
+  list.forEach(t => { const sp = SP(t.site.kind); if (t.site.slot == null && sp >= 0 && !used.has(sp)) { t.site.slot = sp; used.add(sp); changed = true } });
   list.forEach(t => { if (t.site.slot == null) { let k = 0; while (used.has(k) || SLOTS[k]?.special) k++; if (k < SLOTS.length) { t.site.slot = k; used.add(k); changed = true } } });
   if (changed) save();
   return list.filter(t => t.site.slot != null);
