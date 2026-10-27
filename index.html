@@ -681,6 +681,15 @@ if (!db.duneSaga) {
   db.duneSaga = true;
   try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
 }
+// Ajout ponctuel : la thématique de la formation vidéo a sa construction, le cinéma des chakras, à côté de la maison du livre. Une seule fois.
+if (!db.formationCinema) {
+  const th = db.themes.find(t => /formation vid[ée]o/i.test(t.name));
+  if (th) {
+    th.site = { on: true, shown: 0, kind: 'cinema', slot: 2, since: Date.now() };
+    db.formationCinema = true;
+    try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+  }
+}
 // Ajout ponctuel : l'app chakras a sa construction à part, le cairn des chakras, entre la maison du livre et la mer. Une seule fois.
 if (!db.appCairn) {
   const t = db.tasks.find(t => /app chakras/i.test(t.title));
@@ -2326,9 +2335,11 @@ class Site3D {
     this.stair.visible = this.prog(8) >= 1 && !KINDS[this.kind].low && !KINDS[this.kind].scene;
     const slabDone = this.prog(6) >= 1;
     if (slabDone) { h.stakes.forEach(g => g.visible = false); h.strings.forEach(l => l.visible = false); h.forms.forEach(b => b.visible = false); h.rebar.forEach(g => g.visible = false); h.trench.forEach(b => b.visible = false); h.spoil.forEach(b => b.visible = false) }
-    const coverDirt = this.prog(4) > 0; h.cover.forEach(g => { const want = coverDirt ? this.tx.dirt : this.tx.det; if (g.material.map !== want) { g.material.map = want; g.material.color.set(coverDirt ? 0xffffff : GRASS0).convertSRGBToLinear(); g.material.needsUpdate = true } });
+    const coverDirt = !KINDS[this.kind].plot && this.prog(4) > 0; h.cover.forEach(g => { const want = coverDirt ? this.tx.dirt : this.tx.det; if (g.material.map !== want) { g.material.map = want; g.material.color.set(coverDirt ? 0xffffff : GRASS0).convertSRGBToLinear(); g.material.needsUpdate = true } });
     this.kindSync(); if (this.deco) this.decoSync();
     // sans piscine : l'emplacement du bassin reste de la terre, puis se couvre de gazon avec le reste du jardin
+    // une construction à part posée sur une parcelle de l'avenue : l'emplacement de la piscine reste du gazon
+    if (KINDS[this.kind].plot) { h.cover.forEach(g => { g.visible = true; g.material.opacity = 1; g.material.transparent = false; if (g.material.map !== this.tx.det) { g.material.map = this.tx.det; g.material.color.set(GRASS0).convertSRGBToLinear(); g.material.needsUpdate = true } }); this.sign.visible = false; return }
     if (KINDS[this.kind].scene) { h.cover.forEach(g => g.visible = false); this.sign.visible = false; return }
     if (KINDS[this.kind].noPool) { const lawn = this.prog(18) >= 1, m = this.h.lawn.material; h.cover.forEach(g => { g.visible = true; g.material.opacity = 1; if (lawn) { g.material.map = m.map; g.material.color.copy(m.color); g.material.needsUpdate = true } }) }
   }
@@ -2505,7 +2516,17 @@ KINDS.cairn = { label: 'Cairn des chakras', the: 'le cairn', sign: 'CHAKRAS', si
   5: ['Racine', 'La pierre rouge, large et stable, pose la base'], 6: ['Sacré', 'La pierre orange trouve son équilibre'], 7: ['Plexus solaire', 'La pierre jaune s\'allume au centre'],
   8: ['Cœur', 'La pierre verte, au milieu du cairn'], 9: ['Gorge', 'La pierre bleue s\'élève'], 10: ['Troisième œil', 'La pierre indigo, presque au sommet'], 11: ['Sommet', 'La pierre violette couronne le cairn'],
   12: ['La bulle de cohérence', 'Au-dessus du cairn, une bulle respire : cinq secondes, cinq secondes'], 20: ['En équilibre', 'Les sept pierres s\'élèvent et flottent ; un lecteur médite face à la mer'] } };
-const KIND_ORDER = ['dune', 'cairn', 'cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
+// Le cinéma des chakras (formation vidéo) : dix-huit étapes, la terrasse en moins ; le bassin devient un bassin aux lotus
+const CINE_ACT = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20];
+KINDS.cinema = { label: 'Cinéma des chakras', the: 'le cinéma', sign: 'CINÉMA', signBg: '#1d1e24', min: 18, scene: true, plot: true, jobs: () => CINE_JOBS, act: CINE_ACT, skip: Array.from({ length: 20 }, (_, i) => i + 1).filter(k => !CINE_ACT.includes(k)), over: {
+  0: ['Le terrain', 'À côté de la maison du livre, une parcelle attend son cinéma'], 1: ['Le tracé', 'Les ouvriers plantent les piquets d\'un grand bâtiment'],
+  3: ['Les fondations', 'On creuse l\'emprise de la salle'], 4: ['La dalle', 'Le socle de béton est coulé'], 5: ['Les murs de la salle', 'Une grande salle noire sort de terre'],
+  6: ['Les piliers Art déco', 'Pilastres dorés et frise bordeaux'], 7: ['Le toit de la salle', 'Le toit et sa corniche dorée se posent'], 8: ['La tour', 'La tour bordeaux de l\'entrée s\'élève'],
+  9: ['Les gradins', 'La tour se termine en gradins, comme un temple Art déco'], 10: ['Le soleil Art déco', 'Un éventail de rayons noirs et or couronne la tour'], 11: ['La marquise', 'Le grand auvent de l\'entrée est posé'],
+  12: ['Les portes dorées', 'Trois portes dorées s\'ouvrent sur le hall'], 13: ['Le bassin aux lotus', 'Le bassin se remplit, les lotus rouges s\'ouvrent'], 14: ['L\'enseigne', 'La lame verticale « CINÉMA » se dresse'],
+  15: ['Les affiches', 'L\'affiche de la formation, de chaque côté de l\'entrée'], 17: ['Le tapis rouge', 'Tapis rouge et cordons dorés jusqu\'à la rue'], 18: ['Le tournage', 'Caméras, projecteurs de plateau, fauteuil du réalisateur'],
+  19: ['Les lumières', 'Ampoules en chenillard et néons : « L\'Alchimie des chakras »'], 20: ['L\'avant-première', 'Sept projecteurs balaient le ciel, le serpent d\'or s\'enroule autour de la tour'] } };
+const KIND_ORDER = ['dune', 'cairn', 'cinema', 'cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
 // Étapes réellement jouées pour une architecture (plain-pied : pas d'étage ; sans piscine : pas de bassin)
 function kindSkips(kind) { const K = KINDS[kind] || KINDS.villa, s = new Set(); if (K.low) [8, 9].forEach(k => s.add(k)); if (K.noPool) [13, 14, 15].forEach(k => s.add(k)); (K.skip || []).forEach(k => s.add(k)); return s }
 const activeStages = kind => { const sk = kindSkips(kind); return Array.from({ length: SITE_N }, (_, i) => i + 1).filter(k => !sk.has(k)) };
@@ -2615,6 +2636,7 @@ Object.assign(Site3D.prototype, {
     }
     if (K === 'dune') { this.buildDune(); h.k.show = show; return }
     if (K === 'cairn') { this.buildCairn(); h.k.show = show; return }
+    if (K === 'cinema') { this.buildCinema(); h.k.show = show; return }
     if (K === 'empire') {
       // façade blanche à liserés dorés, toit noir, baies teintées, mosaïque or
       const gold = STD(0xf2c443, { m: .25, r: .35, e: 0x5a3a00, ei: .25 }), red = STD(0xd3182a, { r: .35, e: 0x8a0a16, ei: .3 });
@@ -2724,6 +2746,7 @@ Object.assign(Site3D.prototype, {
     if (this.kind === 'mas') { k.shut.visible = this.prog(12) >= 1; k.lav.visible = this.prog(18) > 0; k.lav.scale.setScalar(Math.max(.01, this.prog(18))) }
     if (this.kind === 'dune') return this.duneSync();
     if (this.kind === 'cairn') return this.cairnSync();
+    if (this.kind === 'cinema') return this.cinemaSync();
     if (this.kind === 'empire') { k.base.visible = this.prog(10) >= 1; const p = this.prog(19), e = EZ.out(clamp01(p * 1.4)); k.heart.visible = p > 0; k.heart.scale.setScalar(Math.max(.01, e) * 1.3); k.flames.forEach(f => f.visible = p >= .55); k.chart.visible = this.prog(18) > 0; k.chart.scale.set(1, Math.max(.01, this.prog(18)), 1);
       k.plate.visible = this.prog(11) >= 1; k.ticker.visible = p > 0; k.pad.visible = this.prog(18) >= .3; k.rope.visible = this.prog(19) >= .5; k.float.visible = this.items[15][0].p >= .95;
       const L = this.items[20][0].p; k.heli.visible = L > 0; k.heli.position.y = (1 - EZ.out(clamp01(L * 1.2))) * 14; k.heli.userData.spin = L > 0 && L < 1 ? 1 : .15 }
@@ -2742,6 +2765,7 @@ Object.assign(Site3D.prototype, {
   tickKind(dt) {
     if (this.kind === 'dune') return this.tickDune(dt);
     if (this.kind === 'cairn') return this.tickCairn(dt);
+    if (this.kind === 'cinema') return this.tickCinema(dt);
     const k = this.h.k; if (k && k.rotor && k.wind.visible) k.rotor.rotation.z += dt * 2.2;
     // les flammes dansent, le cœur bat doucement
     if (k && k.flames && k.heart.visible) { k.ft += dt; const t = k.ft; k.flames.forEach(f => { const ph = f.userData.ph; f.scale.set(1 + Math.sin(t * 7 + ph) * .08, 1 + Math.sin(t * 9.3 + ph) * .16 + Math.sin(t * 3.1 + ph) * .06, 1); f.rotation.y = Math.sin(t * 2 + ph) * .25 }); if (this.prog(19) >= 1) k.heart.scale.setScalar(1.3 * (1 + Math.max(0, Math.sin(t * 2.4)) ** 6 * .07)) }
@@ -3020,6 +3044,159 @@ CHAKRA_C.forEach((c, i) => { CAIRN_JOBS[5 + i] = { async work(S, todo) {
 CAIRN_JOBS[12] = { async work(S, todo) {
   const k = S.h.k, p0 = todo.map(d => d.it.p); S.focus(0, 5, 0, 48);
   await S.anim(11000, e => { cairnSet(todo, p0, e); if (Math.random() < .6) sparkle(S, rnd(-1.5, 1.5), 6 + rnd(0, 2), rnd(-1.5, 1.5), [1, .78, .85]) }, EZ.io);
+} };
+
+/* ----- Le cinéma des chakras : un grand palais du cinéma Art déco, construit de A à Z, pour la formation vidéo ----- */
+// une fleur de lotus rouge (pétaux en deux couronnes, cœur doré)
+function lotusFlower(s, pm, gold) {
+  const g = new T3.Group(), petal = new T3.SphereGeometry(1, 10, 6);
+  for (let r = 0; r < 2; r++) for (let i = 0; i < (r ? 6 : 8); i++) { const a = (i + r * .5) / (r ? 6 : 8) * Math.PI * 2, L = r ? .32 : .42, m = MS(petal, pm, false, false); m.scale.set(.13, .05, L); m.position.set(Math.sin(a) * L * .8, .08 + r * .08, Math.cos(a) * L * .8); m.rotation.set(0, a, 0); m.rotateX(-(r ? .9 : .45)); g.add(m) }
+  g.add(AT(MS(new T3.SphereGeometry(.1, 10, 8), gold, false, false), 0, .16, 0)); g.scale.setScalar(s); return g;
+}
+const growY = (o, p) => { o.visible = p > 0; o.scale.y = Math.max(.01, EZ.out(clamp01(p))) };
+const popIn = (o, p) => { o.visible = p > 0; o.scale.setScalar(Math.max(.01, EZ.back(clamp01(p)))) };
+Object.assign(Site3D.prototype, {
+  buildCinema() {
+    const sc = this.scene, k = this.h.k, wood = STD(0x9a6a40, { map: this.tx.wood, r: .8 });
+    const gold = STD(0xe0a52a, { m: .25, r: .35, e: 0x5a3500, ei: .2 }), black = STD(0x1b1c22, { r: .45 }), bord = STD(0x6e1420, { r: .55 }), red = STD(0xb3122a, { r: .7 }), conc = STD(0xbfb8aa, { r: .9 });
+    this.h.bushes.forEach(b => b.visible = false); this.trees.visible = false;
+    const grp = (x = 0, y = 0, z = 0) => { const g = new T3.Group(); g.position.set(x, y, z); g.visible = false; sc.add(g); return g };
+    // le tracé : piquets et cordeau doré autour de l'emprise (x -11,4 → 11,4 ; z -10,4 → 3,6)
+    k.stakes = [[11.4, 3.6], [-11.4, 3.6], [11.4, -10.4], [-11.4, -10.4]].map(([x, z]) => { const g = grp(x, 0, z); g.add(AT(CY(.05, .06, 1, wood, 6), 0, .5, 0)); g.add(AT(CY(.08, .08, .08, gold, 8), 0, 1, 0)); return g });
+    k.string = grp(); [[0, 3.6, 22.8, .03], [0, -10.4, 22.8, .03], [11.4, -3.4, .03, 14], [-11.4, -3.4, .03, 14]].forEach(([x, z, w, d]) => BX(w, .03, d, gold, x, .55, z, k.string));
+    // les fondations, puis la dalle
+    k.pit = grp(0, 0, -3.4); BX(22.6, .04, 13.8, STD(0x6a4a30, { map: this.tx.dirt, r: 1 }), 0, .03, 0, k.pit); [[-13.5, 2], [13.5, -4]].forEach(([x, z]) => { const m = AT(MS(blobGeo(1, { detail: 1, dark: 0x5a3e28, light: 0x8a6444, amp: .25 }), Object.assign(STD(0xffffff, { r: 1 }), { vertexColors: true })), x, .2, z); m.scale.set(1.6, .9, 2.2); k.pit.add(m) });
+    k.slab = grp(0, 0, -3.4); BX(23, .4, 14.4, conc, 0, .2, 0, k.slab);
+    // la grande salle : murs noirs, pilastres dorés, frise bordeaux à zigzags, toit à corniche dorée
+    k.walls = grp(0, .4, -3.4); BX(22, 9, .4, black, 0, 4.5, 6.6, k.walls); BX(22, 9, .4, black, 0, 4.5, -6.6, k.walls); [-10.8, 10.8].forEach(x => BX(.4, 9, 13.2, black, x, 4.5, 0, k.walls));
+    k.pil = grp(0, .4, -3.4); [-9.6, -7.2, -4.8, 4.8, 7.2, 9.6].forEach(x => { BX(.55, 9.2, .3, gold, x, 4.6, 6.85, k.pil) }); [-4.4, 0, 4.4].forEach(z => [-11.05, 11.05].forEach(x => BX(.3, 9.2, .55, gold, x, 4.6, z, k.pil)));
+    const zz = tex(512, 64, (g, w, hh) => { g.fillStyle = '#6e1420'; g.fillRect(0, 0, w, hh); g.strokeStyle = '#e0a52a'; g.lineWidth = 6; g.beginPath(); for (let i = 0; i <= 16; i++) g.lineTo(i * 32, i % 2 ? 12 : 52); g.stroke(); g.fillStyle = '#e0a52a'; g.fillRect(0, 0, w, 5); g.fillRect(0, hh - 5, w, 5) }, [4, 1]);
+    const fr = STD(0xffffff, { map: zz, r: .6 }); BX(22.3, 1.2, .1, fr, 0, 8.1, 6.86, k.pil); [-11.06, 11.06].forEach(x => BX(.1, 1.2, 13.4, fr, x, 8.1, 0, k.pil));
+    k.roof = grp(0, 0, -3.4); BX(22.8, .3, 13.8, gold, 0, 9.55, 0, k.roof); BX(22.4, .6, 13.4, STD(0x141418, { r: .6 }), 0, 10, 0, k.roof);
+    // la tour d'entrée bordeaux, à ailettes dorées, qui finit en gradins
+    k.tower = grp(0, .4, 4.2); BX(7, 13, 3, bord, 0, 6.5, 0, k.tower); [-2.4, 0, 2.4].forEach(x => BX(.35, 12.6, .2, gold, x, 6.6, 1.55, k.tower)); [-3.55, 3.55].forEach(x => BX(.2, 13, 3.1, gold, x, 6.5, 0, k.tower));
+    k.tiers = [[5.6, 13.4], [4.2, 14.8], [2.8, 16.2]].map(([w, y], i) => { const g = grp(0, 0, 4.2); BX(w, 1.4, 2.6 - i * .4, i % 2 ? bord : black, 0, y + .7, 0, g); BX(w + .2, .18, 2.8 - i * .4, gold, 0, y + 1.4, 0, g); return g });
+    k.sun = grp(0, 17.6, 4.25); for (let i = 0; i < 13; i++) k.sun.add(MS(new T3.CircleGeometry(3.4, 2, i / 13 * Math.PI, Math.PI / 13), i % 2 ? black : gold)); k.sun.add(AT(MS(new T3.CircleGeometry(1.1, 24, 0, Math.PI), gold), 0, 0, .02)); k.sun.children.forEach(m => { m.material = m.material; m.castShadow = true });
+    // la marquise et ses ampoules
+    const mt = tex(1024, 96, (g, w, hh) => { g.fillStyle = '#121216'; g.fillRect(0, 0, w, hh); g.strokeStyle = '#e0a52a'; g.lineWidth = 6; g.strokeRect(6, 6, w - 12, hh - 12); g.fillStyle = '#f6dc8a'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 54px Georgia,serif'; g.fillText('L’ALCHIMIE DES CHAKRAS', w / 2, hh / 2 + 3) });
+    k.marqM = STD(0xffffff, { map: mt, r: .5, e: 0xffffff, ei: 0 }); k.marqM.emissiveMap = mt;
+    k.marquee = grp(0, 5.3, 7); BX(12.4, .5, 2.6, black, 0, 0, 0, k.marquee); BX(12.6, .14, 2.8, gold, 0, -.3, 0, k.marquee); BX(12, 1, .08, k.marqM, 0, .65, 1.32, k.marquee); BX(12.2, .1, .12, gold, 0, 1.2, 1.32, k.marquee);
+    k.bulbs = []; for (let i = 0; i < 30; i++) { const m = MS(new T3.SphereGeometry(.08, 8, 6), STD(0xfff0c0, { e: 0xffc860, ei: 0 }), false, false); m.position.set(-5.9 + i * 11.8 / 29, -.4, 1.42); k.marquee.add(m); k.bulbs.push(m) }
+    // les portes dorées du hall
+    k.doorM = STD(0xe9c060, { m: .25, r: .3, e: 0xffc860, ei: 0 }); k.doors = grp(0, .4, 5.75); [-2.1, 0, 2.1].forEach(x => { BX(1.6, 3.2, .12, k.doorM, x, 1.6, 0, k.doors); BX(1.8, .2, .2, gold, x, 3.3, .02, k.doors) });
+    // l'enseigne verticale « CINÉMA »
+    const bt = tex(128, 640, (g, w, hh) => { g.fillStyle = '#7a0f1e'; g.fillRect(0, 0, w, hh); g.strokeStyle = '#e0a52a'; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, hh - 12); g.fillStyle = '#ffe9a8'; g.textAlign = 'center'; g.font = '700 84px Georgia,serif'; 'CINÉMA'.split('').forEach((c, i) => g.fillText(c, w / 2, 100 + i * 96)) });
+    k.bladeM = STD(0xffffff, { map: bt, r: .5, e: 0xffffff, ei: 0 }); k.bladeM.emissiveMap = bt; k.blade = grp(0, 6.2, 6.05); BX(1.6, 6.6, .3, k.bladeM, 0, 3.3, 0, k.blade); BX(1.8, .2, .5, gold, 0, 6.7, 0, k.blade);
+    // les deux affiches de la formation (la couverture), de chaque côté de l'entrée
+    k.posters = [-7.4, 7.4].map(x => { const g = grp(x, 3.9, 3.45); BX(2.9, 4, .12, gold, 0, 0, 0, g); const m = STD(0xffffff, { map: coverTex(), r: .5, e: 0xffffff, ei: .08 }); m.emissiveMap = coverTex(); BX(2.6, 3.7, .05, m, 0, 0, .07, g); return g });
+    // le bassin aux lotus rouges, à gauche de l'entrée
+    const pm = STD(0xc8102e, { r: .55, e: 0x6a0010, ei: .25 }), pad = STD(0x2f6a3a, { r: .8 });
+    k.basin = grp(-11, 0, 9.2); [[0, 1.95, 7.4, .5], [0, -1.95, 7.4, .5], [3.45, 0, .5, 4.4], [-3.45, 0, .5, 4.4]].forEach(([x, z, w, d]) => BX(w, .45, d, gold, x, .22, z, k.basin));
+    k.water = grp(-11, 0, 9.2); BX(6.4, .3, 3.4, STD(0x1d4f5a, { r: .15 }), 0, .15, 0, k.water);
+    k.lotus = [[-2.2, -.8], [-.6, .9], [1, -.6], [2.4, .8], [-1.6, 1], [.4, 0]].map(([x, z], i) => { const g = grp(-11 + x, .32, 9.2 + z); g.add(MS(new T3.CircleGeometry(.5, 16), pad, false, false).rotateX(-Math.PI / 2)); if (i % 3 !== 2) g.add(lotusFlower(1.1, pm, gold)); return g });
+    // le tapis rouge et ses cordons
+    k.carpet = grp(0, 0, 6.1); BX(2.4, .04, 8.6, red, 0, .03, 4.3, k.carpet);
+    k.ropes = grp(); [-1.6, 1.6].forEach(x => { for (let i = 0; i < 4; i++) { const z = 8.2 + i * 2; k.ropes.add(AT(CY(.06, .1, 1, gold, 8), x, .5, z)); k.ropes.add(AT(MS(new T3.SphereGeometry(.1, 8, 6), gold), x, 1.02, z)); if (i < 3) k.ropes.add(AT(BX(.05, .05, 2, red), x, .9, z + 1)) } });
+    // le plateau de tournage : caméras, projecteurs, fauteuil, clap, lotus en pot
+    const prop = (kind, x, z) => {
+      const g = grp(x, 0, z); g.rotation.y = Math.atan2(-x, 2 - z);
+      if (kind === 'camera') { [0, 2.1, 4.2].forEach(a => { const l = AT(CY(.04, .05, 1.7, black, 6), Math.sin(a) * .35, .8, Math.cos(a) * .35); l.rotation.set(Math.cos(a) * .4, 0, -Math.sin(a) * .4); g.add(l) }); BX(.55, .5, .9, black, 0, 1.85, 0, g); g.add(AT(CY(.2, .24, .5, gold, 14), 0, 1.85, .65).rotateX(Math.PI / 2)); [-.25, .25].forEach(z2 => g.add(AT(CY(.32, .32, .08, black, 18), 0, 2.4, z2).rotateZ(Math.PI / 2))) }
+      else if (kind === 'spot') { g.add(AT(CY(.05, .06, 2.4, black, 8), 0, 1.2, 0)); const can = new T3.Group(); can.position.y = 2.5; can.rotation.x = .5; g.add(can); can.add(AT(CY(.42, .34, .7, black, 14), 0, 0, 0).rotateX(Math.PI / 2)); can.add(AT(MS(new T3.CircleGeometry(.36, 16), STD(0xfff2d0, { e: 0xffd890, ei: .9 })), 0, 0, .36)) }
+      else if (kind === 'chair') { [-.35, .35].forEach(x2 => [-.3, .3].forEach(z2 => BX(.06, .9, .06, wood, x2, .45, z2, g))); BX(.75, .05, .6, red, 0, .55, 0, g); BX(.75, .4, .04, red, 0, 1.05, -.3, g) }
+      else if (kind === 'clap') { const ct = tex(128, 128, (c, w, hh) => { c.fillStyle = '#16171b'; c.fillRect(0, 0, w, hh); c.fillStyle = '#fff'; c.font = '700 20px Georgia,serif'; c.fillText('MODULE 1', 10, 60); c.fillText('PRISE 1', 10, 92) }); BX(.5, .5, .5, black, 0, .25, 0, g); const b = new T3.Group(); b.position.y = .5; b.rotation.x = -.25; g.add(b); BX(1.4, 1.1, .08, STD(0xffffff, { map: ct, r: .6 }), 0, .55, 0, b); const st = tex(128, 16, (c, w, hh) => { for (let i = 0; i < 9; i++) { c.fillStyle = i % 2 ? '#fff' : '#16171b'; c.beginPath(); c.moveTo(i * 16, 0); c.lineTo(i * 16 + 16, 0); c.lineTo(i * 16 + 8, hh); c.lineTo(i * 16 - 8, hh); c.fill() } }); BX(1.4, .2, .08, STD(0xffffff, { map: st }), 0, 1.22, .02, b).rotation.z = .18 }
+      else if (kind === 'pot') { g.add(AT(CY(.55, .42, .7, gold, 16), 0, .35, 0)); const l = lotusFlower(1.6, pm, gold); l.position.y = .7; g.add(l) }
+      g.traverse(o => { if (o.isMesh) o.castShadow = true }); return g;
+    };
+    k.props = [['camera', 8.6, 9.6], ['spot', 13.4, 8.4], ['chair', 11.4, 11.6], ['clap', 8.4, 12.6], ['spot', 13.6, 12.8], ['camera', -5.8, 12.2], ['pot', 5, 8.2], ['pot', -5, 8.2]].map(([kd, x, z]) => prop(kd, x, z));
+    // sept projecteurs sur le toit de la salle, un par chakra
+    k.beams = CHAKRA_C.map((c, i) => { const g = grp(-8.4 + i * 2.8, 10.3, -7); g.add(AT(CY(.4, .5, .3, black, 12), 0, .15, 0)); const pv = new T3.Group(); pv.position.y = .55; g.add(pv); pv.add(AT(CY(.36, .3, .6, gold, 12), 0, 0, 0)); pv.add(AT(MS(new T3.CircleGeometry(.33, 14), STD(0xffffff, { e: c, ei: 1.2 }), false, false), 0, .31, 0).rotateX(-Math.PI / 2));
+      const bm = new T3.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, depthWrite: false, blending: T3.AdditiveBlending, side: T3.DoubleSide }), beam = MS(new T3.CylinderGeometry(2.6, .3, 50, 16, 1, true), bm, false, false); beam.position.y = 25; pv.add(beam); g.userData = { pv, bm, ph: i * .9 }; return g });
+    // le serpent d'or enroulé autour du haut de la tour, la tête dressée au-dessus du soleil
+    const pts = []; for (let i = 0; i <= 20; i++) { const a = -Math.PI / 2 + i / 20 * Math.PI * 4; pts.push(V3(Math.cos(a) * 4.3, 11.2 + i * .28, 4.2 + Math.sin(a) * 2.4)) } pts.push(V3(1.6, 18.6, 6.4), V3(.4, 20.4, 6.6), V3(0, 21.6, 7.4));
+    const curve = new T3.CatmullRomCurve3(pts), tg = new T3.TubeGeometry(curve, 220, .5, 12), tp = tg.attributes.position, tuv = tg.attributes.uv, c0 = new T3.Vector3(), q = new T3.Vector3();
+    for (let i = 0; i < tp.count; i++) { const u = tuv.getX(i); curve.getPointAt(u, c0); q.set(tp.getX(i), tp.getY(i), tp.getZ(i)).sub(c0).multiplyScalar(u < .06 ? .2 + u * 13 : 1 - (u - .06) * .25).add(c0); tp.setXYZ(i, q.x, q.y, q.z) }
+    tg.computeVertexNormals(); const sm = STD(0xd9a83a, { m: .3, r: .3, e: 0x6a4000, ei: .3 });
+    k.snake = grp(); const body = MS(tg, sm); k.snake.add(body); k.snakeBody = body; k.snakeN = tg.index.count;
+    const end = curve.getPoint(1), tan = curve.getTangent(1), head = new T3.Group(); head.position.copy(end); head.lookAt(end.clone().add(tan)); k.snake.add(head);
+    const skull = AT(MS(new T3.SphereGeometry(1, 16, 12), sm), 0, 0, .3); skull.scale.set(.55, .42, .85); head.add(skull); [-1, 1].forEach(sd => head.add(AT(MS(new T3.SphereGeometry(.08, 8, 6), STD(0x1a1208, { r: .2 })), sd * .34, .18, .7)));
+    k.tongue = BX(.05, .03, .6, STD(0xc8102e), 0, -.1, 1.35, head); k.head = head; k.snake.traverse(o => { if (o.isMesh) o.castShadow = true });
+    // les ouvriers, puis les invités de l'avant-première
+    k.home = [[14, 5.6], [15.2, 6.6], [13.2, 7.2], [15.6, 4.8]];
+    k.crew = k.home.map(([x, z]) => { const w = makeWorker({ vest: 0xd9b24a }); w.x = x; w.z = z; w.tyaw = w.yaw = -Math.PI / 2; w.g.visible = false; sc.add(w.g); return w });
+    k.guests = [[-1, 9.5, 0x1d1e24], [1.1, 11, 0xb3122a], [-1.1, 12.6, 0xe0a52a], [1, 13.6, 0xf3ead8]].map(([x, z, c]) => { const w = makeWorker({ civil: true, vest: c, shirt: c }); w.x = x; w.z = z; w.tyaw = w.yaw = Math.PI; w.g.visible = false; sc.add(w.g); return w });
+    k.noBake = [k.marquee, k.doors, k.blade, ...k.beams, k.snake, ...k.crew.map(w => w.g), ...k.guests.map(w => w.g)]; k.busy = false; k.ft = 0;
+  },
+  cineP(i) { return this.prog(CINE_ACT[i]) },
+  cinemaSync() {
+    const k = this.h.k, P = i => this.cineP(i);
+    k.stakes.forEach((g, j) => { g.visible = P(0) > j / 4 && P(2) < 1 }); k.string.visible = P(0) >= 1 && P(2) < .5;
+    k.pit.visible = P(1) > 0 && P(2) < 1; k.pit.scale.set(Math.max(.01, EZ.out(P(1))), 1, Math.max(.01, EZ.out(P(1))));
+    k.slab.visible = P(2) > 0; k.slab.position.y = -.42 * (1 - EZ.out(P(2)));
+    growY(k.walls, P(3)); growY(k.pil, P(4)); k.roof.visible = P(5) > 0; k.roof.position.y = (1 - EZ.out(P(5))) * 9;
+    growY(k.tower, P(6)); k.tiers.forEach((g, i) => { const p = clamp01(P(7) * 3 - i); g.visible = p > 0; g.position.y = (1 - EZ.out(p)) * 6 }); popIn(k.sun, P(8));
+    k.marquee.visible = P(9) > 0; k.marquee.scale.x = Math.max(.01, EZ.out(P(9))); growY(k.doors, P(10));
+    k.basin.visible = P(11) > 0; growY(k.water, clamp01(P(11) * 2 - .4)); k.lotus.forEach((g, i) => popIn(g, clamp01((P(11) - .55 - i * .06) * 4)));
+    growY(k.blade, P(12)); k.posters.forEach((g, i) => popIn(g, clamp01(P(13) * 2 - i)));
+    k.carpet.visible = P(14) > 0; k.carpet.scale.z = Math.max(.01, EZ.out(P(14))); k.ropes.visible = P(14) >= .6;
+    k.props.forEach((g, i) => popIn(g, clamp01(P(15) * k.props.length - i)));
+    k.lit = P(16); k.marqM.emissiveIntensity = k.lit > 0 ? .9 * clamp01(k.lit * 2) : 0; k.bladeM.emissiveIntensity = k.lit > .4 ? .85 : 0; k.doorM.emissiveIntensity = k.lit > .7 ? .35 : 0;
+    const e = P(17); k.beams.forEach(b => { b.visible = e > 0; b.userData.bm.opacity = .14 * clamp01((e - .15) * 3) });
+    // le serpent s'enroule peu à peu, de la queue à la tête
+    k.snake.visible = e > .25; const u = clamp01((e - .25) / .65); k.snakeBody.geometry.setDrawRange(0, Math.floor(k.snakeN * EZ.io(u) / 3) * 3); k.head.visible = u >= .98;
+    k.guests.forEach((w, i) => { w.g.visible = e > .5 + i * .08 });
+    k.crew.forEach(w => { w.g.visible = (P(0) > 0 || k.busy) && e < 1 });
+  },
+  tickCinema(dt) {
+    const k = this.h.k; if (!k || !k.beams) return; k.ft += dt; const t = k.ft;
+    // ampoules en chenillard, projecteurs qui balaient le ciel, langue du serpent
+    k.bulbs.forEach((b, i) => { b.material.emissiveIntensity = k.lit > 0 ? (((i + Math.floor(t * 6)) % 3 === 0) ? 1.5 : .3) : 0 });
+    k.beams.forEach(b => { if (!b.visible) return; const u = b.userData; u.pv.rotation.z = Math.sin(t * .5 + u.ph) * .5; u.pv.rotation.x = -.2 + Math.cos(t * .37 + u.ph) * .25 });
+    if (k.head.visible) { k.head.rotation.z = Math.sin(t * .8) * .08; k.tongue.scale.z = .3 + Math.max(0, Math.sin(t * 5)) * .9 }
+    [...k.crew, ...k.guests].forEach(w => { if (w.g.visible) w.update(dt, this) });
+  }
+});
+// chaque étape : les ouvriers vont à leurs postes (en passant devant la tour, jamais à travers), travaillent, et l'élément apparaît
+const cineGo = (S, w, x, z, free) => { const k = S.h.k, pts = []; if (S.cineP(2) >= 1) { const lane = 6.4; if (w.z < lane - .1) pts.push([0, w.x, lane]); pts.push([0, x, lane]) } pts.push([0, x, z]); return cairnGo(S, w, pts) };
+const CINE_SPEC = [
+  { free: 1, spots: [[11.4, 4.2, 'hammer', 11.4, 3.6], [-11.4, 4.2, 'hammer', -11.4, 3.6], [11.9, -10.4, 'hammer', 11.4, -10.4], [-11.9, -10.4, 'hammer', -11.4, -10.4]], ms: 3000, fx: 0 },
+  { free: 1, spots: [[-6, 4.4, 'dig'], [6, 4.4, 'dig'], [-12, -3, 'dig'], [12, -5, 'dig']], ms: 9000, fx: 'dirt' },
+  { free: 1, spots: [[-6, 4.4, 'kneel'], [0, 4.4, 'kneel'], [6, 4.4, 'kneel'], [12, -2, 'kneel']], ms: 8000, fx: 'dust' },
+  { spots: [[-8, 4.4, 'hammer'], [-5, 4.4, 'hammer'], [5, 4.4, 'hammer'], [8, 4.4, 'hammer']], ms: 11000, fx: 'dust' },
+  { spots: [[-9.6, 4.4, 'reach'], [-4.8, 4.4, 'reach'], [4.8, 4.4, 'reach'], [9.6, 4.4, 'reach']], ms: 9000, fx: 'gold' },
+  { spots: [[-8, 4.4, 'reach'], [-4.4, 4.4, 'reach'], [4.4, 4.4, 'reach'], [8, 4.4, 'reach']], ms: 9000, fx: 'dust', focus: [0, 6, 0, 56] },
+  { spots: [[-4.4, 5.2, 'hammer'], [4.4, 5.2, 'hammer'], [-2, 6.4, 'hammer'], [2, 6.4, 'hammer']], ms: 10000, fx: 'dust', focus: [0, 8, 2, 58] },
+  { spots: [[-4.4, 5.2, 'reach'], [4.4, 5.2, 'reach'], [-2, 6.4, 'reach'], [2, 6.4, 'reach']], ms: 9000, fx: 'dust', focus: [0, 11, 2, 62] },
+  { spots: [[-2, 6.4, 'reach'], [2, 6.4, 'reach']], ms: 8000, fx: 'gold', at: [0, 17.6, 4.6], focus: [0, 12, 2, 62] },
+  { spots: [[-5, 7, 'hammer'], [5, 7, 'hammer'], [-2.5, 8.6, 'reach'], [2.5, 8.6, 'reach']], ms: 9000, fx: 'gold', at: [0, 5.4, 7.5] },
+  { spots: [[-1.6, 6.6, 'reach'], [1.6, 6.6, 'reach']], ms: 7000, fx: 'gold', at: [0, 2, 6] },
+  { spots: [[-13, 7, 'kneel'], [-9, 7, 'kneel'], [-7, 9.2, 'kneel']], ms: 10000, fx: 'water', at: [-11, .5, 9.2] },
+  { spots: [[-1.6, 6.6, 'reach'], [1.6, 6.6, 'reach']], ms: 8000, fx: 'gold', at: [0, 9.4, 6.3], focus: [0, 8, 3, 54] },
+  { spots: [[-7.4, 4.6, 'reach'], [7.4, 4.6, 'reach']], ms: 8000, fx: 'gold' },
+  { spots: [[-1.8, 9, 'kneel'], [1.8, 11, 'kneel'], [-1.8, 13, 'kneel']], ms: 9000, fx: 'gold', at: [0, .3, 10] },
+  { spots: [[7.4, 9.4, 'reach'], [12.4, 9.4, 'reach'], [10.6, 12.6, 'reach'], [7.4, 12, 'reach']], ms: 11000, fx: 0 },
+  { spots: [[-3, 7, 'reach'], [3, 7, 'reach']], ms: 7000, fx: 'gold', at: [0, 5.8, 8.4] }
+];
+const CINE_JOBS = {};
+CINE_SPEC.forEach((sp, si) => { CINE_JOBS[CINE_ACT[si]] = { async work(S, todo) {
+  const k = S.h.k, p0 = todo.map(d => d.it.p), f = sp.focus || [0, 4, 2, 52]; k.busy = true; S.kindSync(); S.focus(...f);
+  const ws = sp.spots.map((s, i) => [k.crew[i], s]);
+  await Promise.all(ws.map(([w, [x, z, pose, fx, fz]], i) => S.wait(i * 300).then(() => cineGo(S, w, x, z, sp.free)).then(() => { cairnFace(w, fx ?? (sp.at ? sp.at[0] : x), fz ?? (sp.at ? sp.at[2] : 0)); w.pose = pose; if (pose === 'dig') w.dp = 0 })));
+  const at = sp.at || [0, 1, 0];
+  await S.anim(sp.ms, e => {
+    cairnSet(todo, p0, e); ws.forEach(([w]) => { if (w.pose === 'dig') w.dp = (e * 9 + w.seed) % 1 });
+    if (sp.fx === 'dust' && Math.random() < .5) S.emit({ x: rnd(-11, 11), y: rnd(.4, 6), z: rnd(-10, 4), vy: .5, sv: .5, g: .2, drag: .6, life: 1.8, size: .9, grow: 1.4, c: [.86, .84, .8], a: .3 });
+    if (sp.fx === 'dirt' && Math.random() < .5) S.emit({ x: rnd(-11, 11), y: .3, z: rnd(-10, 3.5), vy: 1, sv: .6, g: 3, drag: .4, life: 1.2, size: .5, grow: .8, c: [.48, .35, .22], a: .6 });
+    if (sp.fx === 'water' && Math.random() < .6) S.emit({ x: at[0] + rnd(-3, 3), y: .5, z: at[2] + rnd(-1.6, 1.6), vy: 1.2, sv: .4, g: 4, drag: .3, life: .9, size: .3, grow: .5, c: [.7, .88, .95], a: .6 });
+    if (sp.fx === 'gold') sparkle(S, at[0] + rnd(-1.5, 1.5), at[1], at[2] + rnd(-.5, .5), [1, .82, .4]);
+  }, EZ.io);
+  ws.forEach(([w]) => { w.pose = null }); k.busy = false;
+} } });
+// l'avant-première : les ouvriers repartent par la rue, les invités arrivent sur le tapis rouge, la tour s'illumine et le serpent s'enroule
+CINE_JOBS[20] = { async work(S, todo) {
+  const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 10, 4, 64);
+  const away = Promise.all(k.crew.map((w, i) => S.wait(i * 500).then(() => cineGo(S, w, 15.5, 16.5)).then(() => cairnGo(S, w, [[0, 24 + i * 2, 16.5]]))));
+  await S.anim(16000, e => { cairnSet(todo, p0, e); if (e > .25 && Math.random() < .7) { const a = rnd(0, Math.PI * 2); sparkle(S, Math.cos(a) * 4.3, 11 + e * 9, 4.2 + Math.sin(a) * 2.4, [1, .8, .35]) } }, EZ.io);
+  await away; k.busy = false; S.kindSync();
 } };
 
 /* ===== Le monde : une seule côte, une route, un ciel ; chaque chantier occupe sa parcelle ===== */
@@ -4780,13 +4957,16 @@ async function siteRun(ctl) {
   if (ctl.skip || ctl.target < ctl.D - 1e-9) { snapSite(ctl); saveShown(ctl) }
   ctl.busy = false; ctl.S.busy = false; ctl.skip = false; ctl.S.skip = false; ctl.stage = 0; setRun(ctl, 0);
 }
-function saveShown(ctl) { const t = findTask(ctl.tid); if (t && t.site) { t.site.shown = ctl.D; save() } }
+function saveShown(ctl) { const t = findTask(ctl.tid) || siteSources().find(x => x.id === ctl.tid); if (t && t.site) { t.site.shown = ctl.D; save() } }
 
 /* --- Intégration dans la page --- */
 // N'importe quelle tâche peut avoir son chantier ; tous les chantiers partagent le même monde, chacun sur sa parcelle
-const siteTasksOf = pid => db.tasks.filter(t => t.projectId === pid && t.site?.on);
+// Une thématique entière peut aussi avoir sa construction : une étape par tâche, qui avance au fil de ses sous-objectifs
+const themeSiteTask = th => { const ts = db.tasks.filter(t => t.themeId === th.id); return { id: 'th-' + th.id, theme: true, themeId: th.id, title: th.name, projectId: th.projectId, createdAt: 0, site: th.site, tasks: ts, subgoals: ts.flatMap(t => t.subgoals || []), done: !!ts.length && ts.every(t => t.done) } };
+const siteSources = () => [...db.tasks.filter(t => t.site?.on), ...db.themes.filter(th => th.site?.on).map(themeSiteTask)];
+const siteTasksOf = pid => siteSources().filter(t => t.projectId === pid);
 function siteSlots() {
-  const list = db.tasks.filter(t => t.site?.on).sort((a, b) => (a.site.since || a.createdAt || 0) - (b.site.since || b.createdAt || 0)), used = new Set(); let changed = false;
+  const list = siteSources().sort((a, b) => (a.site.since || a.createdAt || 0) - (b.site.since || b.createdAt || 0)), used = new Set(); let changed = false;
   // les constructions à part (dune, cairn) ont leur parcelle réservée ; les autres prennent les parcelles de l'avenue
   const SP = kind => SLOTS.findIndex(x => x.special && x.kind === kind);
   list.forEach(t => { const s = t.site.slot, sp = SP(t.site.kind); if (s != null && s < SLOTS.length && !used.has(s) && (sp >= 0 ? s === sp : !SLOTS[s].special)) used.add(s); else if (s != null) { t.site.slot = null; changed = true } });
@@ -4802,8 +4982,9 @@ function siteTaskFor(pid) {
 // Avancement : les sous-objectifs cochés sont répartis sur les étapes que l'architecture joue vraiment
 function siteProgress(t) {
   const act = activeStages(t?.site?.kind), n = act.length;
-  const total = t ? t.subgoals.length || 1 : 0;
-  const done = !t ? 0 : t.done ? total : t.subgoals.length ? t.subgoals.filter(s => s.done).length : 0;
+  const part = x => x.done ? 1 : x.subgoals?.length ? x.subgoals.filter(s => s.done).length / x.subgoals.length : 0;
+  const total = !t ? 0 : t.theme ? t.tasks.length || 1 : t.subgoals.length || 1;
+  const done = !t ? 0 : t.theme ? t.tasks.reduce((a, x) => a + part(x), 0) : t.done ? total : t.subgoals.length ? t.subgoals.filter(s => s.done).length : 0;
   const ratio = total ? done / total : 0, x = ratio * n;
   const stage = ratio >= 1 ? n : Math.floor(x + 1e-9), frac = stage >= n ? 0 : Math.max(0, x - stage);
   const D = stage >= n ? SITE_N : act[stage] - 1 + frac;
@@ -4812,15 +4993,16 @@ function siteProgress(t) {
 }
 const frNum = n => (Math.round(n * 10) / 10).toLocaleString('fr-FR');
 function siteInfo(t, pr) {
+  const part = x => x.done ? 1 : x.subgoals?.length ? x.subgoals.filter(s => s.done).length / x.subgoals.length : 0;
   const K = KINDS[t.site.kind] || KINDS.villa, ST = stepsOf(t.site.kind), act = pr.act, n = pr.n, cur = pr.stage ? ST[act[pr.stage - 1]] : ST[0], next = pr.stage < n ? ST[act[pr.stage]] : null, [name] = cur, pct = Math.round(pr.ratio * 100), all = siteSlots();
   const per = pr.total ? n / pr.total : 0, pace = !t.subgoals.length ? `Ajoute des sous-objectifs à cette tâche : chacun fera avancer ${K.the}.` : per >= 1 ? `Chaque case cochée fait avancer d'environ ${frNum(per)} étape${per >= 2 ? 's' : ''}.` : `Il faut environ ${frNum(1 / per)} cases par étape.`;
   const pname = id => project(id)?.name || '';
-  const small = t.subgoals.length < (K.min || 0) ? `<div class="site-warn">${esc(K.label)} demande au moins ${K.min} sous-objectifs (cette tâche en a ${t.subgoals.length}). Ajoute-en, ou choisis une construction plus petite dans la tâche.</div>` : '';
+  const small = !t.theme && t.subgoals.length < (K.min || 0) ? `<div class="site-warn">${esc(K.label)} demande au moins ${K.min} sous-objectifs (cette tâche en a ${t.subgoals.length}). Ajoute-en, ou choisis une construction plus petite dans la tâche.</div>` : '';
   return `<div class="site-top"><h2>${esc(K.label)} · ${esc(t.title)}</h2><div class="tools">${all.length > 1 ? `<select data-change="site-sel" aria-label="Construction affichée">${all.map(x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc((KINDS[x.site.kind] || KINDS.villa).label)} · ${esc(x.title)}${x.projectId !== t.projectId ? ' (' + esc(pname(x.projectId)) + ')' : ''}</option>`).join('')}</select>` : ''}${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div></div>
     <div class="site-stage"><small>Étape ${pr.stage}/${n}</small>${name}</div>
     <div class="site-bar" title="${pct} %"><span style="width:${pct}%"></span></div>
     <div class="site-steps" style="grid-template-columns:repeat(${n},1fr)">${act.map((k, i) => `<i class="${i < pr.stage ? 'on' : i === pr.stage ? 'cur' : ''}" style="--f:${Math.round(pr.frac * 100)}%" title="${ST[k][0]}"></i>`).join('')}</div>
-    <div class="site-next">${next ? `« ${esc(t.title)} » : ${pr.done} / ${pr.total} sous-objectifs. Encore <b>${plural(pr.need, 'case')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>. ${pace}` : `${pr.total} / ${pr.total} sous-objectifs. La tâche est terminée, ${K.the} aussi !`}</div>${small}`;
+    <div class="site-next">${t.theme ? `${plural(t.tasks.filter(x => part(x) >= 1).length, 'tâche')} terminée${t.tasks.filter(x => part(x) >= 1).length > 1 ? 's' : ''} sur ${t.tasks.length} (${t.subgoals.filter(x => x.done).length} / ${t.subgoals.length} sous-objectifs). ${next ? `Prochaine étape : <b>${next[0].toLowerCase()}</b>. Chaque tâche de la thématique compte pour une étape.` : `Toute la thématique est terminée, ${K.the} aussi !`}` : next ? `« ${esc(t.title)} » : ${pr.done} / ${pr.total} sous-objectifs. Encore <b>${plural(pr.need, 'case')}</b> à cocher pour : <b>${next[0].toLowerCase()}</b>. ${pace}` : `${pr.total} / ${pr.total} sous-objectifs. La tâche est terminée, ${K.the} aussi !`}</div>${small}`;
 }
 function worldPanel() {
   if (worldEl) return worldEl;
