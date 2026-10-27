@@ -681,6 +681,142 @@ if (!db.duneSaga) {
   db.duneSaga = true;
   try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
 }
+// Ajout ponctuel : la formation vidéo « L'Alchimie des chakras » (plan validé le 27/10/2026). Une seule fois.
+if (!db.formationVideo) {
+  let pj = db.projects.find(p => /chakra|six lotus|sept roues/i.test(p.name));
+  if (!pj) { pj = { id: uid(), name: 'Chakra', color: PALETTE[3], objective: '' }; db.projects.push(pj) }
+  const thId = uid(), now = Date.now();
+  db.themes.push({ id: thId, projectId: pj.id, name: "🎬 Formation vidéo — L'Alchimie des chakras", collapsed: false });
+  const CENTRES = [
+    ['🟥', 1, 'La racine', 'retrouver le sol sous tes pieds', 'LAṂ, Pṛthvī mudrā, salut aux orteils, Superman, pont fessier, squats respirés, massage', "l'arbre du cœur"],
+    ['🟧', 2, 'Le sacré', 'ressentir à nouveau', 'VAṂ, Varuṇa mudrā, chute de jambes, repli de jambes, bascule pelvienne, massage', "l'eau"],
+    ['🟨', 3, 'Le plexus solaire', 'retrouver ton feu', "RAṂ, Sūrya mudrā, Bird Dog, respiration piston, poussée d'énergie, couper du bois, massage", 'le feu'],
+    ['🟩', 4, 'Le cœur', 'aimer sans te perdre', 'YAṂ, Padma mudrā, cohérence cardiaque, McKenzie, Feldenkrais épaule et colonne, le poisson, massage', 'le cœur'],
+    ['🟦', 5, 'La gorge', 'libérer ta voix', "HAṂ, Ākāsha mudrā, rotations de la tête, mobilisation thoracique, horloge de l'épaule, massage", 'la voix'],
+    ['🟪', 6, 'Le troisième œil', 'voir clair', 'OṂ, Jñāna mudrā, respiration alternée, roulements des yeux, marche croisée, réveil du visage, massage', 'la vision'],
+    ['⬜', 7, 'La couronne', 'te relier sans quitter la terre', "OṂ puis le silence, Dhyāna mudrā, étirement vers le ciel, l'arbre, marche lente, posture du cadavre, massage", 'le non-agir']
+  ];
+  const MODULES = [
+    '🌱 0 · Apprendre à sentir',
+    ...CENTRES.map(([e, n, c, p]) => `${e} ${n} · ${c} — ${p}`),
+    '♾️ 8 · Lire tes centres comme un praticien',
+    '📅 9 · 21 jours pour tout faire circuler',
+    '🧰 10 · Ta trousse de pratique',
+    '🔑 11 · Aller plus loin'
+  ];
+  const PLAN = [
+    ['1. 👐 Mes contenus à moi (Vincent)', [
+      'Check-up : décrire mon installation (assis ou allongé, position des mains, yeux ouverts ou fermés)',
+      'Check-up : ce que je sens sous mes mains, centre par centre (en manque, en excès, équilibré)',
+      ...CENTRES.map(([e, n, c]) => `Ma pratique énergétique — ${e} ${c} (version en manque / version en excès)`),
+      'Écrire mon parcours (page Notion du module 0)',
+      'Choisir et raconter 3 ou 4 cas réels anonymisés (page Notion du module 8)',
+      'Lister mes gestes du quotidien pour la trousse de pratique'
+    ]],
+    ['2. ✍️ Scripts (Claude écrit, je relis)', [
+      ...MODULES.map(m => 'Script — ' + m),
+      'Script — 🧭 la page « Je ressens… » (entrée par l\'émotion)',
+      'Relire et valider tous les scripts'
+    ]],
+    ['3. 🏛️ Construire Skool : structure et habillage', [
+      'Créer la communauté « L\'Alchimie des chakras » (paiement unique 195 €)',
+      'Habillage : bannière, logo, couleurs du livre (or et ivoire)',
+      'Description Skool (garder « les 7 chakras » pour la recherche)',
+      ...MODULES.map(m => 'Classroom — ' + m),
+      'Gabarit des leçons d\'un centre : 🪷 Le centre en 5 minutes · 👐 Ce que je sens sous mes mains · 🔍 Le check-up · 🔥 Le travail émotionnel · ⚡ La pratique énergétique · 🧘 Les gestes, corrigés · ▶️ La séance guidée · 🎧 La méditation · 📄 La fiche de synthèse',
+      'Page 🧭 « Je ressens… » : peur, tristesse, deuil, colère, honte, culpabilité, jalousie, solitude, confusion, vide → centre + pratique + capsule',
+      'Catégories du fil : 👋 Présentations · 📅 Mes 21 jours · 🙋 Questions · ✨ Ce que je ressens · 🏆 Mes victoires',
+      'Préparer les 21 fils « 📅 Jour 1 » à « 📅 Jour 21 »',
+      'Règles de la communauté : bienveillance, ce qu\'on partage reste ici, aucun diagnostic médical',
+      'Message de bienvenue automatique',
+      'Leçon 🎁 « Commande ton livre » (20 premiers de la prévente)',
+      'Leçon 📱 « Ton app » : version complète offerte en prévente (code solve-coagula)',
+      'Ouvrir le module 11 après le jour 21 (niveaux Skool)',
+      'Miniatures des leçons dans la même charte'
+    ]],
+    ['4. 🌱 Module 0 — Apprendre à sentir', [
+      'Comment je travaille, et pourquoi cette formation',
+      'Ma vision des chakras en 15 minutes',
+      'Éveiller tes mains, ton souffle, ton attention',
+      'Sentir ou imaginer : faire la différence',
+      '🔍 La méthode du check-up, pas à pas',
+      'Les pièges, et quand ça résiste',
+      '📱 Ton bilan du jour 1 dans l\'app'
+    ]],
+    ...CENTRES.map(([e, n, c, p, gestes, med], i) => [`${5 + i}. ${e} Module ${n} — ${c} : ${p}`, [
+      `🪷 ${c} en 5 minutes`,
+      '👐 Ce que je sens sous mes mains',
+      '🔍 Le check-up du centre',
+      '🔥 Le travail émotionnel (en manque / en excès)',
+      '⚡ La pratique énergétique (en manque / en excès)',
+      '🧘 Les gestes, corrigés : ' + gestes,
+      '▶️ La séance guidée, en temps réel',
+      '🎧 La méditation : ' + med,
+      '📄 La fiche de synthèse du livre (PDF)'
+    ]]),
+    ['12. ♾️ Module 8 — Lire tes centres comme un praticien', [
+      '🔍 Le check-up complet des sept centres (vidéo + audio)',
+      'Les deux courants : le circuit, guidé',
+      'Les deux courants : la redescente du soir (audio)',
+      'Comment un déséquilibre se propage, et par où commencer',
+      'Les cas réels'
+    ]],
+    ['13. 📅 Module 9 — 21 jours pour tout faire circuler', [
+      ...Array.from({ length: 21 }, (_, i) => `Vidéo courte — Jour ${i + 1} : l'intention du jour`),
+      '🎧 La méditation finale : Six lotus et un serpent',
+      '📱 Le bilan du jour 21 dans l\'app'
+    ]],
+    ['14. 🧰 Module 10 — Ta trousse de pratique', [
+      'Le rituel express des sept centres',
+      'Le massage des sept centres en une fois',
+      'Après un choc : se poser',
+      'Avant de prendre la parole',
+      'Quand la colère monte',
+      'Quand le chagrin est là',
+      'Quand la tête chauffe',
+      'Pour dormir : la redescente',
+      'Après une journée au milieu des autres'
+    ]],
+    ['15. 🔑 Module 11 — Aller plus loin', [
+      'Le pendule, à ma façon',
+      'Les pierres, à ma façon',
+      'Percevoir chez l\'autre, et son éthique',
+      'Kundalinī : ce qu\'il faut savoir',
+      'Et maintenant ? Éveil & Alchimie, les séances individuelles'
+    ]],
+    ['16. 🎥 Tournage et production', [
+      'Choisir un décor unique pour toute la formation',
+      'Matériel : caméra, micro-cravate, lumière',
+      'Plan de tournage : une journée par centre',
+      'Tourner les séances guidées en temps réel',
+      'Enregistrer les 8 méditations en audio',
+      'Enregistrer les audios du check-up et des capsules',
+      'Montage',
+      'Sous-titres',
+      'Export des audios en MP3, à télécharger',
+      'Mise en ligne sur Skool'
+    ]],
+    ['17. 🎁 Le livre et l\'app dans l\'offre', [
+      'Circuit Tally → Lulu pour les 20 livres reliés offerts (page Notion « Livre offert »)',
+      'Upsell du livre relié (29,95 €) sur la page de la formation, branché directement à Lulu',
+      'App complète offerte en prévente : donner le code solve-coagula',
+      'Après la prévente : app en version découverte, complète en upsell (tunnel + achat dans l\'app)'
+    ]],
+    ['18. 🚀 Prévente et lancement', [
+      'Tunnel de vente : formation 195 € + upsell du livre',
+      'Page de vente (à écrire une fois la formation finie)',
+      'Accroches publicitaires tirées de « Je ressens… »',
+      'Emails de lancement',
+      'Ouvrir la prévente'
+    ]]
+  ];
+  PLAN.forEach(([title, subs], i) => db.tasks.push({
+    id: uid(), projectId: pj.id, themeId: thId, title, due: null, flagged: false, done: false, est: 0, order: i, createdAt: now + i,
+    subgoals: subs.map(s => ({ id: uid(), title: s, due: null, est: 0, done: false }))
+  }));
+  db.formationVideo = true;
+  try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+}
 // Ajout ponctuel : la thématique de la formation vidéo a sa construction, le cinéma des chakras, à côté de la maison du livre. Une seule fois.
 if (!db.formationCinema) {
   const th = db.themes.find(t => /formation vid[ée]o/i.test(t.name));
