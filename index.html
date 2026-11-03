@@ -4285,7 +4285,9 @@ function makeWorker(o = {}) {
   w.setTool = m => { const hd = arms[1].hd; if (w.tool) hd.remove(w.tool); w.tool = m; if (m) hd.add(m) };
   w.update = (dt, S) => {
     let d = w.tyaw - w.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; w.yaw += d * Math.min(1, dt * 7);
-    g.position.set(w.x, w.y, w.z); g.rotation.y = w.yaw;
+    /* hors de la parcelle, les pieds suivent le relief (sinon ils flottent au-dessus des creux) */
+    let gy = 0; if (S.SL && w.y < .6 && (w.x < PLOT0.x0 || w.x > PLOT0.x1 || w.z < PLOT0.z0 || w.z > PLOT0.z1)) { const [wx, wz] = slotToWorld(S.SL, w.x, w.z); gy = terrainH(wx, wz) + .04 }
+    g.position.set(w.x, w.y + gy, w.z); g.rotation.y = w.yaw;
     const t = S.t, ph = w.step / sc * 2.7, mv = w.moving ? 1 : 0, P = w.pose;
     let lt = [0, 0], lk = [0, 0], as = [0, 0], ae = [0, 0], hy = .95, tw = 0, lean = 0, hb = 0;
     if (P === 'climb') { const c = Math.sin(t * 7); lt = [c * .7 - .4, -c * .7 - .4]; lk = [.9, .9]; as = [-2.6 + c * .4, -2.6 - c * .4]; ae = [.25, .25]; lean = .08 }
