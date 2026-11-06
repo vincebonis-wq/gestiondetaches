@@ -3131,7 +3131,7 @@ Object.assign(Site3D.prototype, {
 });
 // Chaque étape de l'app : les ouvriers posent, la magie allume
 const cairnSet = (todo, p0, v) => todo.forEach((d, i) => { d.it.p = lerp(p0[i], d.to, v) });
-const cairnGo = (S, w, pts) => pts.reduce((pr, [x, y, z]) => pr.then(() => S.seg1(w, x, z, y, 'walk')), Promise.resolve());
+const cairnGo = (S, w, pts) => pts.reduce((pr, [y, x, z]) => pr.then(() => S.seg1(w, x, z, y, 'walk')), Promise.resolve());
 const cairnFace = (w, x, z) => { w.tyaw = Math.atan2(x - w.x, z - w.z) };
 const sparkle = (S, x, y, z, c, n = 1) => { for (let j = 0; j < n; j++) S.emit({ x: x + rnd(-.6, .6), y: y + rnd(0, .5), z: z + rnd(-.6, .6), vy: rnd(.6, 1.6), sv: .4, g: -.2, drag: .5, life: 1.6, size: .22, grow: .3, c, a: .9, add: true }) };
 const rgb = c => [(c >> 16 & 255) / 255, (c >> 8 & 255) / 255, (c & 255) / 255];
