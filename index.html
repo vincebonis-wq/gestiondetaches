@@ -835,6 +835,22 @@ if (!db.appCairn) {
     try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
   }
 }
+// Ajout ponctuel : la formation Spirit Gym, avec sa construction (le sanctuaire), en face de la maison du livre. Une seule fois.
+if (!db.spiritGym) {
+  const pj = db.projects.find(p => /chakra/i.test(p.name)) || db.projects[0];
+  if (pj) {
+    const subs = ['Définir la promesse : devenir maître de soi, corps, esprit et conscience', 'Nommer les piliers : force, souffle, étude, présence', 'Choisir le public et le niveau d\'entrée',
+      'Bâtir le parcours en cycles : apprenti, pratiquant, maître, sage', 'Écrire le programme du premier cycle', 'Séances de gym consciente : mobilité, force, respiration',
+      'Pratiques énergétiques : souffle, méditation, visualisation, lévitation intérieure', 'Le lieu d\'étude : lectures, enseignements, journal', 'Le culte de soi sans égoïsme : rituels de gratitude et de service',
+      'Rituel d\'entrée dans le sanctuaire', 'Épreuves et passages de grade', 'Tourner les vidéos du premier cycle', 'Monter et sous-titrer', 'Supports : cahier de l\'élève, fiches de pratique',
+      'Plateforme d\'hébergement et accès des élèves', 'Prix et offre', 'Page de présentation', 'Groupe pilote : cinq premiers élèves', 'Ajuster après les retours', 'Lancement officiel'];
+    const order = Math.max(0, ...db.tasks.filter(t => t.projectId === pj.id).map(t => t.order || 0)) + 1;
+    db.tasks.push({ id: uid(), projectId: pj.id, themeId: null, title: '🏯 Spirit Gym — la formation', due: null, flagged: false, done: false, est: 0, order, createdAt: Date.now(),
+      subgoals: subs.map(s => ({ id: uid(), title: s, due: null, est: 0, done: false })), site: { on: true, shown: 0, kind: 'sanctuary', slot: 3, since: Date.now() } });
+    db.spiritGym = true;
+    try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
+  }
+}
 }
 runMigrations();
 let ui = { project: db.projects[0]?.id || null, view: null, open: {}, editObjective: false };
@@ -2662,7 +2678,17 @@ KINDS.cinema = { label: 'Cinéma des chakras', the: 'le cinéma', sign: 'CINÉMA
   12: ['Les portes dorées', 'Trois portes dorées s\'ouvrent sur le hall'], 13: ['Le bassin aux lotus', 'Le bassin se remplit, les lotus rouges s\'ouvrent'], 14: ['L\'enseigne', 'La lame verticale « CINÉMA » se dresse'],
   15: ['Les affiches', 'L\'affiche de la formation, de chaque côté de l\'entrée'], 17: ['Le tapis rouge', 'Tapis rouge et cordons dorés jusqu\'à la rue'], 18: ['Le tournage', 'Caméras, projecteurs de plateau, fauteuil du réalisateur'],
   19: ['Les lumières', 'Ampoules en chenillard et néons : « L\'Alchimie des chakras »'], 20: ['L\'avant-première', 'Sept projecteurs balaient le ciel, le serpent d\'or s\'enroule autour de la tour'] } };
-const KIND_ORDER = ['dune', 'cairn', 'cinema', 'cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
+// Le sanctuaire Spirit Gym : vingt étapes, du cercle de pierre à la conscience absolue
+KINDS.sanctuary = { label: 'Sanctuaire Spirit Gym', the: 'le sanctuaire', sign: 'SPIRIT GYM', signBg: '#3a2a6a', min: 20, scene: true, plot: true, jobs: () => SANC_JOBS, act: Array.from({ length: 20 }, (_, i) => i + 1), skip: [], over: {
+  0: ['Le terrain', 'En face de la maison du livre, une parcelle attend le sanctuaire'], 1: ['Le tracé', 'Huit piquets et un cordeau d\'or dessinent le cercle sacré'],
+  2: ['Le cercle de pierre', 'Le socle rond du temple sort de terre'], 3: ['Les marches', 'Trois marches de marbre, un mandala au sol, une allée de pierre'],
+  4: ['Les colonnes', 'Huit colonnes blanches, une par direction'], 5: ['L\'anneau d\'or', 'Un anneau doré relie les colonnes'], 6: ['Le dôme de jade', 'Le dôme s\'élève, translucide, nervuré d\'or'],
+  7: ['Le pinacle', 'Une flèche d\'or et une perle de lumière au sommet'], 8: ['Le dojo de la force', 'Le pavillon du corps, là où l\'on forge sa discipline'], 9: ['Les poids sacrés', 'Kettlebells de pierre, barre et tapis'],
+  10: ['La bibliothèque des sages', 'Le pavillon de l\'étude et ses étagères de savoir'], 11: ['Les rouleaux', 'Les enseignements flottent, prêts à être lus'], 12: ['Le jardin zen', 'Sable ratissé et pierres : le calme avant l\'effort'],
+  13: ['Le bassin de lumière', 'L\'eau se pose, les lotus blancs s\'ouvrent'], 14: ['Le portail', 'Le torii marque le seuil : on y entre pour se rencontrer soi-même'], 15: ['Les lanternes', 'Six lanternes éclairent l\'allée des disciples'],
+  16: ['Les bannières', '« SPIRIT GYM » flotte de chaque côté du portail'], 17: ['Le feu sacré', 'Au cœur du temple, la flamme que chacun entretient en soi'], 18: ['Les maîtres', 'Cinq maîtres s\'assoient autour du feu, en méditation'],
+  19: ['La lévitation', 'Les maîtres s\'élèvent : le corps suit l\'esprit'], 20: ['La conscience absolue', 'Un mandala de lumière s\'ouvre au-dessus du dôme, les sept chakras gravitent'] } };
+const KIND_ORDER = ['dune', 'cairn', 'cinema', 'sanctuary', 'cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
 // Étapes réellement jouées pour une architecture (plain-pied : pas d'étage ; sans piscine : pas de bassin)
 function kindSkips(kind) { const K = KINDS[kind] || KINDS.villa, s = new Set(); if (K.low) [8, 9].forEach(k => s.add(k)); if (K.noPool) [13, 14, 15].forEach(k => s.add(k)); (K.skip || []).forEach(k => s.add(k)); return s }
 const activeStages = kind => { const sk = kindSkips(kind); return Array.from({ length: SITE_N }, (_, i) => i + 1).filter(k => !sk.has(k)) };
@@ -2773,6 +2799,7 @@ Object.assign(Site3D.prototype, {
     if (K === 'dune') { this.buildDune(); h.k.show = show; return }
     if (K === 'cairn') { this.buildCairn(); h.k.show = show; return }
     if (K === 'cinema') { this.buildCinema(); h.k.show = show; return }
+    if (K === 'sanctuary') { this.buildSanctuary(); h.k.show = show; return }
     if (K === 'empire') {
       // façade blanche à liserés dorés, toit noir, baies teintées, mosaïque or
       const gold = STD(0xf2c443, { m: .25, r: .35, e: 0x5a3a00, ei: .25 }), red = STD(0xd3182a, { r: .35, e: 0x8a0a16, ei: .3 });
@@ -2883,6 +2910,7 @@ Object.assign(Site3D.prototype, {
     if (this.kind === 'dune') return this.duneSync();
     if (this.kind === 'cairn') return this.cairnSync();
     if (this.kind === 'cinema') return this.cinemaSync();
+    if (this.kind === 'sanctuary') return this.sanctuarySync();
     if (this.kind === 'empire') { k.base.visible = this.prog(10) >= 1; const p = this.prog(19), e = EZ.out(clamp01(p * 1.4)); k.heart.visible = p > 0; k.heart.scale.setScalar(Math.max(.01, e) * 1.3); k.flames.forEach(f => f.visible = p >= .55); k.chart.visible = this.prog(18) > 0; k.chart.scale.set(1, Math.max(.01, this.prog(18)), 1);
       k.plate.visible = this.prog(11) >= 1; k.ticker.visible = p > 0; k.pad.visible = this.prog(18) >= .3; k.rope.visible = this.prog(19) >= .5; k.float.visible = this.items[15][0].p >= .95;
       const L = this.items[20][0].p; k.heli.visible = L > 0; k.heli.position.y = (1 - EZ.out(clamp01(L * 1.2))) * 14; k.heli.userData.spin = L > 0 && L < 1 ? 1 : .15 }
@@ -2902,6 +2930,7 @@ Object.assign(Site3D.prototype, {
     if (this.kind === 'dune') return this.tickDune(dt);
     if (this.kind === 'cairn') return this.tickCairn(dt);
     if (this.kind === 'cinema') return this.tickCinema(dt);
+    if (this.kind === 'sanctuary') return this.tickSanctuary(dt);
     const k = this.h.k; if (k && k.rotor && k.wind.visible) k.rotor.rotation.z += dt * 2.2;
     // les flammes dansent, le cœur bat doucement
     if (k && k.flames && k.heart.visible) { k.ft += dt; const t = k.ft; k.flames.forEach(f => { const ph = f.userData.ph; f.scale.set(1 + Math.sin(t * 7 + ph) * .08, 1 + Math.sin(t * 9.3 + ph) * .16 + Math.sin(t * 3.1 + ph) * .06, 1); f.rotation.y = Math.sin(t * 2 + ph) * .25 }); if (this.prog(19) >= 1) k.heart.scale.setScalar(1.3 * (1 + Math.max(0, Math.sin(t * 2.4)) ** 6 * .07)) }
@@ -2918,6 +2947,20 @@ function siteDeco(task) {
   return (th && th.name === LIVRE_THEME) || /lotus.*serpent|finaliser le manuscrit/i.test(task.title) ? 'livre' : null;
 }
 let bookCoverTex = null;
+// l'affiche du film : la couverture du livre, en version « formation vidéo » (bandeau, accroche, générique)
+let filmPosterTex = null;
+const posterTex = () => filmPosterTex || (filmPosterTex = (() => {
+  const W = 360, H = 514, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'), t = new T3.CanvasTexture(cv); t.encoding = T3.sRGBEncoding; t.anisotropy = 8;
+  const img = new Image(); img.onload = () => {
+    c.drawImage(img, 0, 0, W, H);
+    let g = c.createLinearGradient(0, 0, 0, 70); g.addColorStop(0, 'rgba(10,8,20,.85)'); g.addColorStop(1, 'rgba(10,8,20,0)'); c.fillStyle = g; c.fillRect(0, 0, W, 70);
+    g = c.createLinearGradient(0, H - 120, 0, H); g.addColorStop(0, 'rgba(10,8,20,0)'); g.addColorStop(.45, 'rgba(10,8,20,.85)'); g.addColorStop(1, 'rgba(10,8,20,.95)'); c.fillStyle = g; c.fillRect(0, H - 120, W, 120);
+    c.textAlign = 'center'; c.fillStyle = '#f2cf73'; c.font = '700 15px Georgia,serif'; c.fillText('L A   F O R M A T I O N   V I D É O', W / 2, 26);
+    c.strokeStyle = '#f2cf73'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(70, 36); c.lineTo(W - 70, 36); c.stroke();
+    c.font = '700 22px Georgia,serif'; c.fillText('BIENTÔT EN LIGNE', W / 2, H - 46);
+    c.fillStyle = 'rgba(242,207,115,.75)'; c.font = '9px Arial,sans-serif'; c.fillText('18 MODULES · MÉDITATIONS GUIDÉES · RITUELS · L\u2019ALCHIMIE DES CHAKRAS', W / 2, H - 22);
+    t.needsUpdate = true };
+  img.src = BOOK_COVER; return t })());
 const coverTex = () => bookCoverTex || (bookCoverTex = (() => { const t = new T3.TextureLoader().load(BOOK_COVER); t.encoding = T3.sRGBEncoding; t.anisotropy = 8; return t })());
 const pagesTex = () => KTX.pages || (KTX.pages = tex(64, 256, (g, w, h) => { g.fillStyle = '#f3ead8'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(150,130,100,.35)'; for (let y = 2; y < h; y += 4) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke() } }));
 const CHAKRA = [0xe0262b, 0xf07a1e, 0xf5c518, 0x2e9e45, 0x22a3e0, 0x2f45c8, 0x9c3fd6];
@@ -3224,7 +3267,7 @@ Object.assign(Site3D.prototype, {
     const bt = tex(128, 640, (g, w, hh) => { g.fillStyle = '#7a0f1e'; g.fillRect(0, 0, w, hh); g.strokeStyle = '#e0a52a'; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, hh - 12); g.fillStyle = '#ffe9a8'; g.textAlign = 'center'; g.font = '700 84px Georgia,serif'; 'CINÉMA'.split('').forEach((c, i) => g.fillText(c, w / 2, 100 + i * 96)) });
     k.bladeM = STD(0xffffff, { map: bt, r: .5, e: 0xffffff, ei: 0 }); k.bladeM.emissiveMap = bt; k.blade = grp(0, 6.2, 6.05); BX(1.6, 6.6, .3, k.bladeM, 0, 3.3, 0, k.blade); BX(1.8, .2, .5, gold, 0, 6.7, 0, k.blade);
     // les deux affiches de la formation (la couverture), de chaque côté de l'entrée
-    k.posters = [-7.4, 7.4].map(x => { const g = grp(x, 3.9, 3.45); BX(2.9, 4, .12, gold, 0, 0, 0, g); const m = STD(0xffffff, { map: coverTex(), r: .5, e: 0xffffff, ei: .08 }); m.emissiveMap = coverTex(); BX(2.6, 3.7, .05, m, 0, 0, .07, g); return g });
+    k.posters = [-7.4, 7.4].map(x => { const g = grp(x, 3.9, 3.45); BX(2.9, 4, .12, gold, 0, 0, 0, g); const m = STD(0xffffff, { map: posterTex(), r: .5, e: 0xffffff, ei: .08 }); m.emissiveMap = posterTex(); BX(2.6, 3.7, .05, m, 0, 0, .07, g); return g });
     // le bassin aux lotus rouges, à gauche de l'entrée
     const pm = STD(0xc8102e, { r: .55, e: 0x6a0010, ei: .25 }), pad = STD(0x2f6a3a, { r: .8 });
     k.basin = grp(-11, 0, 9.2); [[0, 1.95, 7.4, .5], [0, -1.95, 7.4, .5], [3.45, 0, .5, 4.4], [-3.45, 0, .5, 4.4]].forEach(([x, z, w, d]) => BX(w, .45, d, gold, x, .22, z, k.basin));
@@ -3332,6 +3375,161 @@ CINE_JOBS[20] = { async work(S, todo) {
   const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 10, 4, 64);
   const away = Promise.all(k.crew.map((w, i) => S.wait(i * 500).then(() => cineGo(S, w, 15.5, 16.5)).then(() => cairnGo(S, w, [[0, 24 + i * 2, 16.5]]))));
   await S.anim(16000, e => { cairnSet(todo, p0, e); if (e > .25 && Math.random() < .7) { const a = rnd(0, Math.PI * 2); sparkle(S, Math.cos(a) * 4.3, 11 + e * 9, 4.2 + Math.sin(a) * 2.4, [1, .8, .35]) } }, EZ.io);
+  await away; k.busy = false; S.kindSync();
+} };
+
+/* ----- Le sanctuaire Spirit Gym : temple du corps et de l'esprit, où l'on forme des maîtres et des sages ----- */
+const SANC_C = [0, -3];
+const mandalaTex = bg => tex(512, 512, (g, w, h) => {
+  if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h) } g.translate(w / 2, h / 2); g.strokeStyle = '#e0b040'; g.lineWidth = 6;
+  [240, 200, 150, 100, 55].forEach(r => { g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke() });
+  for (let i = 0; i < 16; i++) { g.save(); g.rotate(i / 16 * Math.PI * 2); g.beginPath(); g.ellipse(0, -175, 22, 50, 0, 0, Math.PI * 2); g.stroke(); g.restore() }
+  CHAKRA_C.forEach((c, i) => { const a = i / 7 * Math.PI * 2 - Math.PI / 2; g.fillStyle = '#' + c.toString(16).padStart(6, '0'); g.beginPath(); g.arc(Math.cos(a) * 125, Math.sin(a) * 125, 18, 0, Math.PI * 2); g.fill() });
+  g.fillStyle = '#f6e7b0'; g.beginPath(); g.arc(0, 0, 30, 0, Math.PI * 2); g.fill();
+});
+Object.assign(Site3D.prototype, {
+  buildSanctuary() {
+    const sc = this.scene, k = this.h.k, wood = STD(0x8a5a36, { map: this.tx.wood, r: .8 }), [cx, cz] = SANC_C;
+    const gold = STD(0xe0b040, { m: .3, r: .35, e: 0x5a3a00, ei: .25 }), marble = STD(0xf3efe6, { r: .55 }), stone = STD(0xcfc6b4, { r: .9 }), lacq = STD(0x9c2a22, { r: .55 }), slate = STD(0x2c3436, { r: .6 });
+    this.h.bushes.forEach(b => b.visible = false); this.trees.visible = false;
+    const grp = (x = 0, y = 0, z = 0, par = sc) => { const g = new T3.Group(); g.position.set(x, y, z); g.visible = false; par.add(g); return g };
+    // le tracé : huit piquets en cercle, un cordeau d'or
+    k.stakes = Array.from({ length: 8 }, (_, i) => { const a = i / 8 * Math.PI * 2, g = grp(cx + Math.cos(a) * 9, 0, cz + Math.sin(a) * 9); g.add(AT(CY(.05, .06, 1, wood, 6), 0, .5, 0)); g.add(AT(CY(.08, .08, .08, gold, 8), 0, 1, 0)); return g });
+    k.string = grp(cx, .55, cz); { const r = MS(new T3.TorusGeometry(9, .025, 4, 48), gold); r.rotation.x = Math.PI / 2; k.string.add(r) }
+    // le cercle de pierre, trois marches, le mandala au sol, l'allée
+    k.steps = [[9.4, .2], [8.7, .4], [8, .6]].map(([r, h], i) => { const g = grp(cx, 0, cz); g.add(AT(CY(r, r, h, i === 2 ? marble : stone, 48), 0, h / 2, 0)); return g });
+    { const fm = MS(new T3.CircleGeometry(5.6, 48), STD(0xffffff, { map: mandalaTex('#f3efe6'), r: .6 })); fm.rotation.x = -Math.PI / 2; fm.position.y = .605; k.steps[2].add(fm) }
+    k.path = grp(); BX(2.4, .08, 6.4, stone, 0, .04, 10.2, k.path);
+    // huit colonnes de marbre (l'entrée reste libre, face au portail)
+    k.cols = Array.from({ length: 8 }, (_, i) => { const a = (i + .5) / 8 * Math.PI * 2, g = grp(cx + Math.cos(a) * 7.3, .6, cz + Math.sin(a) * 7.3); g.add(AT(CY(.38, .45, 7, marble, 14), 0, 3.5, 0)); BX(1.1, .3, 1.1, gold, 0, .15, 0, g); BX(1.1, .3, 1.1, gold, 0, 6.95, 0, g); return g });
+    k.arch = grp(cx, 7.6, cz); [[.35, gold], [.22, STD(0x3f9a7a, { r: .5 })]].forEach(([t, m], i) => { const r = MS(new T3.TorusGeometry(7.3 - i * .45, t, 8, 64), m); r.rotation.x = Math.PI / 2; k.arch.add(r) });
+    // le dôme de jade, nervuré d'or, et son pinacle
+    k.dome = grp(cx, 7.8, cz); k.shellM = new T3.MeshStandardMaterial({ color: 0x5fb89a, roughness: .3, metalness: .1, transparent: true, opacity: .55, side: T3.DoubleSide, depthWrite: false });
+    k.dome.add(MS(new T3.SphereGeometry(7.3, 32, 14, 0, Math.PI * 2, 0, Math.PI / 2), k.shellM, false, false));
+    for (let i = 0; i < 4; i++) { const r = MS(new T3.TorusGeometry(7.35, .12, 6, 32, Math.PI), gold); r.rotation.y = i * Math.PI / 4; k.dome.add(r) }
+    k.spire = grp(cx, 15, cz); k.spire.add(AT(CY(.02, .9, 3.2, gold, 12), 0, 1.6, 0)); k.spire.add(AT(MS(new T3.SphereGeometry(.65, 18, 14), STD(0xfff4d0, { e: 0xffd890, ei: 1.1, r: .3 })), 0, 3.7, 0));
+    // deux pavillons : le dojo de la force (à gauche), la bibliothèque des sages (à droite)
+    const pav = x => { const g = grp(x, 0, -4); BX(6.4, .3, 5.4, wood, 0, .15, 0, g); [[-2.8, -2.3], [2.8, -2.3], [-2.8, 2.3], [2.8, 2.3]].forEach(([a, b]) => g.add(AT(CY(.18, .18, 3.6, lacq, 10), a, 2.1, b)));
+      [[0, 2.3, 6, .3], [0, -2.3, 6, .3], [2.8, 0, .3, 4.9], [-2.8, 0, .3, 4.9]].forEach(([a, b, w, d]) => BX(w, .3, d, lacq, a, 3.9, b, g));
+      const roof = MS(new T3.CylinderGeometry(0, 4.9, 2, 4, 1), slate); roof.rotation.y = Math.PI / 4; roof.scale.z = .86; roof.position.y = 5.05; g.add(roof); g.add(AT(MS(new T3.SphereGeometry(.28, 12, 10), gold), 0, 6.15, 0)); return g };
+    k.dojo = pav(-13.4); k.lib = pav(13.4);
+    BX(5.4, 2.6, .5, wood, 0, 1.6, -1.9, k.lib); const books = tex(256, 128, (g, w, h) => { g.fillStyle = '#3a2618'; g.fillRect(0, 0, w, h); for (let r = 0; r < 3; r++) for (let x = 4; x < w - 6;) { const bw = 5 + Math.random() * 7; g.fillStyle = ['#7a2a2a', '#2a4a6a', '#c8a050', '#3a6a4a', '#5a3a6a', '#e8dcc0'][(Math.random() * 6) | 0]; g.fillRect(x, r * 42 + 6, bw, 34); x += bw + 1 } });
+    BX(5.2, 2.4, .05, STD(0xffffff, { map: books, r: .8 }), 0, 1.6, -1.62, k.lib);
+    const kb = (x, z) => { const g = grp(x, 0, z); g.add(AT(MS(new T3.SphereGeometry(.3, 14, 10), slate), 0, .32, 0)); const h = MS(new T3.TorusGeometry(.17, .045, 6, 14, Math.PI), slate); h.position.y = .55; g.add(h); return g };
+    k.weights = [kb(-14.8, -4.6), kb(-14.2, -5.2), kb(-15.2, -3.6), (() => { const g = grp(-12, 0, -4.8); BX(2.2, .07, .07, slate, 0, .42, 0, g); [-.9, .9].forEach(x => g.add(AT(CY(.38, .38, .12, slate, 16).rotateZ(Math.PI / 2), x, .42, 0))); return g })(), (() => { const g = grp(-12, 0, -2.8); BX(1.9, .04, .9, lacq, 0, .32, 0, g); return g })()];
+    k.scrolls = [[12, 2.1, -3.2], [13.4, 2.6, -3.6], [14.8, 2, -3.1], [12.7, 2.9, -4.6], [14.1, 2.3, -4.8]].map(([x, y, z], i) => { const g = grp(x, y, z); g.userData.y = y;
+      if (i % 2) { g.add(AT(CY(.11, .11, .9, STD(0xf3e6c4, { r: .8 }), 10).rotateZ(Math.PI / 2), 0, 0, 0)); [-.47, .47].forEach(a => g.add(AT(CY(.14, .14, .06, gold, 10).rotateZ(Math.PI / 2), a, 0, 0))) }
+      else { const pg = STD(0xf6efdc, { r: .8 }); [-1, 1].forEach(s => { const p = BX(.45, .03, .6, pg, s * .22, 0, 0, g); p.rotation.z = -s * .25 }); BX(.06, .05, .62, STD(0x7a2a2a), 0, -.04, 0, g) } return g });
+    // le jardin zen et le bassin de lumière, de part et d'autre de l'allée
+    k.zen = grp(-6.5, 0, 9.2); const rake = tex(256, 192, (g, w, h) => { g.fillStyle = '#ece0c4'; g.fillRect(0, 0, w, h); g.strokeStyle = '#cdbd98'; g.lineWidth = 2; for (let y = 6; y < h; y += 9) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke() } [[70, 70], [190, 120]].forEach(([x, y]) => { g.fillStyle = '#ece0c4'; g.beginPath(); g.arc(x, y, 40, 0, 7); g.fill(); for (let r = 14; r < 42; r += 8) { g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke() } }) });
+    BX(4.6, .16, 3.6, wood, 0, .08, 0, k.zen); BX(4.3, .1, 3.3, STD(0xffffff, { map: rake, r: 1 }), 0, .14, 0, k.zen);
+    [[-1.1, -.4, .45], [1, .5, .35], [1.5, -.9, .22]].forEach(([x, z, s]) => { const m = AT(MS(blobGeo(s, { detail: 1, amp: .3, sy: .7, dark: 0x5a5650, light: 0x9a948a, seed: x * 9 }), Object.assign(STD(0xffffff, { r: .9 }), { vertexColors: true })), x, .2, z); k.zen.add(m) });
+    k.pool = grp(6.5, 0, 9.2); k.pool.add(AT(CY(2.3, 2.4, .36, stone, 32), 0, .18, 0)); k.water = grp(0, .36, 0, k.pool); k.water.add(AT(CY(2.05, 2.05, .06, STD(0x5fc0d8, { r: .15, m: .1, e: 0x2a7a9a, ei: .25 }), 32), 0, .03, 0));
+    const pink = STD(0xf6d6e2, { r: .6 }); k.lotus = [[-.7, .3], [.6, -.5], [.4, .9]].map(([x, z]) => { const l = lotusFlower(.9, pink, gold); l.position.set(x, .42, z); l.visible = false; k.pool.add(l); return l });
+    // le portail (torii), sa plaque, les lanternes, les bannières
+    k.gate = grp(0, 0, 12.6); [-2.4, 2.4].forEach(x => k.gate.add(AT(CY(.22, .28, 5.2, lacq, 12), x, 2.6, 0))); BX(6.8, .35, .6, slate, 0, 5.35, 0, k.gate); BX(6.1, .25, .5, lacq, 0, 5.05, 0, k.gate); BX(5.4, .25, .3, lacq, 0, 4.2, 0, k.gate);
+    const pt = tex(256, 80, (g, w, h) => { g.fillStyle = '#1c1a2a'; g.fillRect(0, 0, w, h); g.strokeStyle = '#e0b040'; g.lineWidth = 4; g.strokeRect(4, 4, w - 8, h - 8); g.fillStyle = '#f2cf73'; g.font = '700 34px Georgia,serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SPIRIT GYM', w / 2, h / 2 + 2) });
+    k.plaque = BX(1.9, .6, .08, STD(0xffffff, { map: pt, r: .5, e: 0x332200, ei: .3 }), 0, 4.65, .2, k.gate);
+    k.lantM = STD(0xfff0c8, { e: 0xffc070, ei: 0, r: .6 });
+    k.lanterns = [8.2, 10, 11.8].flatMap(z => [-1.9, 1.9].map(x => { const g = grp(x, 0, z); g.add(AT(CY(.16, .24, .9, stone, 8), 0, .45, 0)); BX(.46, .42, .46, k.lantM, 0, 1.11, 0, g); const c = MS(new T3.CylinderGeometry(0, .45, .35, 4), stone); c.rotation.y = Math.PI / 4; c.position.y = 1.5; g.add(c); return g }));
+    k.banners = [['SPIRIT', -4.4], ['GYM', 4.4]].map(([word, x]) => { const g = grp(x, 0, 12.8); g.add(AT(CY(.07, .07, 6.6, gold, 8), 0, 3.3, 0));
+      const bt = tex(128, 512, (c, w, h) => { c.fillStyle = '#3a2a6a'; c.fillRect(0, 0, w, h); c.strokeStyle = '#e0b040'; c.lineWidth = 6; c.strokeRect(8, 8, w - 16, h - 16); c.fillStyle = '#f2cf73'; c.font = '700 64px Georgia,serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; [...word].forEach((ch, i) => c.fillText(ch, w / 2, h / 2 + (i - (word.length - 1) / 2) * 72)) });
+      BX(1.2, 4.2, .04, STD(0xffffff, { map: bt, r: .7 }), x < 0 ? .7 : -.7, 4.1, 0, g); BX(1.5, .08, .08, gold, x < 0 ? .7 : -.7, 6.25, 0, g); return g });
+    // le feu sacré au centre du temple
+    k.fire = grp(cx, .6, cz); k.fire.add(AT(CY(.75, .45, .7, gold, 18), 0, .35, 0)); k.flame = new T3.Group(); k.flame.position.y = .7; k.fire.add(k.flame);
+    const fl = STD(0xffb040, { e: 0xff7010, ei: 1.4, r: .5 }); [[0, 0, 1.3], [.22, .1, .9], [-.2, -.12, 1]].forEach(([x, z, h]) => { const c = MS(new T3.ConeGeometry(.3, h, 8), fl, false, false); c.position.set(x, h / 2, z); k.flame.add(c) });
+    // le mandala de lumière, le faisceau et les sept chakras qui gravitent
+    k.halo = grp(cx, 21.5, cz); k.haloM = new T3.MeshBasicMaterial({ map: mandalaTex(), transparent: true, opacity: 0, depthWrite: false, blending: T3.AdditiveBlending, side: T3.DoubleSide });
+    { const d = MS(new T3.CircleGeometry(9, 48), k.haloM, false, false); d.rotation.x = -Math.PI / 2; k.halo.add(d) }
+    k.beamM = new T3.MeshBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0, depthWrite: false, blending: T3.AdditiveBlending, side: T3.DoubleSide }); k.halo.add(AT(MS(new T3.CylinderGeometry(2.4, 1, 34, 20, 1, true), k.beamM, false, false), 0, 12, 0));
+    k.orbs = CHAKRA_C.map(c => { const o = MS(new T3.SphereGeometry(.42, 16, 12), STD(c, { e: c, ei: 1.2, r: .3 }), false, false); o.visible = false; sc.add(o); return o });
+    // les maîtres en méditation, et l'équipe de chantier
+    k.masters = Array.from({ length: 5 }, (_, i) => { const a = i / 5 * Math.PI * 2 + Math.PI / 2, w = makeWorker({ civil: true, vest: 0xf6f1e4, shirt: 0xf6f1e4, pants: 0xefe7d6 }); w.x = cx + Math.cos(a) * 3.4; w.z = cz + Math.sin(a) * 3.4; w.y = .6; w.pose = 'kneel'; w.tyaw = w.yaw = Math.atan2(cx - w.x, cz - w.z); w.g.visible = false; sc.add(w.g); return w });
+    k.home = [[14.6, 14], [15.8, 13.2], [13.4, 13.4], [16.2, 14.4]];
+    k.crew = k.home.map(([x, z]) => { const w = makeWorker({ vest: 0xd9b24a, hat: 0xf6efe0 }); w.x = x; w.z = z; w.tyaw = w.yaw = Math.PI; w.g.visible = false; sc.add(w.g); return w });
+    k.noBake = [...k.scrolls, k.fire, k.halo, ...k.orbs, ...k.masters.map(w => w.g), ...k.crew.map(w => w.g), ...k.lanterns]; k.busy = false; k.ft = 0; k.lev = 0;
+  },
+  sanctuarySync() {
+    const k = this.h.k, P = i => this.prog(i);
+    k.stakes.forEach((g, j) => { g.visible = P(1) > j / 8 && P(2) < 1 }); k.string.visible = P(1) >= 1 && P(2) < .5;
+    growY(k.steps[0], P(2)); growY(k.steps[1], clamp01(P(3) * 2)); growY(k.steps[2], clamp01(P(3) * 2 - 1)); k.path.visible = P(3) >= 1;
+    k.cols.forEach((g, i) => growY(g, clamp01(P(4) * 8 - i)));
+    k.arch.visible = P(5) > 0; k.arch.position.y = 7.6 + (1 - EZ.out(P(5))) * 5;
+    growY(k.dome, P(6)); k.shellM.opacity = .55 * clamp01(P(6) * 1.5); growY(k.spire, P(7));
+    growY(k.dojo, P(8)); k.weights.forEach((g, i) => popIn(g, clamp01(P(9) * k.weights.length - i)));
+    growY(k.lib, P(10)); k.scrolls.forEach((g, i) => popIn(g, clamp01(P(11) * k.scrolls.length - i)));
+    growY(k.zen, P(12));
+    k.pool.visible = P(13) > 0; growY(k.water, clamp01(P(13) * 2 - .4)); k.lotus.forEach((g, i) => popIn(g, clamp01((P(13) - .55 - i * .1) * 4)));
+    growY(k.gate, P(14)); k.lanterns.forEach((g, i) => popIn(g, clamp01(P(15) * 6 - i))); k.lantM.emissiveIntensity = P(15) >= 1 ? 1 : 0;
+    k.banners.forEach((g, i) => growY(g, clamp01(P(16) * 2 - i))); k.plaque.visible = P(16) >= .5;
+    popIn(k.fire, P(17)); k.flame.visible = P(17) >= .5;
+    k.masters.forEach((w, i) => { w.g.visible = P(18) > i * .18 }); k.lev = EZ.io(clamp01(P(19)));
+    const e = P(20); k.halo.visible = e > 0; k.haloM.opacity = .85 * clamp01(e * 1.5); k.beamM.opacity = .16 * clamp01(e * 2 - .4); k.orbs.forEach((o, i) => popIn(o, clamp01(e * 9 - i - 1)));
+    k.crew.forEach(w => { w.g.visible = (P(1) > 0 || k.busy) && e < 1 });
+  },
+  tickSanctuary(dt) {
+    const k = this.h.k; if (!k || !k.halo) return; k.ft += dt; const t = k.ft, [cx, cz] = SANC_C;
+    if (k.flame.visible) k.flame.children.forEach((f, i) => f.scale.set(1, .8 + Math.sin(t * 9 + i * 2) * .25, 1));
+    k.scrolls.forEach((g, i) => { if (g.visible) { g.position.y = g.userData.y + Math.sin(t * 1.3 + i) * .18; g.rotation.y += dt * .3 } });
+    k.masters.forEach((w, i) => { w.y = .6 + k.lev * (1.7 + Math.sin(t * .9 + i * 1.3) * .25); if (w.g.visible) w.update(dt, this) });
+    if (k.lev > .05 && Math.random() < .25) { const w = k.masters[(Math.random() * 5) | 0]; if (w.g.visible) sparkle(this, w.x, w.y + .6, w.z, [.85, .8, 1]) }
+    if (k.halo.visible) { k.halo.rotation.y += dt * .25; k.orbs.forEach((o, i) => { const a = t * .5 + i / 7 * Math.PI * 2; o.position.set(cx + Math.cos(a) * 4.2, 19 + Math.sin(t + i) * .3, cz + Math.sin(a) * 3.4) }) }
+    k.crew.forEach(w => { if (w.g.visible) w.update(dt, this) });
+  }
+});
+// les ouvriers passent toujours par l'allée de devant ; pour monter au temple, ils empruntent l'allée puis les marches
+const sancGo = (S, w, x, z, y = 0) => { const L = 13.6, pts = []; let px = w.x;
+  if (w.y > .3) { pts.push([.6, 0, 1.4], [0, 0, 7.2]); px = 0 }
+  const tx = y ? 0 : x; if (Math.abs(px - tx) > .2 || w.y > .3) pts.push([0, px, L], [0, tx, L]);
+  if (y) pts.push([0, 0, 7.2], [y, 0, 1.4], [y, x, z]); else pts.push([0, x, z]);
+  return cairnGo(S, w, pts) };
+const SANC_SPEC = {
+  1: { spots: [[9.8, -3, 'hammer', 9, -3], [-9.8, -3, 'hammer', -9, -3], [0, 6.8, 'hammer', 0, 6], [6.9, 4.2, 'hammer', 6.36, 3.36]], ms: 4000 },
+  2: { spots: [[10, -1, 'dig', 0, -3], [-10, -1, 'dig', 0, -3], [-3.2, 7.4, 'kneel', -2.4, 5.6], [3.2, 7.4, 'kneel', 2.4, 5.6]], ms: 9000, fx: 'dust' },
+  3: { spots: [[-10, -5, 'kneel', 0, -3], [10, -5, 'kneel', 0, -3], [-2.6, 8.4, 'kneel', 0, 8.4], [2.6, 11, 'kneel', 0, 11]], ms: 9000, fx: 'dust' },
+  4: { spots: [[10, 0, 'reach', 0, -3], [-10, 0, 'reach', 0, -3], [2.8, 7.4, 'reach', 2.8, 3.7], [-2.8, 7.4, 'reach', -2.8, 3.7]], ms: 10000, fx: 'dust', focus: [0, 5, -3, 50] },
+  5: { spots: [[10, 0, 'reach', 0, -3], [-10, 0, 'reach', 0, -3], [2.8, 7.4, 'reach', 0, -3], [-2.8, 7.4, 'reach', 0, -3]], ms: 8000, fx: 'gold', at: [0, 7.8, 4.3], focus: [0, 6, -3, 52] },
+  6: { spots: [[10, 0, 'reach', 0, -3], [-10, 0, 'reach', 0, -3], [2.8, 7.4, 'reach', 0, -3], [-2.8, 7.4, 'reach', 0, -3]], ms: 10000, fx: 'gold', at: [0, 12, 1], focus: [0, 9, -3, 58] },
+  7: { spots: [[2.8, 7.4, 'reach', 0, -3], [-2.8, 7.4, 'reach', 0, -3]], ms: 8000, fx: 'gold', at: [0, 17, -3], focus: [0, 11, -3, 62] },
+  8: { spots: [[-13.4, -.4, 'hammer', -13.4, -1.6], [-10.8, -.4, 'hammer', -10.8, -1.6], [-16, -.4, 'hammer', -16, -1.6]], ms: 10000, fx: 'dust', focus: [-12, 3, -4, 34] },
+  9: { spots: [[-14.4, -2.8, 'kneel', -14.6, -4.6], [-12.2, -3.4, 'kneel', -12, -4.8]], ms: 8000, fx: 'dust', focus: [-12, 2, -4, 28] },
+  10: { spots: [[13.4, -.4, 'hammer', 13.4, -1.6], [10.8, -.4, 'hammer', 10.8, -1.6], [16, -.4, 'hammer', 16, -1.6]], ms: 10000, fx: 'dust', focus: [12, 3, -4, 34] },
+  11: { spots: [[12.2, -.8, 'reach', 13, -3.6], [14.6, -.8, 'reach', 13.6, -3.6]], ms: 8000, fx: 'gold', at: [13.4, 2.6, -3.8], focus: [12, 2, -4, 28] },
+  12: { spots: [[-6.5, 11.6, 'kneel', -6.5, 9.2], [-9.4, 9.2, 'kneel', -6.5, 9.2], [-3.6, 9.2, 'kneel', -6.5, 9.2]], ms: 9000, fx: 'dust', focus: [-5, 2, 9, 28] },
+  13: { spots: [[6.5, 12, 'kneel', 6.5, 9.2], [3.6, 9.2, 'kneel', 6.5, 9.2], [9.4, 9.2, 'kneel', 6.5, 9.2]], ms: 10000, fx: 'water', at: [6.5, .5, 9.2], focus: [5, 2, 9, 28] },
+  14: { spots: [[-3.4, 13.4, 'reach', -2.4, 12.6], [3.4, 13.4, 'reach', 2.4, 12.6], [-3.4, 11.6, 'hammer', -2.4, 12.6], [3.4, 11.6, 'hammer', 2.4, 12.6]], ms: 10000, fx: 'dust', focus: [0, 4, 10, 36] },
+  15: { spots: [[-3, 8.2, 'kneel', -1.9, 8.2], [3, 8.2, 'kneel', 1.9, 8.2], [-3, 11.8, 'kneel', -1.9, 11.8], [3, 10, 'kneel', 1.9, 10]], ms: 9000, fx: 'gold', at: [0, 1.4, 10], focus: [0, 3, 10, 30] },
+  16: { spots: [[-5.2, 13.9, 'reach', -4.4, 12.8], [5.2, 13.9, 'reach', 4.4, 12.8]], ms: 8000, fx: 'gold', at: [0, 5, 12.8], focus: [0, 5, 11, 36] },
+  17: { spots: [[1.8, -.2, 'kneel', 0, -3, .6], [-1.8, -.2, 'kneel', 0, -3, .6]], ms: 8000, fx: 'gold', at: [0, 1.8, -3], focus: [0, 3, -3, 30] }
+};
+const SANC_JOBS = {};
+Object.entries(SANC_SPEC).forEach(([st, sp]) => { SANC_JOBS[st] = { async work(S, todo) {
+  const k = S.h.k, p0 = todo.map(d => d.it.p), f = sp.focus || [0, 4, 0, 50]; k.busy = true; S.kindSync(); S.focus(...f);
+  const ws = sp.spots.map((s, i) => [k.crew[i], s]);
+  await Promise.all(ws.map(([w, [x, z, pose, fx, fz, y]], i) => S.wait(i * 300).then(() => sancGo(S, w, x, z, y)).then(() => { cairnFace(w, fx ?? x, fz ?? 0); w.pose = pose; if (pose === 'dig') w.dp = 0 })));
+  const at = sp.at || [0, 1, -3];
+  await S.anim(sp.ms, e => {
+    cairnSet(todo, p0, e); ws.forEach(([w]) => { if (w.pose === 'dig') w.dp = (e * 9 + w.seed) % 1 });
+    if (sp.fx === 'dust' && Math.random() < .5) { const w = ws[(Math.random() * ws.length) | 0][0]; S.emit({ x: w.x + rnd(-1, 1), y: rnd(.3, 2), z: w.z + rnd(-1, 1), vy: .5, sv: .5, g: .2, drag: .6, life: 1.6, size: .8, grow: 1.3, c: [.86, .84, .8], a: .3 }) }
+    if (sp.fx === 'water' && Math.random() < .6) S.emit({ x: at[0] + rnd(-1.6, 1.6), y: .5, z: at[2] + rnd(-1.6, 1.6), vy: 1.2, sv: .4, g: 4, drag: .3, life: .9, size: .3, grow: .5, c: [.7, .88, .95], a: .6 });
+    if (sp.fx === 'gold') sparkle(S, at[0] + rnd(-1.5, 1.5), at[1], at[2] + rnd(-.5, .5), [1, .82, .4]);
+  }, EZ.io);
+  ws.forEach(([w]) => { w.pose = null }); k.busy = false;
+} } });
+// les maîtres arrivent un à un autour du feu ; l'équipe se retire au bord de l'allée
+SANC_JOBS[18] = { async work(S, todo) {
+  const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 3, -3, 32);
+  await Promise.all(k.crew.map((w, i) => S.wait(i * 300).then(() => sancGo(S, w, ...k.home[i])).then(() => { w.tyaw = Math.PI })));
+  await S.anim(10000, e => { cairnSet(todo, p0, e); const w = k.masters[Math.min(4, (e * 5.5) | 0)]; if (Math.random() < .5) sparkle(S, w.x, 1.4, w.z, [1, .95, .8]) }, EZ.lin);
+  k.busy = false;
+} };
+// la lévitation : le corps suit l'esprit
+SANC_JOBS[19] = { async work(S, todo) { const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 4, -3, 34); await S.anim(12000, e => cairnSet(todo, p0, e), EZ.io); k.busy = false } };
+// la conscience absolue : l'équipe s'en va, le mandala de lumière s'ouvre au-dessus du dôme
+SANC_JOBS[20] = { async work(S, todo) {
+  const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 12, -3, 72);
+  const away = Promise.all(k.crew.map((w, i) => S.wait(i * 500).then(() => sancGo(S, w, 19 + i, 13.6))));
+  await S.anim(16000, e => { cairnSet(todo, p0, e); if (e > .2 && Math.random() < .7) { const a = rnd(0, Math.PI * 2); sparkle(S, Math.cos(a) * 3, 15 + e * 8, -3 + Math.sin(a) * 3, rgb(CHAKRA_C[(Math.random() * 7) | 0])) } }, EZ.io);
   await away; k.busy = false; S.kindSync();
 } };
 
