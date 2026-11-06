@@ -837,7 +837,7 @@ if (!db.appCairn) {
 }
 // Ajout ponctuel : la formation Spirit Gym, avec sa construction (le sanctuaire), en face de la maison du livre. Une seule fois.
 if (!db.spiritGym) {
-  const pj = db.projects.find(p => /chakra/i.test(p.name)) || db.projects[0];
+  const pj = db.projects.find(p => /^perso/i.test(p.name)) || db.projects[0];
   if (pj) {
     const subs = ['Définir la promesse : devenir maître de soi, corps, esprit et conscience', 'Nommer les piliers : force, souffle, étude, présence', 'Choisir le public et le niveau d\'entrée',
       'Bâtir le parcours en cycles : apprenti, pratiquant, maître, sage', 'Écrire le programme du premier cycle', 'Séances de gym consciente : mobilité, force, respiration',
