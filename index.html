@@ -5382,7 +5382,7 @@ function siteInfo(t, pr) {
   const small = !t.theme && t.subgoals.length < (K.min || 0) ? `<div class="site-warn">${esc(K.label)} demande au moins ${K.min} sous-objectifs (cette tâche en a ${t.subgoals.length}). Ajoute-en, ou choisis une construction plus petite dans la tâche.</div>` : '';
   return `<div class="site-top"><h2>${esc(K.label)} · ${esc(t.title)}</h2><div class="tools">${all.length > 1 ? (() => {
       const opt = x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc((KINDS[x.site.kind] || KINDS.villa).label)} · ${esc(x.title)}${x.projectId !== t.projectId ? ' (' + esc(pname(x.projectId)) + ')' : ''}</option>`;
-      const fin = all.filter(x => siteProgress(x).ratio >= 1), cur = all.filter(x => !fin.includes(x)), open = ui.showFin || fin.includes(t);
+      const fin = all.filter(x => siteProgress(x).ratio >= 1), open = !!ui.showFin, cur = all.filter(x => !fin.includes(x) || (!open && x.id === t.id));
       return `<select data-change="site-sel" aria-label="Construction affichée">${cur.map(opt).join('')}${fin.length ? `<option value="__fin">${open ? '▾' : '▸'} Objectif fini (${fin.length})</option>${open ? `<optgroup label="Objectif fini">${fin.map(opt).join('')}</optgroup>` : ''}` : ''}</select>`;
     })() : ''}${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div></div>
     <div class="site-stage"><small>Étape ${pr.stage}/${n}</small>${name}</div>
@@ -5901,7 +5901,7 @@ document.addEventListener('change', e => {
   if (k === 'quick-project') e.target.form.theme.innerHTML = themeOptions(e.target.value);
   if (k === 'draft-project') { readDraft(); draft.themeId = null; renderTaskModal() }
   if (k === 'site-sel' && e.target.value === '__fin') { ui.showFin = !ui.showFin; return render() }
-  if (k === 'site-sel') { const id = e.target.value, t = siteSources().find(x => x.id === id); if (t) { ui.view = null; ui.project = t.projectId; (ui.siteSel ||= {})[t.projectId] = id; if (!t.theme) ui.open[id] = true } commit(); focusTask(id) }
+  if (k === 'site-sel') { ui.showFin = false; const id = e.target.value, t = siteSources().find(x => x.id === id); if (t) { ui.view = null; ui.project = t.projectId; (ui.siteSel ||= {})[t.projectId] = id; if (!t.theme) ui.open[id] = true } commit(); focusTask(id) }
 });
 
 document.addEventListener('submit', e => {
