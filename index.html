@@ -167,6 +167,21 @@ details.done-sec summary{cursor:pointer;color:var(--muted);font-weight:600;margi
 .site-cam [hidden]{display:none}
 .site-run{max-width:calc(100% - 150px)}
 .site-run[hidden]{display:none}
+.flash{animation:flash 1.8s ease}
+@keyframes flash{0%,55%{box-shadow:0 0 0 3px #f2c94c,0 8px 22px rgba(217,166,64,.35)}100%{box-shadow:0 0 0 0 transparent}}
+.archived-link{margin-top:18px}
+.site-vgrip{display:none}
+/* Sur ordinateur : l'animation occupe la gauche de l'écran, le gestionnaire la droite (largeur et hauteur réglables) */
+@media (min-width:1000px){
+  body.side .site{position:fixed;left:0;top:0;bottom:0;width:var(--sideW,50vw);margin:0;border-radius:0;border-width:0 1px 0 0;display:flex;flex-direction:column;z-index:30;box-shadow:none}
+  body.side .site-wrap{flex:none}
+  body.side .site-grip{order:1}
+  body.side .site-info{order:2;flex:1;min-height:0;overflow:auto}
+  body.side .site-vgrip{display:flex;position:absolute;top:0;right:0;bottom:0;width:12px;cursor:ew-resize;touch-action:none;user-select:none;-webkit-user-select:none;z-index:3;align-items:center;justify-content:center}
+  body.side .site-vgrip::before{content:'';width:5px;height:44px;border-radius:3px;background:var(--muted);opacity:.45}
+  body.side .site-vgrip:hover::before,body.side .site.dragging .site-vgrip::before{opacity:.8}
+  body.side .wrap{max-width:none;margin:0 0 0 var(--sideW,50vw);padding-left:max(24px,calc((100vw - var(--sideW,50vw) - 860px) / 2));padding-right:max(24px,calc((100vw - var(--sideW,50vw) - 860px) / 2))}
+}
 .site-run button{color:#fff;font-weight:600;font-size:12px;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 10px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--chip-on);color:var(--chip-on-ink);padding:12px 18px;border-radius:12px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100vw - 32px);animation:toast 4.5s ease both}
 .toast small{display:block;font-weight:500;opacity:.75}
@@ -992,7 +1007,7 @@ function render() {
   const act = active();
   const counts = { urgent: 0, today: 0, week: 0, later: 0 };
   act.forEach(t => { const b = bucket(t); counts[b]++; if (b === 'today') counts.week++ });
-  const flagged = counts.urgent = act.filter(t => t.flagged).length;
+  const flagged = counts.urgent = act.filter(t => t.flagged).length; counts.archive = db.tasks.length - act.length;
   const cur = project(ui.project);
 
   app.innerHTML = `
@@ -1010,7 +1025,7 @@ function render() {
     </form>
 
     <div class="tabs">
-      ${[['urgent', 'Urgent'], ['today', "À faire aujourd'hui"], ['week', 'À faire cette semaine'], ['later', 'À anticiper']].map(([k, l]) =>
+      ${[['urgent', 'Urgent'], ['today', "À faire aujourd'hui"], ['week', 'À faire cette semaine'], ['later', 'À anticiper'], ['archive', 'Archivées']].map(([k, l]) =>
         `<button class="tab ${k === 'urgent' ? 'urgent' : ''} ${ui.view === k ? 'active' : ''}" data-action="view" data-id="${k}">${l}<span class="n">${counts[k]}</span></button>`).join('')}
     </div>
 
@@ -1027,7 +1042,7 @@ function render() {
       <button class="linkbtn" data-action="export">Exporter (sauvegarde)</button>
       <button class="linkbtn" data-action="import">Importer</button>
     </div>`;
-  attachSite();
+  attachSite(); siteLayout();
 }
 
 function themeOptions(pid, selected) {
@@ -1092,7 +1107,7 @@ function renderProject(p) {
       <button class="btn">Ajouter la thématique</button>
     </form>
 
-    ${done.length ? `<details class="done-sec"><summary>Terminées (${done.length})</summary><div class="list">${done.map(t => card(t, { showTheme: true })).join('')}</div></details>` : ''}`;
+    ${done.length ? `<p class="sub archived-link"><button class="linkbtn" data-action="view" data-id="archive">${plural(done.length, 'tâche terminée', 'tâches terminées')} dans les archives</button></p>` : ''}`;
 }
 
 /* ---------- Chantier : la villa se construit avec « 1. Finaliser le manuscrit » ---------- */
@@ -2070,7 +2085,7 @@ const T3 = window.THREE;
 const G = 9.81;
 const tex = (w, h, draw, rep) => {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
-  const t = new T3.CanvasTexture(c); t.encoding = T3.sRGBEncoding; t.anisotropy = 8;
+  const t = new T3.CanvasTexture(c); t.encoding = T3.sRGBEncoding; t.anisotropy = 16;
   if (rep) { t.wrapS = t.wrapT = T3.RepeatWrapping; t.repeat.set(rep[0], rep[1]) }
   return t;
 };
@@ -2950,7 +2965,7 @@ let bookCoverTex = null;
 // l'affiche du film : la couverture du livre, en version « formation vidéo » (bandeau, accroche, générique)
 let filmPosterTex = null;
 const posterTex = () => filmPosterTex || (filmPosterTex = (() => {
-  const W = 360, H = 514, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'), t = new T3.CanvasTexture(cv); t.encoding = T3.sRGBEncoding; t.anisotropy = 8;
+  const W = 360, H = 514, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'), t = new T3.CanvasTexture(cv); t.encoding = T3.sRGBEncoding; t.anisotropy = 16;
   const img = new Image(); img.onload = () => {
     c.drawImage(img, 0, 0, W, H);
     let g = c.createLinearGradient(0, 0, 0, 70); g.addColorStop(0, 'rgba(10,8,20,.85)'); g.addColorStop(1, 'rgba(10,8,20,0)'); c.fillStyle = g; c.fillRect(0, 0, W, 70);
@@ -2961,7 +2976,7 @@ const posterTex = () => filmPosterTex || (filmPosterTex = (() => {
     c.fillStyle = 'rgba(242,207,115,.75)'; c.font = '9px Arial,sans-serif'; c.fillText('18 MODULES · MÉDITATIONS GUIDÉES · RITUELS · L\u2019ALCHIMIE DES CHAKRAS', W / 2, H - 22);
     t.needsUpdate = true };
   img.src = BOOK_COVER; return t })());
-const coverTex = () => bookCoverTex || (bookCoverTex = (() => { const t = new T3.TextureLoader().load(BOOK_COVER); t.encoding = T3.sRGBEncoding; t.anisotropy = 8; return t })());
+const coverTex = () => bookCoverTex || (bookCoverTex = (() => { const t = new T3.TextureLoader().load(BOOK_COVER); t.encoding = T3.sRGBEncoding; t.anisotropy = 16; return t })());
 const pagesTex = () => KTX.pages || (KTX.pages = tex(64, 256, (g, w, h) => { g.fillStyle = '#f3ead8'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(150,130,100,.35)'; for (let y = 2; y < h; y += 4) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke() } }));
 const CHAKRA = [0xe0262b, 0xf07a1e, 0xf5c518, 0x2e9e45, 0x22a3e0, 0x2f45c8, 0x9c3fd6];
 // Un livre fermé : couverture devant (+z), dos à gauche, tranche crème
@@ -3308,7 +3323,7 @@ Object.assign(Site3D.prototype, {
   cineP(i) { return this.prog(CINE_ACT[i]) },
   cinemaSync() {
     const k = this.h.k, P = i => this.cineP(i);
-    k.stakes.forEach((g, j) => { g.visible = P(0) > j / 4 && P(2) < 1 }); k.string.visible = P(0) >= 1 && P(2) < .5;
+    k.stakes.forEach(g => { g.visible = P(0) > 0 && P(2) < 1; g.position.y = (1 - clamp01(P(0) * 1.15)) * .45 }); k.string.visible = P(0) >= 1 && P(2) < .5;
     k.pit.visible = P(1) > 0 && P(2) < 1; k.pit.scale.set(Math.max(.01, EZ.out(P(1))), 1, Math.max(.01, EZ.out(P(1))));
     k.slab.visible = P(2) > 0; k.slab.position.y = -.42 * (1 - EZ.out(P(2)));
     growY(k.walls, P(3)); growY(k.pil, P(4)); k.roof.visible = P(5) > 0; k.roof.position.y = (1 - EZ.out(P(5))) * 9;
@@ -3447,11 +3462,11 @@ Object.assign(Site3D.prototype, {
     k.masters = Array.from({ length: 5 }, (_, i) => { const a = i / 5 * Math.PI * 2 + Math.PI / 2, w = makeWorker({ civil: true, vest: 0xf6f1e4, shirt: 0xf6f1e4, pants: 0xefe7d6 }); w.x = cx + Math.cos(a) * 3.4; w.z = cz + Math.sin(a) * 3.4; w.y = .6; w.pose = 'kneel'; w.tyaw = w.yaw = Math.atan2(cx - w.x, cz - w.z); w.g.visible = false; sc.add(w.g); return w });
     k.home = [[14.6, 14], [15.8, 13.2], [13.4, 13.4], [16.2, 14.4]];
     k.crew = k.home.map(([x, z]) => { const w = makeWorker({ vest: 0xd9b24a, hat: 0xf6efe0 }); w.x = x; w.z = z; w.tyaw = w.yaw = Math.PI; w.g.visible = false; sc.add(w.g); return w });
-    k.noBake = [...k.scrolls, k.fire, k.halo, ...k.orbs, ...k.masters.map(w => w.g), ...k.crew.map(w => w.g), ...k.lanterns]; k.busy = false; k.ft = 0; k.lev = 0;
+    k.noBake = [...k.scrolls, k.fire, k.halo, ...k.orbs, ...k.masters.map(w => w.g), ...k.crew.map(w => w.g), ...k.lanterns]; k.busy = false; k.ft = 0; k.lev = 0; k.sink = []; k.planted = null;
   },
   sanctuarySync() {
     const k = this.h.k, P = i => this.prog(i);
-    k.stakes.forEach((g, j) => { g.visible = P(1) > j / 8 && P(2) < 1 }); k.string.visible = P(1) >= 1 && P(2) < .5;
+    k.stakes.forEach((g, j) => { g.visible = (k.planted ? k.planted.has(j) : P(1) > j / 8) && P(2) < 1; g.position.y = k.planted && k.sink[j] != null ? (1 - k.sink[j]) * .45 : 0 }); k.string.visible = P(1) >= 1 && P(2) < .5;
     growY(k.steps[0], P(2)); growY(k.steps[1], clamp01(P(3) * 2)); growY(k.steps[2], clamp01(P(3) * 2 - 1)); k.path.visible = P(3) >= 1;
     k.cols.forEach((g, i) => growY(g, clamp01(P(4) * 8 - i)));
     k.arch.visible = P(5) > 0; k.arch.position.y = 7.6 + (1 - EZ.out(P(5))) * 5;
@@ -3516,6 +3531,19 @@ Object.entries(SANC_SPEC).forEach(([st, sp]) => { SANC_JOBS[st] = { async work(S
   }, EZ.io);
   ws.forEach(([w]) => { w.pose = null }); k.busy = false;
 } } });
+// le tracé : quatre ouvriers, huit piquets ; chacun plante les deux siens, l'un après l'autre, à coups de marteau
+SANC_JOBS[1] = { async work(S, todo) {
+  const k = S.h.k, p0 = todo.map(d => d.it.p), [cx, cz] = SANC_C; k.busy = true; k.planted = new Set(); k.sink = []; S.kindSync(); S.focus(0, 3, -1, 46);
+  let n = 0;
+  const plant = async (w, j, near) => {
+    const a = j / 8 * Math.PI * 2, sx = cx + Math.cos(a) * 9, sz = cz + Math.sin(a) * 9, wx = cx + Math.cos(a) * 9.8, wz = cz + Math.sin(a) * 9.8;
+    await (near ? cairnGo(S, w, [[0, wx, wz]]) : sancGo(S, w, wx, wz)); cairnFace(w, sx, sz);
+    k.sink[j] = 0; k.planted.add(j); S.kindSync(); w.pose = 'hammer';
+    await S.anim(1700, e => { k.sink[j] = e; S.kindSync() }, EZ.lin); w.pose = null; n++; cairnSet(todo, p0, n / 8);
+  };
+  await Promise.all(k.crew.map((w, i) => S.wait(i * 300).then(() => plant(w, i * 2)).then(() => plant(w, i * 2 + 1, true))));
+  cairnSet(todo, p0, 1); k.planted = null; k.busy = false; S.kindSync();
+} };
 // les maîtres arrivent un à un autour du feu ; l'équipe se retire au bord de l'allée
 SANC_JOBS[18] = { async work(S, todo) {
   const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 3, -3, 32);
@@ -3551,7 +3579,7 @@ class World {
     this.cv = canvas; this.t = 0; this.plots = []; this.active = null; this.night = 0; this.over = false; this.rng = seeded('la côte');
     this.tx = siteTextures(); this.tx.grass.repeat.set(1, 1); this.tx.dirt.repeat.set(1, 1); this.tx.asphalt.repeat.set(1, 1);
     const R = this.R = new T3.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.pr = Math.min(Math.max(devicePixelRatio || 1, 1.25), 2); R.setPixelRatio(this.pr); R.outputEncoding = T3.sRGBEncoding;
+    this.pr = Math.min(Math.max((devicePixelRatio || 1) * 1.25, 1.6), 2.4); R.setPixelRatio(this.pr); R.outputEncoding = T3.sRGBEncoding;
     R.toneMapping = T3.ACESFilmicToneMapping; R.toneMappingExposure = 1;
     R.shadowMap.enabled = true; R.shadowMap.type = T3.PCFSoftShadowMap; R.localClippingEnabled = true;
     this.scene = new T3.Scene();
@@ -3570,22 +3598,26 @@ class World {
   initPost() {
     try {
       const gl2 = this.R.capabilities.isWebGL2, RT = gl2 && T3.WebGLMultisampleRenderTarget ? T3.WebGLMultisampleRenderTarget : T3.WebGLRenderTarget;
-      const rt = this.rt = new RT(4, 4, { depthBuffer: true }); rt.texture.encoding = T3.sRGBEncoding; rt.texture.minFilter = rt.texture.magFilter = T3.NearestFilter; rt.texture.generateMipmaps = false; if (rt.samples !== undefined) rt.samples = 4;
+      const rt = this.rt = new RT(4, 4, { depthBuffer: true }); rt.texture.encoding = T3.sRGBEncoding; rt.texture.minFilter = rt.texture.magFilter = T3.LinearFilter; rt.texture.generateMipmaps = false; if (rt.samples !== undefined) rt.samples = 4;
       rt.depthTexture = new T3.DepthTexture(4, 4); rt.depthTexture.type = T3.UnsignedIntType;
       this.postU = { tC: { value: rt.texture }, tD: { value: rt.depthTexture }, uPx: { value: new T3.Vector2(1 / 4, 1 / 4) }, uNear: { value: this.cam.near }, uFar: { value: this.cam.far }, uW: { value: 1 } };
       const mat = new T3.ShaderMaterial({ uniforms: this.postU, depthTest: false, depthWrite: false, toneMapped: false,
         vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
         fragmentShader: `uniform sampler2D tC, tD; uniform vec2 uPx; uniform float uNear, uFar, uW; varying vec2 vUv;
           float Z(vec2 p){ float d = texture2D(tD, p).x; return uNear * uFar / (uFar - d * (uFar - uNear)); }
-          void main(){
-            vec4 c = texture2D(tC, vUv); vec2 o = uPx * uW;
-            vec3 nb = texture2D(tC, vUv + vec2(uPx.x, 0.)).rgb + texture2D(tC, vUv - vec2(uPx.x, 0.)).rgb + texture2D(tC, vUv + vec2(0., uPx.y)).rgb + texture2D(tC, vUv - vec2(0., uPx.y)).rgb;
-            c.rgb = clamp(c.rgb + (c.rgb - nb * .25) * .55, 0., 1.);
-            float z = Z(vUv), l = Z(vUv - vec2(o.x, 0.)), r = Z(vUv + vec2(o.x, 0.)), u = Z(vUv + vec2(0., o.y)), d = Z(vUv - vec2(0., o.y));
+          float E(vec2 p, vec2 o){
+            float z = Z(p), l = Z(p - vec2(o.x, 0.)), r = Z(p + vec2(o.x, 0.)), u = Z(p + vec2(0., o.y)), d = Z(p - vec2(0., o.y));
             float sil = max(max(abs(l - z), abs(r - z)), max(abs(u - z), abs(d - z))) / z;
             float crease = (abs(l + r - 2. * z) + abs(u + d - 2. * z)) / z;
-            float e = max(smoothstep(.025, .06, sil), smoothstep(.01, .03, crease) * .75) * (1. - smoothstep(140., 420., z));
-            gl_FragColor = vec4(mix(c.rgb, c.rgb * .16 + vec3(.03, .025, .04), e * .95), 1.);
+            return max(smoothstep(.02, .07, sil), smoothstep(.01, .035, crease) * .7) * (1. - smoothstep(110., 380., z));
+          }
+          void main(){
+            vec4 c = texture2D(tC, vUv); vec2 o = uPx * uW, h = uPx * .5;
+            vec3 nb = texture2D(tC, vUv + vec2(uPx.x, 0.)).rgb + texture2D(tC, vUv - vec2(uPx.x, 0.)).rgb + texture2D(tC, vUv + vec2(0., uPx.y)).rgb + texture2D(tC, vUv - vec2(0., uPx.y)).rgb;
+            c.rgb = clamp(c.rgb + (c.rgb - nb * .25) * .18, 0., 1.);
+            /* contour lissé : moyenne de quatre échantillons décalés d'un demi-pixel (plus d'escaliers) */
+            float e = (E(vUv + vec2(h.x, h.y), o) + E(vUv + vec2(-h.x, h.y), o) + E(vUv + vec2(h.x, -h.y), o) + E(vUv - h, o)) * .25;
+            gl_FragColor = vec4(mix(c.rgb, c.rgb * .18 + vec3(.03, .025, .04), e * .9), 1.);
           }` });
       this.postScene = new T3.Scene(); const q = new T3.Mesh(new T3.PlaneGeometry(2, 2), mat); q.frustumCulled = false; this.postScene.add(q); this.postCam = new T3.Camera();
       this.post = true;
@@ -4480,8 +4512,11 @@ function makeWorker(o = {}) {
   const w = { g, hips, torso, head, arms, legs, hand, x: o.x || 0, y: o.y || 0, z: o.z || 0, yaw: 0, tyaw: 0, step: 0, moving: false, pose: null, carry: null, seed: rnd1() * 9 };
   w.setCarry = m => { while (hand.children.length) hand.remove(hand.children[0]); w.carry = m; if (m) hand.add(m) };
   // outil tenu dans la main droite (pelle, arrosoir…)
-  w.setTool = m => { const hd = arms[1].hd; if (w.tool) hd.remove(w.tool); w.tool = m; if (m) hd.add(m) };
+  w.setTool = m => { const hd = arms[1].hd; if (w.tool) hd.remove(w.tool); w.tool = m; w.autoTool = false; if (m) hd.add(m) };
+  w.civil = !!civil;
   w.update = (dt, S) => {
+    /* l'outil suit le geste : marteau pour frapper, pelle pour creuser, truelle à genoux (sauf si la tâche a déjà donné un outil) */
+    if (w.pose !== w._ap) { w._ap = w.pose; if (w.autoTool) w.setTool(null); const mk = !w.civil && !w.tool && AUTO_TOOLS[w.pose]; if (mk) { w.setTool(mk()); w.autoTool = true } }
     let d = w.tyaw - w.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; w.yaw += d * Math.min(1, dt * 7);
     /* hors de la parcelle, les pieds suivent le relief (sinon ils flottent au-dessus des creux) */
     let gy = 0; if (S.SL && w.y < .6 && (w.x < PLOT0.x0 || w.x > PLOT0.x1 || w.z < PLOT0.z0 || w.z > PLOT0.z1)) { const [wx, wz] = slotToWorld(S.SL, w.x, w.z); gy = terrainH(wx, wz) + .04 }
@@ -4529,6 +4564,9 @@ function makePallet() {
 
 // Outils du jardinier (tenus dans la main droite)
 function shovelMesh() { const g = new T3.Group(), wood = STD(0xa07a4a, { r: .8 }), steel = STD(0x9aa0a6, { m: .8, r: .35 }); g.add(AT(CY(.022, .022, 1.1, wood, 6), 0, -.25, 0)); const b = BX(.22, .28, .03, steel, 0, -.92, 0); g.add(b); g.add(AT(BX(.16, .04, .04, wood), 0, .3, 0)); g.rotation.x = -.35; g.traverse(m => { if (m.isMesh) m.castShadow = true }); return g }
+function hammerMesh() { const g = new T3.Group(), wood = STD(0x8a6038, { r: .8 }), steel = STD(0x6f767c, { m: .8, r: .35 }); g.add(AT(CY(.02, .024, .42, wood, 6), 0, -.14, 0)); g.add(AT(BX(.07, .07, .2, steel), 0, -.34, .03)); g.traverse(m => { if (m.isMesh) m.castShadow = true }); return g }
+function trowelMesh() { const g = new T3.Group(), wood = STD(0x8a6038, { r: .8 }), steel = STD(0xb4babf, { m: .8, r: .3 }); g.add(AT(CY(.022, .022, .16, wood, 6), 0, -.04, 0)); g.add(AT(CY(.008, .008, .1, steel, 4), 0, -.15, 0)); const b = BX(.13, .012, .2, steel, 0, -.2, .08); b.rotation.x = .25; g.add(b); g.traverse(m => { if (m.isMesh) m.castShadow = true }); return g }
+const AUTO_TOOLS = { hammer: hammerMesh, dig: shovelMesh, kneel: trowelMesh };
 function canMesh() { const g = new T3.Group(), m = STD(0x3f8a5a, { r: .5 }); const b = CY(.13, .15, .26, m, 12); b.position.set(0, -.18, .12); g.add(b); const sp = CY(.02, .03, .36, m, 6); sp.rotation.x = 1.05; sp.position.set(0, -.12, .36); g.add(sp); const hdl = MS(new T3.TorusGeometry(.09, .015, 6, 12, Math.PI), m); hdl.position.set(0, -.04, .12); g.add(hdl); g.traverse(o => { if (o.isMesh) o.castShadow = true }); return g }
 // Jeune plant en pot (motte), tenu à deux mains ou posé dans la benne
 function sapling(type, rng) { const g = new T3.Group(); g.add(AT(CY(.16, .12, .22, STD(0x8a5a3a, { r: .8 }), 10), 0, .11, 0)); const t = makeTree(type === 'palm' ? 'palm' : type, 0, 0, .14, rng); t.position.y = .2; g.add(t); return g }
@@ -5343,9 +5381,9 @@ function siteInfo(t, pr) {
 function worldPanel() {
   if (worldEl) return worldEl;
   worldEl = document.createElement('section'); worldEl.className = 'site';
-  worldEl.innerHTML = `<div class="site-wrap"><canvas class="site-scene" role="img" aria-label="Le monde des constructions, qui avancent avec les sous-objectifs des tâches"></canvas><div class="site-run" hidden><span>Travaux en cours · <b></b></span><button data-action="site-skip">Passer</button></div><button class="site-over" data-action="site-over" title="Voir toute la côte">Vue d'ensemble</button><div class="site-cam"><button data-action="site-zoom" data-z="in" aria-label="Zoomer">+</button><button data-action="site-zoom" data-z="out" aria-label="Dézoomer">−</button><button class="site-follow" data-action="site-follow" hidden>Suivre le chantier</button></div></div><div class="site-info"></div><div class="site-grip" role="separator" aria-orientation="horizontal" aria-label="Glisser pour régler la taille de la scène (double-clic : petit / grand)" title="Glisser pour régler la taille · double-clic : petit / grand"></div>`;
+  worldEl.innerHTML = `<div class="site-wrap"><canvas class="site-scene" role="img" aria-label="Le monde des constructions, qui avancent avec les sous-objectifs des tâches"></canvas><div class="site-run" hidden><span>Travaux en cours · <b></b></span><button data-action="site-skip">Passer</button></div><button class="site-over" data-action="site-over" title="Voir toute la côte">Vue d'ensemble</button><div class="site-cam"><button data-action="site-zoom" data-z="in" aria-label="Zoomer">+</button><button data-action="site-zoom" data-z="out" aria-label="Dézoomer">−</button><button class="site-follow" data-action="site-follow" hidden>Suivre le chantier</button></div></div><div class="site-info"></div><div class="site-grip" role="separator" aria-orientation="horizontal" aria-label="Glisser pour régler la taille de la scène (double-clic : petit / grand)" title="Glisser pour régler la taille · double-clic : petit / grand"></div><div class="site-vgrip" role="separator" aria-orientation="vertical" aria-label="Glisser pour régler la largeur de l'animation (double-clic : moitié de l'écran)" title="Glisser pour régler la largeur · double-clic : moitié de l'écran"></div>`;
   worldSentinel = document.createElement('div');
-  bindGrip(worldEl.querySelector('.site-grip')); siteObserve(worldEl.querySelector('.site-wrap'));
+  bindGrip(worldEl.querySelector('.site-grip')); bindVGrip(worldEl.querySelector('.site-vgrip')); siteObserve(worldEl.querySelector('.site-wrap'));
   return worldEl;
 }
 function attachSite() {
@@ -5381,6 +5419,14 @@ function attachSite() {
     if (c.target > c.D + 1e-9) { if (c === ctl) siteRun(c) } else if (c.target < c.D - 1e-9 && !c.busy) { snapSite(c); saveShown(c) }
   }
 }
+// amène la tâche (ou la thématique) à l'écran dans le gestionnaire, et la fait briller un instant
+function focusTask(id) {
+  requestAnimationFrame(() => {
+    const el = app.querySelector(`[data-task="${id}"]`) || (id.startsWith('th-') && app.querySelector(`.theme[data-drop="${id.slice(3)}"]`)); if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1800);
+  });
+}
 function siteSkip() { const c = activeCtl(); if (c && c.busy) { c.skip = true; c.S.finishAll() } }
 
 // Taille de la scène : l'encart reste collé en haut, à la hauteur choisie avec la poignée (gardée sur cet appareil)
@@ -5388,11 +5434,19 @@ const SITE_H_KEY = KEY + '.siteH', SITE_SMALL = 120, SITE_MIN = 80;
 let siteH = null; try { siteH = +localStorage.getItem(SITE_H_KEY) || null } catch (e) {}
 const siteBigH = () => Math.round(Math.min(innerHeight * .5, Math.max(worldSentinel.offsetWidth * SH / SW, innerHeight * .4)));
 const siteMaxH = () => Math.max(SITE_MIN + 40, Math.round(innerHeight * .7));
+// Sur ordinateur (écran large), l'animation passe à gauche, sur toute la hauteur ; sa largeur et la hauteur de la scène se règlent
+const SIDE_Q = matchMedia('(min-width: 1000px)'), SITE_W_KEY = KEY + '.siteW', SITE_HS_KEY = KEY + '.siteHS';
+let siteW = null, siteHS = null; try { siteW = +localStorage.getItem(SITE_W_KEY) || null; siteHS = +localStorage.getItem(SITE_HS_KEY) || null } catch (e) {}
+const isSide = () => SIDE_Q.matches && !!worldEl && worldEl.isConnected;
+const sideW = () => Math.round(Math.min(innerWidth - 420, Math.max(360, siteW ?? innerWidth * .5)));
+const sideMaxH = () => innerHeight - 110;
 function siteLayout() {
+  const side = isSide(); document.body.classList.toggle('side', side);
   if (!worldEl || !worldEl.isConnected) return;
-  const W = worldSentinel.offsetWidth, h = Math.round(Math.min(siteMaxH(), Math.max(SITE_MIN, siteH ?? siteBigH())));
+  if (side) document.body.style.setProperty('--sideW', sideW() + 'px');
+  const h = side ? Math.round(Math.min(sideMaxH(), Math.max(SITE_MIN, siteHS ?? innerHeight * .62))) : Math.round(Math.min(siteMaxH(), Math.max(SITE_MIN, siteH ?? siteBigH())));
   worldEl.classList.toggle('small', h < 170);
-  worldEl.classList.toggle('stuck', worldSentinel.getBoundingClientRect().top < -2);
+  worldEl.classList.toggle('stuck', !side && worldSentinel.getBoundingClientRect().top < -2);
   const wrap = worldEl.querySelector('.site-wrap');
   if (wrap.style.height !== h + 'px') wrap.style.height = h + 'px';
 }
@@ -5400,21 +5454,37 @@ function siteLayout() {
 let siteRO = null, siteRzRaf = 0;
 const siteObserve = wrap => { if (siteRO || !window.ResizeObserver) return; siteRO = new ResizeObserver(() => { if (!siteRzRaf) siteRzRaf = requestAnimationFrame(() => { siteRzRaf = 0; (WORLD || activeCtl()?.S)?.resize() }) }); siteRO.observe(wrap) };
 function setSiteH(h, keep = true) {
+  if (isSide()) { siteHS = Math.round(Math.min(sideMaxH(), Math.max(SITE_MIN, h))); if (keep) try { localStorage.setItem(SITE_HS_KEY, siteHS) } catch (e) {} return siteLayout() }
   siteH = Math.round(Math.min(siteMaxH(), Math.max(SITE_MIN, h)));
   if (keep) try { localStorage.setItem(SITE_H_KEY, siteH) } catch (e) {}
   siteLayout();
 }
+// poignée verticale (ordinateur) : la largeur de l'animation
+function bindVGrip(g) {
+  let x0 = 0, w0 = 0, id = null, lastTap = 0;
+  g.addEventListener('pointerdown', e => { if (e.button > 0) return; id = e.pointerId; x0 = e.clientX; w0 = sideW(); g.setPointerCapture(id); worldEl.classList.add('dragging'); e.preventDefault() });
+  g.addEventListener('pointermove', e => { if (e.pointerId !== id) return; siteW = w0 + e.clientX - x0; siteLayoutSoon() });
+  const end = e => {
+    if (e.pointerId !== id) return; id = null; worldEl.classList.remove('dragging');
+    if (Math.abs(e.clientX - x0) > 4) { lastTap = 0; siteW = sideW(); try { localStorage.setItem(SITE_W_KEY, siteW) } catch (err) {} return siteLayout() }
+    const now = performance.now(); if (now - lastTap < 400) { lastTap = 0; siteW = null; try { localStorage.removeItem(SITE_W_KEY) } catch (err) {} siteLayout() } else lastTap = now;
+  };
+  g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+  g.addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); siteW = sideW() + (e.key === 'ArrowRight' ? 30 : -30); try { localStorage.setItem(SITE_W_KEY, siteW) } catch (err) {} siteLayout() } });
+  g.tabIndex = 0;
+}
 function bindGrip(g) {
   let y0 = 0, h0 = 0, id = null;
   g.addEventListener('pointerdown', e => { if (e.button > 0) return; id = e.pointerId; y0 = e.clientY; h0 = worldEl.querySelector('.site-wrap').offsetHeight; g.setPointerCapture(id); worldEl.classList.add('dragging'); e.preventDefault() });
-  g.addEventListener('pointermove', e => { if (e.pointerId !== id) return; siteH = h0 + e.clientY - y0; siteLayoutSoon() });
+  g.addEventListener('pointermove', e => { if (e.pointerId !== id) return; if (isSide()) siteHS = h0 + e.clientY - y0; else siteH = h0 + e.clientY - y0; siteLayoutSoon() });
   // double-clic (ou double-tape au doigt) : bascule entre petit et grand
   let lastTap = 0;
   const end = e => {
     if (e.pointerId !== id) return; id = null; worldEl.classList.remove('dragging');
-    if (Math.abs(e.clientY - y0) > 4) { lastTap = 0; return setSiteH(siteH ?? h0) }
-    siteH = h0; const now = performance.now();
-    if (now - lastTap < 400) { lastTap = 0; setSiteH(h0 < 170 ? siteBigH() : SITE_SMALL) } else lastTap = now;
+    const side = isSide();
+    if (Math.abs(e.clientY - y0) > 4) { lastTap = 0; return setSiteH((side ? siteHS : siteH) ?? h0) }
+    if (side) siteHS = h0; else siteH = h0; const now = performance.now();
+    if (now - lastTap < 400) { lastTap = 0; setSiteH(side ? (h0 < innerHeight * .5 ? innerHeight * .62 : innerHeight * .35) : h0 < 170 ? siteBigH() : SITE_SMALL) } else lastTap = now;
   };
   g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
   g.addEventListener('keydown', e => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setSiteH(worldEl.querySelector('.site-wrap').offsetHeight + (e.key === 'ArrowUp' ? -20 : 20)) } });
@@ -5513,6 +5583,16 @@ function openSlot(date) {
 }
 
 function renderView(view) {
+  if (view === 'archive') {
+    // les tâches terminées, rangées par projet (la plus récente d'abord) ; décocher une tâche la fait revenir dans son projet
+    const done = db.tasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+    if (!done.length) return '<p class="empty">Aucune tâche terminée pour le moment. Quand tu coches une tâche, elle vient se ranger ici.</p>';
+    return `<p class="sub">${plural(done.length, 'tâche terminée', 'tâches terminées')}. Décoche une tâche pour la remettre en cours.</p>` + db.projects.map(p => {
+      const l = done.filter(t => t.projectId === p.id);
+      return l.length ? `<div class="group-title"><span class="dot" style="background:${p.color}"></span>${esc(p.name)} <span class="n" style="color:var(--muted);font-weight:500">${l.length}</span></div>
+        <div class="list">${l.map(t => card(t, { showTheme: true })).join('')}</div>` : '';
+    }).join('');
+  }
   const list = sortTasks(active().filter(t => view === 'urgent' ? t.flagged : view === 'week' ? inWeek(t) : bucket(t) === view));
   if (!list.length) return `<p class="empty">${view === 'urgent' ? 'Aucune tâche urgente. Clique sur le drapeau ⚑ d\'une tâche pour l\'ajouter ici.' : 'Rien ici pour le moment.'}</p>`;
   if (view === 'urgent') {
@@ -5742,7 +5822,7 @@ document.addEventListener('click', async e => {
     case 'cancel-objective': ui.editObjective = false; return render();
     case 'toggle-done': t.done = !t.done; t.doneAt = t.done ? Date.now() : null; return commit();
     case 'flag': t.flagged = !t.flagged; return commit();
-    case 'expand': ui.open[id] = !ui.open[id]; return commit();
+    case 'expand': ui.open[id] = !ui.open[id]; if (ui.open[id] && t?.site?.on && !ui.view) (ui.siteSel ||= {})[t.projectId] = id; return commit();
     case 'toggle-sub': { const s = t.subgoals.find(x => x.id === el.dataset.sub); s.done = !s.done; return commit() }
     case 'edit-task': return openTask(id);
     case 'toggle-theme': { const th = theme(id); th.collapsed = !th.collapsed; return commit() }
@@ -5808,7 +5888,7 @@ document.addEventListener('change', e => {
   const k = e.target.dataset.change;
   if (k === 'quick-project') e.target.form.theme.innerHTML = themeOptions(e.target.value);
   if (k === 'draft-project') { readDraft(); draft.themeId = null; renderTaskModal() }
-  if (k === 'site-sel') { (ui.siteSel ||= {})[ui.project] = e.target.value; commit() }
+  if (k === 'site-sel') { const id = e.target.value, t = siteSources().find(x => x.id === id); if (t) { ui.view = null; ui.project = t.projectId; (ui.siteSel ||= {})[t.projectId] = id; if (!t.theme) ui.open[id] = true } commit(); focusTask(id) }
 });
 
 document.addEventListener('submit', e => {
