@@ -2507,8 +2507,14 @@ class Site3D {
     this.kindSync(); if (this.deco) this.decoSync();
     // sans piscine : l'emplacement du bassin reste de la terre, puis se couvre de gazon avec le reste du jardin
     // une construction à part posée sur une parcelle de l'avenue : l'emplacement de la piscine reste du gazon
-    if (KINDS[this.kind].plot) { h.cover.forEach(g => { g.visible = true; g.material.opacity = 1; g.material.transparent = false; if (g.material.map !== this.tx.det) { g.material.map = this.tx.det; g.material.color.set(GRASS0).convertSRGBToLinear(); g.material.needsUpdate = true } }); this.sign.visible = false; return }
-    if (KINDS[this.kind].scene) { h.cover.forEach(g => g.visible = false); this.sign.visible = false; return }
+    if (KINDS[this.kind].scene) {
+      // les constructions à part ont aussi leur panneau : à vendre, puis « chantier » avec ce qu'on bâtit, puis son nom une fois fini
+      const act = activeStages(this.kind), done = this.prog(act[act.length - 1]) >= 1, started = this.prog(act[0]) > 0;
+      this.signFront.material.map = done ? this.signTex.villa : started ? this.signTex.site : this.signTex.sale; this.signFront.material.needsUpdate = true; this.signBoard.rotation.y = 0; this.sign.visible = true;
+      if (KINDS[this.kind].plot) h.cover.forEach(g => { g.visible = true; g.material.opacity = 1; g.material.transparent = false; if (g.material.map !== this.tx.det) { g.material.map = this.tx.det; g.material.color.set(GRASS0).convertSRGBToLinear(); g.material.needsUpdate = true } });
+      else h.cover.forEach(g => g.visible = false);
+      return;
+    }
     if (KINDS[this.kind].noPool) { const lawn = this.prog(18) >= 1, m = this.h.lawn.material; h.cover.forEach(g => { g.visible = true; g.material.opacity = 1; if (lawn) { g.material.map = m.map; g.material.color.copy(m.color); g.material.needsUpdate = true } }) }
   }
   /* ----- Particules (poussière, béton, eau, étincelles) et mottes de terre ----- */
@@ -2695,7 +2701,7 @@ KINDS.cinema = { label: 'Cinéma des chakras', the: 'le cinéma', sign: 'CINÉMA
   15: ['Les affiches', 'L\'affiche de la formation, de chaque côté de l\'entrée'], 17: ['Le tapis rouge', 'Tapis rouge et cordons dorés jusqu\'à la rue'], 18: ['Le tournage', 'Caméras, projecteurs de plateau, fauteuil du réalisateur'],
   19: ['Les lumières', 'Ampoules en chenillard et néons : « L\'Alchimie des chakras »'], 20: ['L\'avant-première', 'Sept projecteurs balaient le ciel, le serpent d\'or s\'enroule autour de la tour'] } };
 // Le sanctuaire Spirit Gym : vingt étapes, du cercle de pierre à la conscience absolue
-KINDS.sanctuary = { label: 'Sanctuaire Spirit Gym', the: 'le sanctuaire', sign: 'SPIRIT GYM', signBg: '#3a2a6a', min: 20, scene: true, plot: true, jobs: () => SANC_JOBS, act: Array.from({ length: 20 }, (_, i) => i + 1), skip: [], over: {
+KINDS.sanctuary = { label: 'Sanctuaire Spirit Gym', the: 'le sanctuaire', sign: 'SPIRIT GYM', signBg: '#3a2a6a', signZ: 14.4, min: 20, scene: true, plot: true, jobs: () => SANC_JOBS, act: Array.from({ length: 20 }, (_, i) => i + 1), skip: [], over: {
   0: ['Le terrain', 'En face de la maison du livre, une parcelle attend le sanctuaire'], 1: ['Le tracé', 'Huit piquets et un cordeau d\'or dessinent le cercle sacré'],
   2: ['Le cercle de pierre', 'Le socle rond du temple sort de terre'], 3: ['Les marches', 'Trois marches de marbre, un mandala au sol, une allée de pierre'],
   4: ['Les colonnes', 'Huit colonnes blanches, une par direction'], 5: ['L\'anneau d\'or', 'Un anneau doré relie les colonnes'], 6: ['Le dôme de jade', 'Le dôme s\'élève, translucide, nervuré d\'or'],
@@ -2860,7 +2866,7 @@ Object.assign(Site3D.prototype, {
     const tt = tex(2048, 64, (g, w, hh) => { g.fillStyle = '#0d0f12'; g.fillRect(0, 0, w, hh); g.font = '700 38px ui-monospace,Menlo,monospace'; g.textBaseline = 'middle'; let x = 10; for (const [t, c] of [['CA ▲ +300 %', '#5ee08a'], ['CLIENTS ▲ +48', '#5ee08a'], ['LEADS ▲ +1 250', '#5ee08a'], ['PANIER MOYEN ▲ 2 400 €', '#f2c94c'], ['AVIS ★★★★★', '#f2c94c'], ['DOUTES ▼ −90 %', '#ff6b6b'], ['MRR ▲ +62 %', '#5ee08a']]) { g.fillStyle = c; g.fillText(t, x, hh / 2 + 2); x += g.measureText(t).width + 70 } }, [1, 1]);
     tt.wrapT = T3.ClampToEdgeWrapping; tt.repeat.set(.4, 1);
     h.k.tickM = STD(0xffffff, { map: tt, r: .5, e: 0xffffff, ei: .9 }); h.k.tickM.emissiveMap = tt; h.k.tickT = tt;
-    h.k.ticker = BX(12.6, .46, .05, h.k.tickM, 1.95, 6.4, 4.64, sc); h.k.ticker.visible = false;
+    h.k.ticker = BX(12.6, .46, .05, h.k.tickM, 1.95, 6.1, 4.8, sc); h.k.ticker.visible = false;
     // le jardin des affaires : chaque plante devient un symbole
     const pot = (g, r = .55) => { g.add(AT(CY(r, r * .8, .7, gold, 16), 0, .35, 0)); g.add(AT(CY(r * .92, r * .92, .06, STD(0x4a3426, { r: 1 }), 16), 0, .7, 0)) };
     const make = (kind, x, z) => {
@@ -3007,7 +3013,7 @@ Object.assign(Site3D.prototype, {
     if (!KD.noPool) { const P = H3.pool; CHAKRA.forEach((col, i) => { const f = new T3.Group(), pm = STD(col, { r: .5, e: col, ei: .15 }); for (let k = 0; k < 8; k++) { const pe = MS(new T3.SphereGeometry(.22, 8, 6), pm); pe.scale.set(.45, .3, 1); const a = k / 8 * Math.PI * 2; pe.position.set(Math.cos(a) * .2, .08, Math.sin(a) * .2); pe.rotation.y = -a + Math.PI / 2; pe.rotation.x = .5; f.add(pe) } f.add(AT(MS(new T3.SphereGeometry(.09, 8, 6), STD(0xf5d76e, { r: .5 })), 0, .14, 0)); const pad = MS(new T3.CircleGeometry(.45, 14), STD(0x3f7d3a, { r: .7, side: T3.DoubleSide })); pad.rotation.x = -Math.PI / 2; f.add(pad); f.position.set(P.x0 + 1.2 + i * (P.x1 - P.x0 - 2.4) / 6, -.1, (P.z0 + P.z1) / 2 + (i % 2 ? .8 : -.8)); d.lotus.add(f) }) }
     d.lotus.visible = false; sc.add(d.lotus); d.noBake.push(d.lotus);
     // la boîte à livres près de l'entrée
-    const box = d.box = new T3.Group(); box.position.set(-8.2, 0, 13.4); box.add(AT(CY(.08, .08, 1.2, STD(0x5a3a26, { r: .8 })), 0, .6, 0));
+    const box = d.box = new T3.Group(); box.position.set(-6.2, 0, 14.1); box.add(AT(CY(.08, .08, 1.2, STD(0x5a3a26, { r: .8 })), 0, .6, 0));
     BX(1, .9, .6, STD(0x7a1420, { r: .6 }), 0, 1.55, 0, box); const roof = BX(1.2, .1, .8, STD(0x2a2420, { r: .6 }), 0, 2.05, 0, box); roof.rotation.z = .08;
     for (let i = 0; i < 6; i++) BX(.11, .55 + (i % 3) * .06, .4, STD(CHAKRA[i], { r: .6 }), -.33 + i * .13, 1.42, .05, box);
     BX(.92, .8, .02, PHY({ color: 0xcfe8ef, transparent: true, opacity: .35, roughness: .05 }), 0, 1.55, .31, box);
@@ -3028,7 +3034,7 @@ Object.assign(Site3D.prototype, {
 Object.assign(Site3D.prototype, {
   buildDune() {
     const sc = this.scene, k = this.h.k, sand = STD(0xe0a45a, { r: .95 }), sandD = STD(0xc98a44, { r: 1 }), rock = STD(0x7a5236, { r: .95 }), cloth = STD(0x6e4e32, { r: .9, side: T3.DoubleSide });
-    this.sign.visible = false; this.h.bushes.forEach(b => b.visible = false); this.trees.visible = false;
+    this.h.bushes.forEach(b => b.visible = false); this.trees.visible = false;
     // le sol du désert, et des dunes basses tout autour
     const floor = MS(new T3.PlaneGeometry(72, 40), sand, false, true); floor.rotation.x = -Math.PI / 2; floor.position.set(0, .03, -5.6); sc.add(floor); // le sable s'arrête au trottoir
     [[-26, -8, 9, 2.6], [25, -9, 10, 3.2], [-27, 7, 6, 1.5], [27, 6, 7, 1.8], [0, -22, 14, 3.6], [-14, -20, 8, 2.4], [15, -19, 9, 2.8]].forEach(([x, z, r, hh]) => { const m = MS(blobGeo(1, { detail: 2, dark: 0xc98a44, light: 0xe7b672, amp: .08, sy: 1 }), Object.assign(STD(0xffffff, { r: 1 }), { vertexColors: true })); m.scale.set(r, hh, r * .7); m.position.set(x, -.2, z); sc.add(m) });
@@ -3114,7 +3120,7 @@ const flatExtrude = (shape, depth) => { const g = new T3.ExtrudeGeometry(shape, 
 Object.assign(Site3D.prototype, {
   buildCairn() {
     const sc = this.scene, k = this.h.k, gold = STD(0xd6a537, { r: .35, e: 0x5a3a00, ei: .2 }), wood = STD(0x9a6a40, { map: this.tx.wood, r: .8 });
-    this.sign.visible = false; this.h.bushes.forEach(b => b.visible = false); this.trees.visible = false;
+    this.h.bushes.forEach(b => b.visible = false); this.trees.visible = false;
     k.dyn = new T3.Group(); sc.add(k.dyn); k.noBake = [k.dyn];
     // le tracé : quatre piquets et un cordeau doré
     k.stakes = [[8.3, 4.6], [8.3, -4.6], [-8.3, 4.6], [-8.3, -4.6]].map(([x, z]) => { const g = new T3.Group(); g.position.set(x, 0, z); g.add(AT(CY(.05, .06, 1, wood, 6), 0, .5, 0)); g.add(AT(CY(.08, .08, .08, gold, 8), 0, 1, 0)); g.visible = false; sc.add(g); return g });
@@ -3461,7 +3467,7 @@ Object.assign(Site3D.prototype, {
     k.orbs = CHAKRA_C.map(c => { const o = MS(new T3.SphereGeometry(.42, 16, 12), STD(c, { e: c, ei: 1.2, r: .3 }), false, false); o.visible = false; sc.add(o); return o });
     // les maîtres en méditation, et l'équipe de chantier
     k.masters = Array.from({ length: 5 }, (_, i) => { const a = i / 5 * Math.PI * 2 + Math.PI / 2, w = makeWorker({ civil: true, vest: 0xf6f1e4, shirt: 0xf6f1e4, pants: 0xefe7d6 }); w.x = cx + Math.cos(a) * 3.4; w.z = cz + Math.sin(a) * 3.4; w.y = .6; w.pose = 'kneel'; w.tyaw = w.yaw = Math.atan2(cx - w.x, cz - w.z); w.g.visible = false; sc.add(w.g); return w });
-    k.home = [[14.6, 14], [15.8, 13.2], [13.4, 13.4], [16.2, 14.4]];
+    k.home = [[15.4, 11.2], [16.4, 12.2], [15, 12.6], [16.6, 10.4]];
     k.crew = k.home.map(([x, z]) => { const w = makeWorker({ vest: 0xd9b24a, hat: 0xf6efe0 }); w.x = x; w.z = z; w.tyaw = w.yaw = Math.PI; w.g.visible = false; sc.add(w.g); return w });
     k.noBake = [...k.scrolls, k.fire, k.halo, ...k.orbs, ...k.masters.map(w => w.g), ...k.crew.map(w => w.g), ...k.lanterns]; k.busy = false; k.ft = 0; k.lev = 0; k.sink = []; k.planted = null;
   },
@@ -4050,7 +4056,8 @@ Object.assign(Site3D.prototype, {
     [-1.1, 1.1].forEach(x => this.sign.add(BX(.12, 2.6, .12, STD(0x7a5532), x, 1.3, 0)));
     this.signBoard = new T3.Group(); this.signBoard.position.y = 2.1; this.sign.add(this.signBoard);
     const K = KINDS[this.kind] || KINDS.villa;
-    this.signTex = { sale: signTexture(['À VENDRE', 'Vue mer'], '#fffdf6', '#c8323c'), sold: signTexture(['VENDU', 'Permis accordé'], '#c8323c', '#ffffff'), site: signTexture(['CHANTIER', this.name], '#fffdf6', '#c8323c'), villa: signTexture([K.sign, this.name], K.signBg, '#ffffff') };
+    if (K.signZ) this.sign.position.z = K.signZ;
+    this.signTex = { sale: signTexture(['À VENDRE', 'Vue mer'], '#fffdf6', '#c8323c'), sold: signTexture(['VENDU', 'Permis accordé'], '#c8323c', '#ffffff'), site: signTexture(['CHANTIER', K.label], '#fffdf6', '#c8323c'), villa: signTexture([K.sign, this.name], K.signBg, '#ffffff') };
     this.signFront = BX(3, 1.5, .08, STD(0xffffff, { map: this.signTex.sale, r: .6 }), 0, 0, .05, this.signBoard);
     this.signBack = BX(3, 1.5, .08, STD(0xffffff, { map: this.signTex.sold, r: .6 }), 0, 0, -.05, this.signBoard); this.signBack.rotation.y = Math.PI;
   },
@@ -5373,7 +5380,11 @@ function siteInfo(t, pr) {
   const per = pr.total ? n / pr.total : 0, pace = !t.subgoals.length ? `Ajoute des sous-objectifs à cette tâche : chacun fera avancer ${K.the}.` : per >= 1 ? `Chaque case cochée fait avancer d'environ ${frNum(per)} étape${per >= 2 ? 's' : ''}.` : `Il faut environ ${frNum(1 / per)} cases par étape.`;
   const pname = id => project(id)?.name || '';
   const small = !t.theme && t.subgoals.length < (K.min || 0) ? `<div class="site-warn">${esc(K.label)} demande au moins ${K.min} sous-objectifs (cette tâche en a ${t.subgoals.length}). Ajoute-en, ou choisis une construction plus petite dans la tâche.</div>` : '';
-  return `<div class="site-top"><h2>${esc(K.label)} · ${esc(t.title)}</h2><div class="tools">${all.length > 1 ? `<select data-change="site-sel" aria-label="Construction affichée">${all.map(x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc((KINDS[x.site.kind] || KINDS.villa).label)} · ${esc(x.title)}${x.projectId !== t.projectId ? ' (' + esc(pname(x.projectId)) + ')' : ''}</option>`).join('')}</select>` : ''}${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div></div>
+  return `<div class="site-top"><h2>${esc(K.label)} · ${esc(t.title)}</h2><div class="tools">${all.length > 1 ? (() => {
+      const opt = x => `<option value="${x.id}" ${x.id === t.id ? 'selected' : ''}>${esc((KINDS[x.site.kind] || KINDS.villa).label)} · ${esc(x.title)}${x.projectId !== t.projectId ? ' (' + esc(pname(x.projectId)) + ')' : ''}</option>`;
+      const fin = all.filter(x => siteProgress(x).ratio >= 1), cur = all.filter(x => !fin.includes(x)), open = ui.showFin || fin.includes(t);
+      return `<select data-change="site-sel" aria-label="Construction affichée">${cur.map(opt).join('')}${fin.length ? `<option value="__fin">${open ? '▾' : '▸'} Objectif fini (${fin.length})</option>${open ? `<optgroup label="Objectif fini">${fin.map(opt).join('')}</optgroup>` : ''}` : ''}</select>`;
+    })() : ''}${pr.stage ? '<button class="linkbtn" data-action="site-replay">Revoir la dernière étape</button>' : ''}</div></div>
     <div class="site-stage"><small>Étape ${pr.stage}/${n}</small>${name}</div>
     <div class="site-bar" title="${pct} %"><span style="width:${pct}%"></span></div>
     <div class="site-steps" style="grid-template-columns:repeat(${n},1fr)">${act.map((k, i) => `<i class="${i < pr.stage ? 'on' : i === pr.stage ? 'cur' : ''}" style="--f:${Math.round(pr.frac * 100)}%" title="${ST[k][0]}"></i>`).join('')}</div>
@@ -5889,6 +5900,7 @@ document.addEventListener('change', e => {
   const k = e.target.dataset.change;
   if (k === 'quick-project') e.target.form.theme.innerHTML = themeOptions(e.target.value);
   if (k === 'draft-project') { readDraft(); draft.themeId = null; renderTaskModal() }
+  if (k === 'site-sel' && e.target.value === '__fin') { ui.showFin = !ui.showFin; return render() }
   if (k === 'site-sel') { const id = e.target.value, t = siteSources().find(x => x.id === id); if (t) { ui.view = null; ui.project = t.projectId; (ui.siteSel ||= {})[t.projectId] = id; if (!t.theme) ui.open[id] = true } commit(); focusTask(id) }
 });
 
