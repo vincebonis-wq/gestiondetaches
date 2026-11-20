@@ -871,12 +871,12 @@ if (!db.spiritGym) {
 if (!db.trophies) {
   const pj = db.projects.find(p => /chakra/i.test(p.name)) || db.projects[0];
   if (pj) {
-    const eur = v => v.toLocaleString('fr-FR').replace(/\s/g, ' ');
+    const eur = v => { const c = Math.round(v * 100) / 100; return c.toLocaleString('fr-FR', { minimumFractionDigits: c % 1 ? 2 : 0, maximumFractionDigits: 2 }).replace(/\s/g, ' ') };
     let order = Math.max(0, ...db.tasks.filter(t => t.projectId === pj.id).map(t => t.order || 0)) + 1;
     const mk = (title, kind, unit, price) => db.tasks.push({ id: uid(), projectId: pj.id, themeId: null, title, due: null, flagged: false, done: false, est: 0, order: order++, createdAt: Date.now(),
-      subgoals: Array.from({ length: 100 }, (_, i) => ({ id: uid(), title: `${unit} n°${i + 1} · ${price} € (total ${eur((i + 1) * price)} €)`, due: null, est: 0, done: false })), site: { on: true, shown: 0, kind, since: Date.now() } });
+      subgoals: Array.from({ length: 100 }, (_, i) => ({ id: uid(), title: `${unit} n°${i + 1} · ${eur(price)} € (total ${eur((i + 1) * price)} €)`, due: null, est: 0, done: false })), site: { on: true, shown: 0, kind, since: Date.now() } });
     mk('🏆 100 ventes — Formation vidéo L’Alchimie des chakras', 'trophyF', 'Vente', 195);
-    mk('🏆 100 livres vendus — L’Alchimie des chakras', 'trophyB', 'Livre vendu', 35);
+    mk('🏆 100 livres vendus — L’Alchimie des chakras', 'trophyB', 'Livre vendu', 5.8);
     db.trophies = true;
     try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) {}
   }
@@ -2742,7 +2742,7 @@ KINDS.trophyB = { label: 'Trophée des 100 livres', the: 'le trophée', sign: '1
   11: ['Le livre géant', 'Le livre, debout, grand comme une porte'], 12: ['La sphère céleste', 'Les anneaux d\'or de la couverture tournent sur leur piédestal'], 13: ['Les étoiles', 'Une poussière d\'étoiles dorées tourne autour de la pile'],
   14: ['Les flambeaux', 'Deux flambeaux encadrent le trophée'], 15: ['Le tapis rouge', 'Tapis rouge et cordons dorés jusqu\'à l\'avenue'], 16: ['Les projecteurs', 'Deux projecteurs balaient le ciel'],
   17: ['L\'arche d\'entrée', '« 100 LECTEURS » au-dessus du tapis'], 18: ['Les lecteurs', 'Tes premiers lecteurs arrivent, livre en main'], 19: ['Les feux d\'artifice', 'Les mortiers sont en place, mèches prêtes'],
-  20: ['Cent livres !', 'Le voile tombe, le ciel s\'embrase : 3 500 €'] } };
+  20: ['Cent livres !', 'Le voile tombe, le ciel s\'embrase : 580 € de droits d\'auteur'] } };
 const KIND_ORDER = ['trophyF', 'trophyB', 'dune', 'cairn', 'cinema', 'sanctuary', 'cabane', 'atelier', 'zen', 'chalet', 'empire', 'boutique', 'mas', 'eco', 'villa'];
 // Étapes réellement jouées pour une architecture (plain-pied : pas d'étage ; sans piscine : pas de bassin)
 function kindSkips(kind) { const K = KINDS[kind] || KINDS.villa, s = new Set(); if (K.low) [8, 9].forEach(k => s.add(k)); if (K.noPool) [13, 14, 15].forEach(k => s.add(k)); (K.skip || []).forEach(k => s.add(k)); return s }
@@ -3727,11 +3727,11 @@ SANC_JOBS[20] = { async work(S, todo) {
 const TROPHY = {
   trophyF: { side: -1, cx: -8.5, money: 195, goal: '19 500 €', unit: 'VENTES', marble: 0x17171b, arch: 'OCCULT ACADEMY · 100 ÉLÈVES', archBg: '#141418',
     stg: { stake: 1, pit: 2, wall: 3, tiers: 4, stele: 5, board: 6, ped: 7, deck: 8, keys: 9, lid: 10, video: 11, chak: 12, snake: 13, torch: 14, carpet: 15, spot: 16, arch: 17, guests: 18, mortar: 19, fin: 20 } },
-  trophyB: { side: 1, cx: 8.5, money: 35, goal: '3 500 €', unit: 'LIVRES VENDUS', marble: 0xf1ede4, arch: '100 LECTEURS · LE LIVRE', archBg: '#6e1420',
+  trophyB: { side: 1, cx: 8.5, money: 5.8, goal: '580 €', unit: 'LIVRES VENDUS', marble: 0xf1ede4, arch: '100 LECTEURS · LE LIVRE', archBg: '#6e1420',
     stg: { stake: 1, pit: 2, tiers: 3, rod: 4, stele: 5, board: 6, lect: 7, lotus: 8, snake: 9, chak: 10, cover: 11, sphere: 12, stars: 13, torch: 14, carpet: 15, spot: 16, arch: 17, guests: 18, mortar: 19, fin: 20 } }
 };
 const TRO_Z = -2, ALL20 = Array.from({ length: 20 }, (_, i) => i + 1);
-const fmtEur = v => Math.round(v).toLocaleString('fr-FR').replace(/\s/g, ' ') + ' €';
+const fmtEur = v => { const c = Math.round(v * 100) / 100; return c.toLocaleString('fr-FR', { minimumFractionDigits: c % 1 ? 2 : 0, maximumFractionDigits: 2 }).replace(/\s/g, ' ') + ' €' };
 let screenTexC = null;
 const screenTex = () => screenTexC || (screenTexC = (() => { const t = new T3.TextureLoader().load(FORM_SCREEN); t.encoding = T3.sRGBEncoding; t.anisotropy = 16; return t })());
 // un serpent d'or qui monte en spirale, la tête dressée vers l'avant (il pousse de la queue à la tête)
