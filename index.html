@@ -5666,7 +5666,8 @@ async function siteStage(ctl, k, f0, f1, rate) {
     if (S.jobs[k].finish) await S.jobs[k].finish(S);
     if (ctl.active) toast(`Étape terminée : ${stepsOf(ctl.S.kind)[k][0]}`, stepsOf(ctl.S.kind)[k][1]);
     if (S.reward) S.reward(`Étape ${k}`, stepsOf(S.kind)[k][0], 0, 10, 0);
-    if (k < SITE_N) await S.leaveAll();
+    // les constructions sur mesure gardent leur camion garé jusqu'à la fin (l'équipe vient s'y réapprovisionner)
+    if (k < SITE_N && !KINDS[S.kind]?.scene) await S.leaveAll();
   }
 }
 function setRun(ctl, k) {
