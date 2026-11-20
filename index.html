@@ -3355,7 +3355,7 @@ async function crewStage(S, todo, sp, go) {
   const k = S.h.k, p0 = todo.map(d => d.it.p), f = sp.focus || [0, 4, 2, 52]; k.busy = true; k.laneZ = sp.lane; S.kindSync(); S.focus(...f);
   // un seul plateau livre tout le chantier : il reste garé et porte, en couches, les colis des étapes à venir ;
   // la toupie, la benne ou la citerne passent par la voie d'en face, le temps de leur étape, sans traverser le plateau garé
-  const T = sp.truck, stK = S.items.findIndex(a => a && todo[0] && a.includes(todo[0].it)); let truckP = null, special = null;
+  const T = sp.truck, stK = todo[0] ? +(Object.keys(S.items).find(i => S.items[i].includes(todo[0].it)) || 0) : 0; let truckP = null, special = null;
   const curSp = k.special && S.vehicles.includes(k.special) ? k.special : null;
   if (curSp && !(T && !T.load && T.type === curSp.type)) { sendAway(S, k, curSp) }
   if (T && T.load) {
