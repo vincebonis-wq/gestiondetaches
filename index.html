@@ -3297,12 +3297,18 @@ const CARGO = {
 };
 // le chargement est rangé dans la benne : en rangées, posé à plat, couche après couche (jamais en l'air ni hors du plateau)
 const BEDS = { flatbed: [5.1, 2.25], pickup: [1.85, 1.65], box: [3.4, 2] };
-function fillCargo(v, load, n = v.type === 'pickup' ? 8 : 16) {
-  if (!v.cargo || !CARGO[load]) return; const bed = BEDS[v.type] || [2, 1.6], probe = CARGO[load](), bb = new T3.Box3().setFromObject(probe), iw = bb.max.x - bb.min.x + .06, id = bb.max.z - bb.min.z + .06, ih = bb.max.y - bb.min.y;
-  const nx = Math.max(1, Math.floor(bed[0] / iw)), nz = Math.max(1, Math.min(Math.floor(bed[1] / id), Math.ceil(n / nx))), per = nx * nz;
-  for (let i = 0; i < n; i++) { const l = Math.floor(i / per), j = i % per, m = i ? CARGO[load]() : probe; m.position.set(-((nx - 1) * iw) / 2 + (j % nx) * iw, l * (ih + .01) - bb.min.y, -((nz - 1) * id) / 2 + Math.floor(j / nx) * id); v.cargo.add(m) }
-  v.cargoKind = load;
+function fillCargo(v, loads, n = 8) {
+  // une couche par sorte de colis : celle de l'étape en cours sur le dessus, les suivantes dessous
+  if (!v.cargo) return; const bed = BEDS[v.type] || [2, 1.6]; let y0 = 0;
+  for (const L of [].concat(loads).filter(L => CARGO[L])) {
+    const probe = CARGO[L](), bb = new T3.Box3().setFromObject(probe), iw = bb.max.x - bb.min.x + .06, id = bb.max.z - bb.min.z + .06, ih = bb.max.y - bb.min.y;
+    const nx = Math.max(1, Math.floor(bed[0] / iw)), nz = Math.max(1, Math.min(Math.floor(bed[1] / id), Math.ceil(n / nx))), per = nx * nz;
+    for (let i = 0; i < n; i++) { const l = Math.floor(i / per), j = i % per, m = i ? CARGO[L]() : probe; m.position.set(-((nx - 1) * iw) / 2 + (j % nx) * iw, y0 + l * (ih + .01) - bb.min.y, -((nz - 1) * id) / 2 + Math.floor(j / nx) * id); m.userData.load = L; v.cargo.add(m) }
+    y0 += Math.ceil(n / per) * (ih + .01);
+  }
 }
+// prendre un colis de la bonne sorte (le plus haut d'abord)
+const takeCargo = (v, L) => { const c = v.cargo.children; for (let i = c.length - 1; i >= 0; i--) if (c[i].userData.load === L) { v.cargo.remove(c[i]); return true } return false };
 // poser ce qu'on porte : le colis quitte les mains et rejoint l'ouvrage (on voit le geste, pas un objet qui disparaît)
 function install(S, w, at) {
   const m = w.carry; if (!m) return; const p = new T3.Vector3(); m.getWorldPosition(p); S.root.worldToLocal(p); w.setCarry(null); S.scene.add(m); m.position.copy(p);
@@ -3347,20 +3353,21 @@ async function scafDown(S, w, g) {
 // une étape type : livraison (et déchargement), échafaudage, chacun à son poste (au sol ou en hauteur), travail, puis on redescend et on démonte
 async function crewStage(S, todo, sp, go) {
   const k = S.h.k, p0 = todo.map(d => d.it.p), f = sp.focus || [0, 4, 2, 52]; k.busy = true; k.laneZ = sp.lane; S.kindSync(); S.focus(...f);
-  // le camion reste garé d'une étape à l'autre ; il ne repart que si l'étape demande un autre engin (ou s'il est vide)
-  const T = sp.truck; let truckP = null;
-  if (T) {
-    const cur = k.truck && S.vehicles.includes(k.truck) ? k.truck : null;
-    if (cur && cur.type === T.type && (!T.load || (cur.cargoKind === T.load && cur.cargo.children.length > 2))) truckP = Promise.resolve(cur);
-    else { if (cur) S.leave(cur); k.truck = null; truckP = S.arrive(T.type, T.x).then(v => { if (T.load) fillCargo(v, T.load); k.truck = v; return v }) }
-  }
+  // un seul plateau livre tout le chantier : il reste garé et porte, en couches, les colis des étapes à venir ;
+  // la toupie, la benne ou la citerne passent par la voie d'en face, le temps de leur étape, sans traverser le plateau garé
+  const T = sp.truck; let truckP = null, special = null;
+  if (T && T.load) {
+    const cur = k.truck && S.vehicles.includes(k.truck) ? k.truck : null, need = [T.load, ...sp.spots.map(x => x.carry).filter(Boolean)];
+    if (cur && need.every(L => cur.cargo.children.some(m => m.userData.load === L))) truckP = Promise.resolve(cur);
+    else { if (cur) S.leave(cur); k.truck = null; const loads = [...new Set(sp.loads || need)].slice(0, 4).reverse(); truckP = S.arrive('flatbed', T.x).then(v => { fillCargo(v, loads); k.truck = v; return v }) }
+  } else if (T) special = S.arrive(T.type, T.x + (k.truck ? 9 : 0), { z: H3.lane + 3.4 });
   const scs = (sp.scaf || []).map(s => scafAdd(S, s));
   const ws = sp.spots.map((s, i) => [k.crew[i], s]).filter(([w]) => w);
-  const truck = truckP && T.load ? await truckP : null;
+  const truck = truckP ? await truckP : null;
   const fetch = async (w, s, i) => {
-    if (!truck || !truck.cargo.children.length) return; const [tx, tz] = vWorld(truck, -.6 + (i % 4) * .7, -1.9);
+    const L = s.carry || T.load; if (!truck || !truck.cargo.children.some(m => m.userData.load === L)) return; const [tx, tz] = vWorld(truck, -.6 + (i % 4) * .7, -1.9);
     await go(S, w, tx, tz); cairnFace(w, tx, truck.z); w.pose = 'reach'; await S.wait(550);
-    const c = truck.cargo.children; if (c.length) truck.cargo.remove(c[c.length - 1]); w.pose = null; w.setCarry(CARGO[s.carry || T.load]());
+    if (takeCargo(truck, L)) w.setCarry(CARGO[L]()); w.pose = null;
   };
   const post = async (w, s) => {
     if (!Array.isArray(s)) { const g = scs[s.sc]; await scafUp(S, w, g, s.lx, s.lv, go); const [fx, fz] = s.f || scafPt(g, s.lx, -2); cairnFace(w, fx, fz); install(S, w); w.pose = s.pose }
@@ -3379,7 +3386,7 @@ async function crewStage(S, todo, sp, go) {
   // au sol, on retourne au camion se réapprovisionner entre deux poses
   const runs = ws.filter(([, s]) => truck && Array.isArray(s)).map(async ([w, s], i) => {
     while (!done) {
-      await S.wait(rnd(2600, 4200)); if (done || !truck.cargo.children.length) break;
+      await S.wait(rnd(2600, 4200)); if (done || !truck.cargo.children.some(m => m.userData.load === (s.carry || T.load))) break;
       const pose = w.pose; w.pose = null; await fetch(w, s, i); await post(w, s); if (pose && !w.pose) w.pose = pose;
     }
   });
@@ -3387,6 +3394,7 @@ async function crewStage(S, todo, sp, go) {
   ws.forEach(([w]) => { w.pose = null; w.setCarry(null) });
   await Promise.all(ws.filter(([, s]) => !Array.isArray(s)).map(([w, s]) => scafDown(S, w, scs[s.sc])));
   await Promise.all(scs.map(g => scafRemove(S, g)));
+  if (special) special.then(async v => { await S.drive(v, v.x - 95, v.z, { ms: 7000, ease: EZ.in, keepYaw: true }); S.removeVehicle(v) });
   k.laneZ = null; k.busy = false;
 }
 // fin du chantier : le camion garé repart
@@ -3524,6 +3532,8 @@ const CINE_SPEC = [
   { truck: { type: 'flatbed', x: 8, load: 'crates' }, spots: [[7.4, 9.4, 'reach'], [12.4, 9.4, 'reach'], [10.6, 12.6, 'reach'], [7.4, 12, 'reach']], ms: 11000, fx: 0 },
   { spots: [[-3, 7, 'reach'], [3, 7, 'reach']], ms: 7000, fx: 'gold', at: [0, 5.8, 8.4] }
 ];
+const specLoads = list => list.forEach((q, i) => { q.loads = list.slice(i).flatMap(x => x.truck?.load ? [x.truck.load, ...x.spots.map(y => y.carry).filter(Boolean)] : []) });
+specLoads(CINE_SPEC);
 const CINE_JOBS = {};
 CINE_SPEC.forEach((sp, si) => { CINE_JOBS[CINE_ACT[si]] = { work: (S, todo) => crewStage(S, todo, sp, cineGo) } });
 // l'avant-première : les ouvriers repartent par la rue, les invités arrivent sur le tapis rouge, la tour s'illumine et le serpent s'enroule
@@ -3659,6 +3669,7 @@ const SANC_SPEC = {
   17: { truck: { type: 'pickup', x: 7, load: 'gold' }, spots: [[1.8, -.2, 'kneel', 0, -3, .6], [-1.8, -.2, 'kneel', 0, -3, .6]], ms: 8000, fx: 'gold', at: [0, 1.8, -3], focus: [0, 3, -3, 30] }
 };
 const SANC_JOBS = {};
+specLoads(Object.keys(SANC_SPEC).map(Number).sort((a, b) => a - b).map(k => SANC_SPEC[k]));
 Object.entries(SANC_SPEC).forEach(([st, sp]) => { SANC_JOBS[st] = { work: (S, todo) => crewStage(S, todo, { focus: [0, 4, 0, 50], at: [0, 1, -3], ...sp }, sancGo) } });
 // le tracé : quatre ouvriers, huit piquets ; chacun plante les deux siens, l'un après l'autre, à coups de marteau
 SANC_JOBS[1] = { async work(S, todo) {
@@ -3899,7 +3910,7 @@ const troSpecs = kind => {
 };
 const TROPHY_JOBS = {};
 ['trophyF', 'trophyB'].forEach(kind => {
-  const J = TROPHY_JOBS[kind] = {}, sp = troSpecs(kind), G = TROPHY[kind].stg;
+  const J = TROPHY_JOBS[kind] = {}, sp = troSpecs(kind), G = TROPHY[kind].stg; specLoads(Object.keys(sp).map(Number).sort((a, b) => a - b).map(k => sp[k]));
   Object.entries(sp).forEach(([st, q]) => { J[st] = { work: (S, todo) => crewStage(S, todo, q, trophyGo) } });
   // l'inauguration : l'équipe se retire, les invités applaudissent, les feux d'artifice éclatent au-dessus du trophée, le voile tombe
   J[G.fin] = { async work(S, todo) {
