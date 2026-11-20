@@ -3295,7 +3295,20 @@ const CARGO = {
   panels: () => carryBox(.9, .08, .7, 0x6e1420, { r: .6 }),
   books: () => { const g = new T3.Group(); [0x1b1416, 0x6e1420, 0x1b1416, 0x2a1a10, 0x6e1420].forEach((c, i) => g.add(carryBox(.42, .07, .3, c, { r: .6 }).translateY(i * .075 - .15))); return g }
 };
-function fillCargo(v, load) { if (!v.cargo || !CARGO[load]) return; for (let i = 0; i < 6; i++) { const m = CARGO[load](); m.position.set(-1.8 + (i % 3) * .9, .25 + Math.floor(i / 3) * .45, i % 2 ? .45 : -.45); v.cargo.add(m) } }
+// le chargement est rangé dans la benne : en rangées, posé à plat, couche après couche (jamais en l'air ni hors du plateau)
+const BEDS = { flatbed: [5.1, 2.25], pickup: [1.85, 1.65], box: [3.4, 2] };
+function fillCargo(v, load, n = v.type === 'pickup' ? 8 : 16) {
+  if (!v.cargo || !CARGO[load]) return; const bed = BEDS[v.type] || [2, 1.6], probe = CARGO[load](), bb = new T3.Box3().setFromObject(probe), iw = bb.max.x - bb.min.x + .06, id = bb.max.z - bb.min.z + .06, ih = bb.max.y - bb.min.y;
+  const nx = Math.max(1, Math.floor(bed[0] / iw)), nz = Math.max(1, Math.min(Math.floor(bed[1] / id), Math.ceil(n / nx))), per = nx * nz;
+  for (let i = 0; i < n; i++) { const l = Math.floor(i / per), j = i % per, m = i ? CARGO[load]() : probe; m.position.set(-((nx - 1) * iw) / 2 + (j % nx) * iw, l * (ih + .01) - bb.min.y, -((nz - 1) * id) / 2 + Math.floor(j / nx) * id); v.cargo.add(m) }
+  v.cargoKind = load;
+}
+// poser ce qu'on porte : le colis quitte les mains et rejoint l'ouvrage (on voit le geste, pas un objet qui disparaît)
+function install(S, w, at) {
+  const m = w.carry; if (!m) return; const p = new T3.Vector3(); m.getWorldPosition(p); S.root.worldToLocal(p); w.setCarry(null); S.scene.add(m); m.position.copy(p);
+  const q = at ? new T3.Vector3(at[0], at[1], at[2]) : new T3.Vector3(w.x + Math.sin(w.tyaw) * .9, w.y + .45, w.z + Math.cos(w.tyaw) * .9), p0 = p.clone();
+  return S.anim(750, e => { m.position.lerpVectors(p0, q, e); m.scale.setScalar(Math.max(.01, 1 - e * .85)) }, EZ.io).then(() => S.scene.remove(m));
+}
 // un échafaudage : montants, planchers tous les 2,5 m environ, garde-corps, et une échelle sur la face avant (à gauche)
 function scafMesh(w, H, lv, d = 1.3) {
   const g = new T3.Group(), pipe = STD(0x8d949a, { m: .6, r: .4 }), plank = STD(0xc9a464, { r: .8 }), n = Math.max(2, Math.round(w / 2.4) + 1);
@@ -3334,33 +3347,50 @@ async function scafDown(S, w, g) {
 // une étape type : livraison (et déchargement), échafaudage, chacun à son poste (au sol ou en hauteur), travail, puis on redescend et on démonte
 async function crewStage(S, todo, sp, go) {
   const k = S.h.k, p0 = todo.map(d => d.it.p), f = sp.focus || [0, 4, 2, 52]; k.busy = true; k.laneZ = sp.lane; S.kindSync(); S.focus(...f);
-  const T = sp.truck, truckP = T ? S.arrive(T.type, T.x).then(v => { if (T.load) fillCargo(v, T.load); return v }) : null;
+  // le camion reste garé d'une étape à l'autre ; il ne repart que si l'étape demande un autre engin (ou s'il est vide)
+  const T = sp.truck; let truckP = null;
+  if (T) {
+    const cur = k.truck && S.vehicles.includes(k.truck) ? k.truck : null;
+    if (cur && cur.type === T.type && (!T.load || (cur.cargoKind === T.load && cur.cargo.children.length > 2))) truckP = Promise.resolve(cur);
+    else { if (cur) S.leave(cur); k.truck = null; truckP = S.arrive(T.type, T.x).then(v => { if (T.load) fillCargo(v, T.load); k.truck = v; return v }) }
+  }
   const scs = (sp.scaf || []).map(s => scafAdd(S, s));
   const ws = sp.spots.map((s, i) => [k.crew[i], s]).filter(([w]) => w);
   const truck = truckP && T.load ? await truckP : null;
-  await Promise.all(ws.map(([w, s], i) => S.wait(i * 350).then(async () => {
-    if (truck) {
-      const [tx, tz] = vWorld(truck, -.2 + (i % 3) * .7, -1.9); await go(S, w, tx, tz); cairnFace(w, tx, truck.z); w.pose = 'reach'; await S.wait(500);
-      const c = truck.cargo.children; if (c.length) truck.cargo.remove(c[c.length - 1]); w.pose = null; w.setCarry(CARGO[s.carry || T.load]());
-    }
-    if (!Array.isArray(s)) { const g = scs[s.sc]; await scafUp(S, w, g, s.lx, s.lv, go); w.setCarry(null); const [fx, fz] = s.f || scafPt(g, s.lx, -2); cairnFace(w, fx, fz); w.pose = s.pose }
-    else { const [x, z, pose, fx, fz, y] = s; await go(S, w, x, z, y); w.setCarry(null); cairnFace(w, fx ?? (sp.at ? sp.at[0] : x), fz ?? (sp.at ? sp.at[2] : 0)); w.pose = pose; if (pose === 'dig') w.dp = 0 }
-  })));
-  const at = sp.at || [0, 1, 0];
-  await S.anim(sp.ms, e => {
+  const fetch = async (w, s, i) => {
+    if (!truck || !truck.cargo.children.length) return; const [tx, tz] = vWorld(truck, -.6 + (i % 4) * .7, -1.9);
+    await go(S, w, tx, tz); cairnFace(w, tx, truck.z); w.pose = 'reach'; await S.wait(550);
+    const c = truck.cargo.children; if (c.length) truck.cargo.remove(c[c.length - 1]); w.pose = null; w.setCarry(CARGO[s.carry || T.load]());
+  };
+  const post = async (w, s) => {
+    if (!Array.isArray(s)) { const g = scs[s.sc]; await scafUp(S, w, g, s.lx, s.lv, go); const [fx, fz] = s.f || scafPt(g, s.lx, -2); cairnFace(w, fx, fz); install(S, w); w.pose = s.pose }
+    else { const [x, z, pose, fx, fz, y] = s; await go(S, w, x, z, y); cairnFace(w, fx ?? (sp.at ? sp.at[0] : x), fz ?? (sp.at ? sp.at[2] : 0)); install(S, w); w.pose = pose; if (pose === 'dig') w.dp = 0 }
+  };
+  await Promise.all(ws.map(([w, s], i) => S.wait(i * 350).then(async () => { await fetch(w, s, i); await post(w, s) })));
+  const at = sp.at || [0, 1, 0]; let done = false;
+  const work = S.anim(sp.ms, e => {
     cairnSet(todo, p0, e); ws.forEach(([w]) => { if (w.pose === 'dig') w.dp = (e * 9 + w.seed) % 1 });
-    const rw = ws[(Math.random() * ws.length) | 0][0];
+    const rw = ws[(Math.random() * ws.length) | 0][0]; if (!rw.pose) return;
     if (sp.fx === 'dust' && Math.random() < .5) S.emit({ x: rw.x + rnd(-1, 1), y: rw.y + rnd(.3, 2), z: rw.z + rnd(-1, 1), vy: .5, sv: .5, g: .2, drag: .6, life: 1.6, size: .8, grow: 1.3, c: [.86, .84, .8], a: .3 });
     if (sp.fx === 'dirt' && Math.random() < .5) S.emit({ x: rw.x + rnd(-1, 1), y: .3, z: rw.z + rnd(-1, 1), vy: 1, sv: .6, g: 3, drag: .4, life: 1.2, size: .5, grow: .8, c: [.48, .35, .22], a: .6 });
     if (sp.fx === 'water' && Math.random() < .6) S.emit({ x: at[0] + rnd(-2, 2), y: .5, z: at[2] + rnd(-1.6, 1.6), vy: 1.2, sv: .4, g: 4, drag: .3, life: .9, size: .3, grow: .5, c: [.7, .88, .95], a: .6 });
     if (sp.fx === 'gold') sparkle(S, at[0] + rnd(-1.5, 1.5), at[1], at[2] + rnd(-.5, .5), [1, .82, .4]);
-  }, EZ.io);
+  }, EZ.io).then(() => { done = true });
+  // au sol, on retourne au camion se réapprovisionner entre deux poses
+  const runs = ws.filter(([, s]) => truck && Array.isArray(s)).map(async ([w, s], i) => {
+    while (!done) {
+      await S.wait(rnd(2600, 4200)); if (done || !truck.cargo.children.length) break;
+      const pose = w.pose; w.pose = null; await fetch(w, s, i); await post(w, s); if (pose && !w.pose) w.pose = pose;
+    }
+  });
+  await work; await Promise.all(runs);
   ws.forEach(([w]) => { w.pose = null; w.setCarry(null) });
   await Promise.all(ws.filter(([, s]) => !Array.isArray(s)).map(([w, s]) => scafDown(S, w, scs[s.sc])));
   await Promise.all(scs.map(g => scafRemove(S, g)));
-  if (truckP) truckP.then(v => S.leave(v));
   k.laneZ = null; k.busy = false;
 }
+// fin du chantier : le camion garé repart
+const truckGone = (S, k) => { if (k.truck && S.vehicles.includes(k.truck)) S.leave(k.truck); k.truck = null };
 
 /* ----- Le cinéma des chakras : un grand palais du cinéma Art déco, construit de A à Z, pour la formation vidéo ----- */
 // une fleur de lotus rouge (pétaux en deux couronnes, cœur doré)
@@ -3498,7 +3528,7 @@ const CINE_JOBS = {};
 CINE_SPEC.forEach((sp, si) => { CINE_JOBS[CINE_ACT[si]] = { work: (S, todo) => crewStage(S, todo, sp, cineGo) } });
 // l'avant-première : les ouvriers repartent par la rue, les invités arrivent sur le tapis rouge, la tour s'illumine et le serpent s'enroule
 CINE_JOBS[20] = { async work(S, todo) {
-  const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 10, 4, 64);
+  const k = S.h.k, p0 = todo.map(d => d.it.p); truckGone(S, k); k.busy = true; S.kindSync(); S.focus(0, 10, 4, 64);
   const away = Promise.all(k.crew.map((w, i) => S.wait(i * 500).then(() => cineGo(S, w, 15.5, 16.5)).then(() => cairnGo(S, w, [[0, 24 + i * 2, 16.5]]))));
   await S.anim(16000, e => { cairnSet(todo, p0, e); if (e > .25 && Math.random() < .7) { const a = rnd(0, Math.PI * 2); sparkle(S, Math.cos(a) * 4.3, 11 + e * 9, 4.2 + Math.sin(a) * 2.4, [1, .8, .35]) } }, EZ.io);
   await away; k.busy = false; S.kindSync();
@@ -3654,7 +3684,7 @@ SANC_JOBS[18] = { async work(S, todo) {
 SANC_JOBS[19] = { async work(S, todo) { const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 4, -3, 34); await S.anim(12000, e => cairnSet(todo, p0, e), EZ.io); k.busy = false } };
 // la conscience absolue : l'équipe s'en va, le mandala de lumière s'ouvre au-dessus du dôme
 SANC_JOBS[20] = { async work(S, todo) {
-  const k = S.h.k, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(0, 12, -3, 72);
+  const k = S.h.k, p0 = todo.map(d => d.it.p); truckGone(S, k); k.busy = true; S.kindSync(); S.focus(0, 12, -3, 72);
   const away = Promise.all(k.crew.map((w, i) => S.wait(i * 500).then(() => sancGo(S, w, 19 + i, 13.6))));
   await S.anim(16000, e => { cairnSet(todo, p0, e); if (e > .2 && Math.random() < .7) { const a = rnd(0, Math.PI * 2); sparkle(S, Math.cos(a) * 3, 15 + e * 8, -3 + Math.sin(a) * 3, rgb(CHAKRA_C[(Math.random() * 7) | 0])) } }, EZ.io);
   await away; k.busy = false; S.kindSync();
@@ -3873,7 +3903,7 @@ const TROPHY_JOBS = {};
   Object.entries(sp).forEach(([st, q]) => { J[st] = { work: (S, todo) => crewStage(S, todo, q, trophyGo) } });
   // l'inauguration : l'équipe se retire, les invités applaudissent, les feux d'artifice éclatent au-dessus du trophée, le voile tombe
   J[G.fin] = { async work(S, todo) {
-    const k = S.h.k, C = TROPHY[S.kind], cx = C.cx, p0 = todo.map(d => d.it.p); k.busy = true; S.kindSync(); S.focus(cx, 9, TRO_Z, 66);
+    const k = S.h.k, C = TROPHY[S.kind], cx = C.cx, p0 = todo.map(d => d.it.p); truckGone(S, k); k.busy = true; S.kindSync(); S.focus(cx, 9, TRO_Z, 66);
     const away = Promise.all(k.crew.map((w, i) => S.wait(i * 400).then(() => trophyGo(S, w, cx + C.side * 9.2, 13.6 + (i % 2) * .6))));
     k.guests.forEach(w => { w.pose = 'reach' });
     let next = 1.2;
