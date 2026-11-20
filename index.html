@@ -3374,7 +3374,7 @@ async function crewStage(S, todo, sp, go) {
   const ws = sp.spots.map((s, i) => [k.crew[i], s]).filter(([w]) => w);
   const truck = truckP ? await truckP : null;
   const fetch = async (w, s, i) => {
-    const L = s.carry || T.load; if (!truck || !truck.cargo.children.some(m => m.userData.load === L)) return; const [tx, tz] = vWorld(truck, -.6 + (i % 4) * .7, -1.9);
+    if (!truck) return; const L = s.carry || T.load; if ( !truck.cargo.children.some(m => m.userData.load === L)) return; const [tx, tz] = vWorld(truck, -.6 + (i % 4) * .7, -1.9);
     await go(S, w, tx, tz); cairnFace(w, tx, truck.z); w.pose = 'reach'; await S.wait(550);
     if (takeCargo(truck, L)) w.setCarry(CARGO[L]()); w.pose = null;
   };
