@@ -3665,7 +3665,7 @@ SANC_JOBS[20] = { async work(S, todo) {
 const TROPHY = {
   trophyF: { side: -1, cx: -8.5, money: 195, goal: '19 500 €', unit: 'VENTES', marble: 0x17171b, arch: 'OCCULT ACADEMY · 100 ÉLÈVES', archBg: '#141418',
     stg: { stake: 1, pit: 2, wall: 3, tiers: 4, stele: 5, board: 6, ped: 7, deck: 8, keys: 9, lid: 10, video: 11, chak: 12, snake: 13, torch: 14, carpet: 15, spot: 16, arch: 17, guests: 18, mortar: 19, fin: 20 } },
-  trophyB: { side: 1, cx: 8.5, money: 35, goal: '3 500 €', unit: 'LIVRES VENDUS', marble: 0xf1ede4, arch: '100 LECTEURS · L’ALCHIMIE DES CHAKRAS', archBg: '#6e1420',
+  trophyB: { side: 1, cx: 8.5, money: 35, goal: '3 500 €', unit: 'LIVRES VENDUS', marble: 0xf1ede4, arch: '100 LECTEURS · LE LIVRE', archBg: '#6e1420',
     stg: { stake: 1, pit: 2, tiers: 3, rod: 4, stele: 5, board: 6, lect: 7, lotus: 8, snake: 9, chak: 10, cover: 11, sphere: 12, stars: 13, torch: 14, carpet: 15, spot: 16, arch: 17, guests: 18, mortar: 19, fin: 20 } }
 };
 const TRO_Z = -2, ALL20 = Array.from({ length: 20 }, (_, i) => i + 1);
@@ -3686,7 +3686,7 @@ Object.assign(Site3D.prototype, {
   buildTrophy() {
     const C = TROPHY[this.kind], G = C.stg, sc = this.scene, k = this.h.k, sd = C.side, cx = C.cx, cz = TRO_Z, F = this.kind === 'trophyF';
     const gold = STD(0xe0b040, { m: .35, r: .3, e: 0x5a3a00, ei: .25 }), marble = STD(C.marble, { r: .35, m: .1 }), wood = STD(0x9a6a40, { map: this.tx.wood, r: .8 }), red = STD(0xa3122a, { r: .75 }), black = STD(0x141418, { r: .5 }), champ = STD(0xd9b38c, { m: .45, r: .35 });
-    this.h.bushes.forEach(b => b.visible = F); this.trees.visible = false;
+    this.h.bushes.forEach(b => b.visible = F); this.trees.visible = false; this.h.plants.forEach(g => g.visible = false);
     const grp = (x = 0, y = 0, z = 0, par = sc) => { const g = new T3.Group(); g.position.set(x, y, z); g.visible = false; par.add(g); return g };
     // le tracé et les fondations
     k.stakes = [[-4.6, -4.6], [4.6, -4.6], [4.6, 4.6], [-4.6, 4.6]].map(([a, b]) => { const g = grp(cx + a, 0, cz + b); g.add(AT(CY(.05, .06, 1, wood, 6), 0, .5, 0)); g.add(AT(CY(.08, .08, .08, gold, 8), 0, 1, 0)); return g });
@@ -3724,7 +3724,7 @@ Object.assign(Site3D.prototype, {
       // l'arc des sept chakras au-dessus de l'écran
       k.orbs = CHAKRA_C.map((c, i) => { const a = Math.PI * (.88 - i * .76 / 6), g = grp(cx + Math.cos(a) * 4, 2.6 + Math.sin(a) * 4.4, cz - 1.9); g.add(MS(new T3.SphereGeometry(.34, 18, 14), STD(c, { e: c, ei: 1.1, r: .3 }), false, false)); const r = MS(new T3.TorusGeometry(.44, .05, 6, 20), gold); g.add(r); return g });
       // le serpent d'or, dressé au coin du socle
-      k.snk = goldSnake(4.6, .42, 2.6, gold); k.snk.g.position.set(cx + sd * 3.15, 1.2, cz + 2.9); k.snk.g.visible = false; sc.add(k.snk.g); k.snk.g.add(AT(CY(.07, .07, 4.4, gold, 8), 0, 2.2, 0));
+      k.snk = goldSnake(4.6, .42, 2.6, gold); k.snk.g.position.set(cx - sd * 3.15, 1.2, cz - 2.9); k.snk.g.visible = false; sc.add(k.snk.g); k.snk.g.add(AT(CY(.07, .07, 4.4, gold, 8), 0, 2.2, 0));
     } else {
       // la colonne des 100 livres : un axe d'or, un livre par vente
       k.rod = grp(cx, 1.8, cz - .6); k.rod.add(AT(CY(.07, .07, 14.4, gold, 8), 0, 7.2, 0)); k.rod.add(AT(MS(new T3.SphereGeometry(.3, 14, 10), STD(0xfff4d0, { e: 0xffd890, ei: .9 })), 0, 14.5, 0));
@@ -3777,7 +3777,7 @@ Object.assign(Site3D.prototype, {
   },
   trophySync() {
     const k = this.h.k, C = TROPHY[this.kind], G = C.stg, P = i => this.prog(i);
-    let D = 0; for (let i = 1; i <= 20; i++) D += P(i); const sales = Math.min(100, Math.round(D * 5)); k.sales = sales;
+    let D = 0; for (let i = 1; i <= 20; i++) D += P(i); const sales = Math.min(100, Math.round(D * 5)); k.sales = sales; this.h.plants.forEach(g => g.visible = false);
     k.stakes.forEach(g => { g.visible = P(1) > 0 && P(2) < 1; g.position.y = (1 - clamp01(P(1) * 1.15)) * .45 }); k.string.visible = P(1) >= 1 && P(2) < .5;
     k.pit.visible = P(2) > 0 && P(G.tiers) < 1; k.pit.scale.set(Math.max(.01, EZ.out(P(2))), 1, Math.max(.01, EZ.out(P(2))));
     k.tiers.forEach((g, i) => growY(g, clamp01(P(G.tiers) * 3 - i)));
@@ -3850,7 +3850,7 @@ const troSpecs = kind => {
     [G.lid]: { truck: { type: 'flatbed', x: cx, load: 'panels' }, spots: [top(-2.4, 1.6, 'reach', -1.8, -1.4), top(2.4, 1.6, 'reach', 1.8, -1.4), top(0, 2.4, 'reach', 0, -1)], ms: 9000, fx: 'dust', focus: [cx, 4, cz, 40] },
     [G.video]: { spots: [top(-1.8, 2.3, 'reach', -.8, -1.4), top(1.8, 2.3, 'reach', .8, -1.4)], ms: 8000, fx: 'gold', at: [cx, 4, cz - 2], focus: [cx, 4, cz + 2, 36] },
     [G.chak]: { truck: { type: 'pickup', x: cx, load: 'gold' }, spots: [top(-2.4, 2.4, 'reach', -2.4, -1.9), top(2.4, 2.4, 'reach', 2.4, -1.9), top(0, 2.6, 'reach', 0, -1.9)], ms: 9000, fx: 'gold', at: [cx, 6.5, cz - 1.9], focus: [cx, 5, cz, 44] },
-    [G.snake]: { truck: { type: 'pickup', x: cx, load: 'gold' }, spots: [A(sd * 3.4, 4.9, 'reach', sd * 3.15, 2.9), A(sd * 2, 4.9, 'reach', sd * 3.15, 2.9)], ms: 9000, fx: 'gold', at: [cx + sd * 3.15, 4, cz + 2.9] }
+    [G.snake]: { truck: { type: 'pickup', x: cx, load: 'gold' }, spots: [A(-sd * 4.9, -2, 'reach', -sd * 3.15, -2.9), A(-sd * 4.9, -3.8, 'reach', -sd * 3.15, -2.9)], ms: 9000, fx: 'gold', at: [cx - sd * 3.15, 4, cz - 2.9] }
   }); else {
     Object.assign(sp, {
       [G.rod]: { truck: { type: 'flatbed', x: cx, load: 'gold' }, scaf: [{ x: cx, y: 1.8, z: cz + 1.2, w: 2.6, d: 1, H: 12.6, lv: 5 }], spots: [{ sc: 0, lx: -.6, lv: 5, pose: 'reach', f: [cx, cz - .6] }, { sc: 0, lx: .8, lv: 3, pose: 'reach', f: [cx, cz - .6] }, top(-1.6, 2.4, 'reach', 0, -.6)], ms: 10000, fx: 'gold', at: [cx, 9, cz - .6], focus: [cx, 8, cz, 56] },
