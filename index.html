@@ -3449,7 +3449,7 @@ Object.assign(Site3D.prototype, {
     const fr = STD(0xffffff, { map: zz, r: .6 }); BX(22.3, 1.2, .1, fr, 0, 8.1, 6.86, k.pil); [-11.06, 11.06].forEach(x => BX(.1, 1.2, 13.4, fr, x, 8.1, 0, k.pil));
     k.roof = grp(0, 0, -3.4); BX(22.8, .3, 13.8, gold, 0, 9.55, 0, k.roof); BX(22.4, .6, 13.4, STD(0x141418, { r: .6 }), 0, 10, 0, k.roof);
     // la tour d'entrée bordeaux, à ailettes dorées, qui finit en gradins
-    k.tower = grp(0, .4, 4.2); BX(7, 13, 3, bord, 0, 6.5, 0, k.tower); [-2.4, 0, 2.4].forEach(x => BX(.35, 12.6, .2, gold, x, 6.6, 1.55, k.tower)); [-3.55, 3.55].forEach(x => BX(.2, 13, 3.1, gold, x, 6.5, 0, k.tower));
+    k.tower = grp(0, .4, 4.2); BX(7, 13, 3, bord, 0, 6.5, 0, k.tower); [-2.4, 0, 2.4].forEach(x => BX(.35, 8.6, .2, gold, x, 8.6, 1.55, k.tower)); /* les ailettes dorées partent au-dessus des portes */ [-3.55, 3.55].forEach(x => BX(.2, 13, 3.1, gold, x, 6.5, 0, k.tower));
     k.tiers = [[5.6, 13.4], [4.2, 14.8], [2.8, 16.2]].map(([w, y], i) => { const g = grp(0, 0, 4.2); BX(w, 1.4, 2.6 - i * .4, i % 2 ? bord : black, 0, y + .7, 0, g); BX(w + .2, .18, 2.8 - i * .4, gold, 0, y + 1.4, 0, g); return g });
     k.sun = grp(0, 17.6, 4.25); for (let i = 0; i < 13; i++) k.sun.add(MS(new T3.CircleGeometry(3.4, 2, i / 13 * Math.PI, Math.PI / 13), i % 2 ? black : gold)); k.sun.add(AT(MS(new T3.CircleGeometry(1.1, 24, 0, Math.PI), gold), 0, 0, .02)); k.sun.children.forEach(m => { m.material = m.material; m.castShadow = true });
     // la marquise et ses ampoules
