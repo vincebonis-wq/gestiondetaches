@@ -3458,12 +3458,21 @@ Object.assign(Site3D.prototype, {
     k.marquee = grp(0, 5.3, 7); BX(12.4, .5, 2.6, black, 0, 0, 0, k.marquee); BX(12.6, .14, 2.8, gold, 0, -.3, 0, k.marquee); BX(12, 1, .08, k.marqM, 0, .65, 1.32, k.marquee); BX(12.2, .1, .12, gold, 0, 1.2, 1.32, k.marquee);
     k.bulbs = []; for (let i = 0; i < 30; i++) { const m = MS(new T3.SphereGeometry(.08, 8, 6), STD(0xfff0c0, { e: 0xffc860, ei: 0 }), false, false); m.position.set(-5.9 + i * 11.8 / 29, -.4, 1.42); k.marquee.add(m); k.bulbs.push(m) }
     // les portes dorées du hall
-    k.doorM = STD(0xe9c060, { m: .25, r: .3, e: 0xffc860, ei: 0 }); k.doors = grp(0, .4, 5.75); [-2.1, 0, 2.1].forEach(x => { BX(1.6, 3.2, .12, k.doorM, x, 1.6, 0, k.doors); BX(1.8, .2, .2, gold, x, 3.3, .02, k.doors) });
+    // trois vraies portes Art déco : chambranle doré, double battant laqué noir vitré, barres de poussée, imposte, seuil de marbre et petit soleil doré
+    k.doorM = STD(0xf3d08a, { m: .1, r: .15, e: 0xffc860, ei: 0 }); k.doors = grp(0, .4, 5.75); const lacq = STD(0x111114, { r: .25, m: .2 }), marbleD = STD(0xe8e2d4, { r: .4 });
+    [-2.1, 0, 2.1].forEach(x => {
+      const d = new T3.Group(); d.position.x = x; k.doors.add(d);
+      BX(1.9, .06, .45, marbleD, 0, .03, .12, d); [-.88, .88].forEach(a => BX(.12, 3.45, .22, gold, a, 1.72, 0, d)); BX(1.98, .16, .24, gold, 0, 3.5, 0, d); BX(1.98, .1, .24, gold, 0, 2.93, 0, d);
+      BX(1.62, .44, .03, k.doorM, 0, 3.2, 0, d); [-.4, 0, .4].forEach(a => BX(.03, .44, .05, gold, a, 3.2, .01, d));
+      [-1, 1].forEach(sd => { const l = new T3.Group(); l.position.set(sd * .41, 0, .02); d.add(l); BX(.8, 2.84, .08, lacq, 0, 1.44, 0, l); BX(.52, 1.95, .02, k.doorM, 0, 1.62, .045, l);
+        [1.05, 1.62, 2.2].forEach(y => BX(.52, .035, .03, gold, 0, y, .06, l)); BX(.8, .06, .1, gold, 0, .05, 0, l); l.add(AT(CY(.022, .022, .95, gold, 6), -sd * .28, 1.35, .09)) });
+      for (let i = 0; i < 7; i++) { const r = BX(.04, .42, .03, gold, 0, 0, .05, d); r.position.set(Math.sin((i - 3) * .32) * .26, 3.62 + Math.cos((i - 3) * .32) * .26, .02); r.rotation.z = -(i - 3) * .32 }
+    });
     // l'enseigne verticale « CINÉMA »
     const bt = tex(128, 640, (g, w, hh) => { g.fillStyle = '#7a0f1e'; g.fillRect(0, 0, w, hh); g.strokeStyle = '#e0a52a'; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, hh - 12); g.fillStyle = '#ffe9a8'; g.textAlign = 'center'; g.font = '700 84px Georgia,serif'; 'CINÉMA'.split('').forEach((c, i) => g.fillText(c, w / 2, 100 + i * 96)) });
     k.bladeM = STD(0xffffff, { map: bt, r: .5, e: 0xffffff, ei: 0 }); k.bladeM.emissiveMap = bt; k.blade = grp(0, 6.2, 6.05); BX(1.6, 6.6, .3, k.bladeM, 0, 3.3, 0, k.blade); BX(1.8, .2, .5, gold, 0, 6.7, 0, k.blade);
     // les deux affiches de la formation (la couverture), de chaque côté de l'entrée
-    k.posters = [-7.4, 7.4].map(x => { const g = grp(x, 3.9, 3.45); BX(2.9, 4, .12, gold, 0, 0, 0, g); const m = STD(0xffffff, { map: posterTex(), r: .5, e: 0xffffff, ei: .08 }); m.emissiveMap = posterTex(); BX(2.6, 3.7, .05, m, 0, 0, .07, g); return g });
+    k.posters = [-8.3, 8.3].map(x => { const g = grp(x, 3.9, 3.78); BX(3.5, 4.95, .14, gold, 0, 0, 0, g); BX(3.25, 4.7, .06, STD(0x111114, { r: .4 }), 0, 0, .06, g); const m = STD(0xffffff, { map: posterTex(), r: .5, e: 0xffffff, ei: .12 }); m.emissiveMap = posterTex(); BX(3.15, 4.5, .05, m, 0, 0, .1, g); [-1, 1].forEach(sd => g.add(AT(MS(new T3.SphereGeometry(.09, 10, 8), k.doorM), sd * 1.55, 2.6, .12))); return g });
     // le bassin aux lotus rouges, à gauche de l'entrée
     const pm = STD(0xc8102e, { r: .55, e: 0x6a0010, ei: .25 }), pad = STD(0x2f6a3a, { r: .8 });
     k.basin = grp(-11, 0, 9.2); [[0, 1.95, 7.4, .5], [0, -1.95, 7.4, .5], [3.45, 0, .5, 4.4], [-3.45, 0, .5, 4.4]].forEach(([x, z, w, d]) => BX(w, .45, d, gold, x, .22, z, k.basin));
@@ -3548,7 +3557,7 @@ const CINE_SPEC = [
   { truck: { type: 'pickup', x: 8, load: 'gold' }, spots: [[-1.6, 6.6, 'reach'], [1.6, 6.6, 'reach']], ms: 7000, fx: 'gold', at: [0, 2, 6] },
   { truck: { type: 'tanker', x: -9, hose: [-11, 9.2, 2.6] }, spots: [[-13, 7, 'kneel'], [-9, 7, 'kneel'], [-7, 9.2, 'kneel']], ms: 10000, fx: 'water', at: [-11, .5, 9.2] },
   { spots: [[-1.6, 6.6, 'reach'], [1.6, 6.6, 'reach']], ms: 8000, fx: 'gold', at: [0, 9.4, 6.3], focus: [0, 8, 3, 54] },
-  { truck: { type: 'pickup', x: 8, load: 'crates' }, spots: [[-7.4, 4.6, 'reach'], [7.4, 4.6, 'reach']], ms: 8000, fx: 'gold' },
+  { truck: { type: 'pickup', x: 8, load: 'crates' }, spots: [[-8.3, 4.9, 'reach', -8.3, 3.8], [8.3, 4.9, 'reach', 8.3, 3.8]], ms: 8000, fx: 'gold' },
   { truck: { type: 'pickup', x: 8, load: 'panels' }, spots: [[-1.8, 9, 'kneel'], [1.8, 11, 'kneel'], [-1.8, 13, 'kneel']], ms: 9000, fx: 'gold', at: [0, .3, 10] },
   { truck: { type: 'flatbed', x: 8, load: 'crates' }, spots: [[7.4, 9.4, 'reach'], [12.4, 9.4, 'reach'], [10.6, 12.6, 'reach'], [7.4, 12, 'reach']], ms: 11000, fx: 0 },
   { spots: [[-3, 7, 'reach'], [3, 7, 'reach']], ms: 7000, fx: 'gold', at: [0, 5.8, 8.4] }
