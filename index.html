@@ -3853,7 +3853,8 @@ Object.assign(Site3D.prototype, {
     k.pit.visible = P(2) > 0 && P(G.tiers) < 1; k.pit.scale.set(Math.max(.01, EZ.out(P(2))), 1, Math.max(.01, EZ.out(P(2))));
     k.tiers.forEach((g, i) => growY(g, clamp01(P(G.tiers) * 3 - i)));
     growY(k.stele, P(G.stele)); const rev = sales / 100; k.cloth.scale.x = Math.max(.002, 1 - rev); k.edge.position.x = 1.72 - 3.44 * (1 - rev); k.edge.visible = rev < 1;
-    growY(k.board, P(G.board)); if (P(G.board) > 0 && k.shownSales !== sales) { k.shownSales = sales; this.drawBoard(sales) }
+    // le tableau des ventes est planté dès la première vente : chaque case cochée s'y affiche tout de suite
+    const bp = Math.max(P(G.board), P(1) > 0 ? 1 : 0); growY(k.board, bp); if (bp > 0 && k.shownSales !== sales) { k.shownSales = sales; this.drawBoard(sales) }
     if (k.meds) {
       growY(k.wall, P(G.wall)); k.meds.forEach((m, i) => { m.material = i < sales ? k.medOn : k.medOff });
       growY(k.ped, P(G.ped)); growY(k.deck, P(G.deck)); k.keys.visible = P(G.keys) > 0; k.keys.scale.x = Math.max(.01, EZ.out(P(G.keys)));
