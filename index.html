@@ -2637,7 +2637,7 @@ class Site3D {
   apply(D) {
     this.unbake && this.unbake();
     const s = D >= SITE_N - 1e-9 ? SITE_N : Math.floor(D + 1e-9), f = s >= SITE_N ? 0 : Math.max(0, D - s);
-    for (let k = 1; k <= SITE_N; k++) { const its = this.items[k], n = its.length; its.forEach((it, i) => { it.p = k <= s ? 1 : k === s + 1 ? (this.cont.has(it.kind) ? clamp01(f * n - i) : (f * n - i >= 1 - 1e-9 ? 1 : 0)) : 0; it.wet = 1 }) }
+    for (let k = 1; k <= SITE_N; k++) { const its = this.items[k], n = its.length; its.forEach((it, i) => { it.p = k <= s ? 1 : k === s + 1 ? (this.cont.has(it.kind) || KINDS[this.kind]?.act ? clamp01(f * n - i) : (f * n - i >= 1 - 1e-9 ? 1 : 0)) : 0; it.wet = 1 }) }
     const DU = !!KINDS[this.kind].scene;
     this.setCrane(!DU && s >= 6 && s < 10 ? 1 : 0); this.crane.phi = .9; this.crane.r = 18; this.crane.L = 8; this.crane.ox = this.crane.oz = this.crane.vx = this.crane.vz = 0; this.crane.slot.clear?.(); while (this.crane.slot.children.length) this.crane.slot.remove(this.crane.slot.children[0]);
     this.setScaf('gf', !DU && s >= 6 && s < 12 ? 1 : 0); this.setScaf('up', !DU && s >= 8 && s < 12 && !KINDS[this.kind].low ? 1 : 0);
@@ -3370,8 +3370,9 @@ async function crewStage(S, todo, sp, go) {
     const cur = k.truck && S.vehicles.includes(k.truck) ? k.truck : null, want = [[T.load, C], ...carriers.map(([, s]) => [s.carry, 1])];
     const short = cur && want.some(([L, n]) => cur.cargo.children.filter(m => m.userData.load === L).length < n);
     // le plateau vide (ou à court) repart chercher une nouvelle livraison ; sinon il reste garé
-    if (cur && short && cur.cargo.children.length < 3) { S.leave(cur); k.truck = null }
-    if (k.truck) { want.forEach(([L, n]) => { const have = cur.cargo.children.filter(m => m.userData.load === L).length; if (have < n) fillCargo(cur, [[L, n - have]]) }); truckP = Promise.resolve(cur) }
+    // il manque une sorte de colis : le plateau repart, une nouvelle livraison arrive (jamais de colis qui apparaissent tout seuls)
+    if (cur && short) { S.leave(cur); k.truck = null }
+    if (k.truck) truckP = Promise.resolve(cur);
     else truckP = S.arrive('flatbed', T.x).then(v => { fillCargo(v, cargoPlan(sp, d0, want)); k.truck = v; return v });
   } else if (T) {
     if (curSp && curSp.type === T.type) special = Promise.resolve(curSp);
@@ -3430,12 +3431,13 @@ async function crewStage(S, todo, sp, go) {
     if (dep < C) await S.anim(900, e => setE(lerp(dep / C, 1, e)), EZ.out);
   } else {
     // ── sans livraison (ou presque rien à poser cette fois) : chacun à son poste, on voit le geste et l'ouvrage avance avec lui
-    await Promise.all(ws.map(([w, s], i) => S.wait(i * 350).then(async () => { if (carriers.some(c => c[0] === w)) await fetch(w, s.carry, i); await toPost(w, s); install(S, w); work(w, s) })));
-    let tick = 0;
+    const posts = ws.map(([w, s], i) => S.wait(i * 350).then(async () => { if (carriers.some(c => c[0] === w)) await fetch(w, s.carry, i); await toPost(w, s); install(S, w); work(w, s) }));
+    await Promise.race(posts); let tick = 0;
     await S.anim(sp.ms * Math.max(.3, Math.min(1, (f1 - f0) * 1.2 + .15)), e => {
       setE(e); ws.forEach(([w]) => { if (w.pose === 'dig') w.dp = (e * 9 + w.seed) % 1 });
       if (e * 8 > tick) { tick++; const rw = ws[(Math.random() * ws.length) | 0][0]; depositFx(S, [rw.x + Math.sin(rw.tyaw) * .8, rw.y + .4, rw.z + Math.cos(rw.tyaw) * .8], sp.fx, at) }
     }, EZ.io);
+    await Promise.all(posts);
   }
   setE(1);
   ws.forEach(([w]) => { w.pose = null; w.setCarry(null) });
@@ -3918,7 +3920,8 @@ Object.assign(Site3D.prototype, {
     k.tiers.forEach((g, i) => growY(g, clamp01(P(G.tiers) * 3 - i)));
     growY(k.stele, P(G.stele)); const rev = sales / 100; k.cloth.scale.x = Math.max(.002, 1 - rev); k.edge.position.x = 1.72 - 3.44 * (1 - rev); k.edge.visible = rev < 1;
     // le tableau des ventes est planté dès la première vente : chaque case cochée s'y affiche tout de suite
-    const bp = Math.max(P(G.board), P(1) > 0 ? 1 : 0); growY(k.board, bp); if (bp > 0 && k.shownSales !== sales) { k.shownSales = sales; this.drawBoard(sales) }
+    // le compteur suit tes cases à l'instant même où tu les coches
+    const real = Math.min(100, (findTask(this.task)?.subgoals || []).filter(x => x.done).length || sales), bp = Math.max(P(G.board), real > 0 ? 1 : 0); growY(k.board, bp); if (bp > 0 && k.shownSales !== real) { k.shownSales = real; this.drawBoard(real) }
     if (k.meds) {
       growY(k.wall, P(G.wall)); k.meds.forEach((m, i) => { m.material = i < sales ? k.medOn : k.medOff });
       growY(k.ped, P(G.ped)); growY(k.deck, P(G.deck)); k.keys.visible = P(G.keys) > 0; k.keys.scale.x = Math.max(.01, EZ.out(P(G.keys)));
@@ -5762,7 +5765,8 @@ async function siteStage(ctl, k, f0, f1, rate) {
   ctl.stage = k; setRun(ctl, k);
   const todo = [];
   its.forEach((it, i) => {
-    const to = S.cont.has(it.kind) ? clamp01(f1 * n - i) : (f1 * n - i >= 1 - 1e-9 ? 1 : 0);
+    // les constructions sur mesure avancent au prorata de chaque case cochée (rien n'attend la fin de l'étape)
+    const to = S.cont.has(it.kind) || KINDS[S.kind]?.act ? clamp01(f1 * n - i) : (f1 * n - i >= 1 - 1e-9 ? 1 : 0);
     if (it.skip) it.p = to; else if (to > it.p + 1e-6) todo.push({ it, to });
   });
   const done = f1 >= 1 - 1e-9;
