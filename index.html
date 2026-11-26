@@ -3368,10 +3368,10 @@ async function crewStage(S, todo, sp, go) {
   if (curSp && !(T && !T.load && T.type === curSp.type)) sendAway(S, k, curSp);
   if (T && T.load) {
     const cur = k.truck && S.vehicles.includes(k.truck) ? k.truck : null, want = [[T.load, C], ...carriers.map(([, s]) => [s.carry, 1])];
-    const short = cur && want.some(([L, n]) => cur.cargo.children.filter(m => m.userData.load === L).length < n);
     // le plateau vide (ou à court) repart chercher une nouvelle livraison ; sinon il reste garé
     // il manque une sorte de colis : le plateau repart, une nouvelle livraison arrive (jamais de colis qui apparaissent tout seuls)
-    if (cur && short) { S.leave(cur); k.truck = null }
+    const none = cur && !cur.cargo.children.some(m => m.userData.load === T.load) && C > 0;
+    if (none) { S.leave(cur); k.truck = null }
     if (k.truck) truckP = Promise.resolve(cur);
     else truckP = S.arrive('flatbed', T.x).then(v => { fillCargo(v, cargoPlan(sp, d0, want)); k.truck = v; return v });
   } else if (T) {
@@ -3452,7 +3452,8 @@ const stageN = sp => sp.n || Math.max(3, sp.spots.filter(Array.isArray).length *
 function cargoPlan(sp, d0, want) {
   // une livraison raisonnable : l'étape en cours, puis les suivantes tant que le plateau n'en porte pas plus d'une trentaine
   const tot = new Map(); let sum = 0; const plan = sp.plan || [];
-  for (let i = 0; i < plan.length; i++) { const [L, n0] = plan[i], n = i === 0 ? Math.max(0, n0 - d0) : n0; if (i > 0 && sum + n > 32) break; sum += n; tot.set(L, (tot.get(L) || 0) + n) }
+  // tout ce qu'il faut pour les six étapes à venir (une pièce de marge par sorte), rien de plus
+  for (let i = 0, st = 0; i < plan.length; i++) { const [L, n0, si] = plan[i]; if (si !== plan[0][2]) st = Math.max(st, si - plan[0][2]); if (st >= 6) break; sum += n0; tot.set(L, (tot.get(L) || 0) + n0 + (tot.has(L) ? 0 : 1)) }
   want.forEach(([L, n]) => { if ((tot.get(L) || 0) < n) tot.set(L, n) });
   return [...tot.keys()].reverse().map(L => [L, tot.get(L)]).filter(([, n]) => n > 0);
 }
@@ -3625,7 +3626,7 @@ const CINE_SPEC = [
   { truck: { type: 'flatbed', x: 8, load: 'crates' }, spots: [[7.4, 9.4, 'reach'], [12.4, 9.4, 'reach'], [10.6, 12.6, 'reach'], [7.4, 12, 'reach']], ms: 11000, fx: 0 },
   { spots: [[-3, 7, 'reach'], [3, 7, 'reach']], ms: 7000, fx: 'gold', at: [0, 5.8, 8.4] }
 ];
-const specLoads = list => list.forEach((q, i) => { q.plan = list.slice(i).flatMap(x => x.truck?.load ? [[x.truck.load, stageN(x)], ...x.spots.filter(y => y.carry).map(y => [y.carry, 1])] : []) });
+const specLoads = list => list.forEach((q, i) => { q.plan = list.slice(i).flatMap((x, j) => x.truck?.load ? [[x.truck.load, stageN(x), j], ...x.spots.filter(y => y.carry).map(y => [y.carry, 1, j])] : []) });
 // le nombre de pièces de chaque étape du cinéma (une par élément visible : 10 rangs de mur, 6 pilastres, 3 portes, 2 affiches…)
 [[3, 10], [4, 6], [5, 8], [6, 6], [7, 3], [8, 4], [9, 4], [10, 3], [13, 2], [14, 4], [15, 6]].forEach(([i, n]) => { CINE_SPEC[i].n = n });
 specLoads(CINE_SPEC);
