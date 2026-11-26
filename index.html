@@ -5889,6 +5889,11 @@ function attachSite() {
     if (c.target > c.D + 1e-9) { if (c === ctl) siteRun(c) } else if (c.target < c.D - 1e-9 && !c.busy) { snapSite(c); saveShown(c) }
   }
 }
+// cocher une case d'une tâche qui a sa construction : l'animation passe sur cette construction, pour voir chaque case avancer quelque chose
+function showSiteOf(t) {
+  if (!t || ui.view) return; const th = t.themeId && db.themes.find(x => x.id === t.themeId), id = t.site?.on ? t.id : th?.site?.on ? 'th-' + th.id : null;
+  if (id) { (ui.siteSel ||= {})[t.projectId] = id; if (WORLD) WORLD.follow() }
+}
 // amène la tâche (ou la thématique) à l'écran dans le gestionnaire, et la fait briller un instant
 function focusTask(id) {
   requestAnimationFrame(() => {
@@ -6290,10 +6295,10 @@ document.addEventListener('click', async e => {
     case 'edit-project': return openProject(id);
     case 'edit-objective': ui.editObjective = true; render(); app.querySelector('textarea')?.focus(); return;
     case 'cancel-objective': ui.editObjective = false; return render();
-    case 'toggle-done': t.done = !t.done; t.doneAt = t.done ? Date.now() : null; return commit();
+    case 'toggle-done': t.done = !t.done; t.doneAt = t.done ? Date.now() : null; showSiteOf(t); return commit();
     case 'flag': t.flagged = !t.flagged; return commit();
     case 'expand': ui.open[id] = !ui.open[id]; if (ui.open[id] && t?.site?.on && !ui.view) (ui.siteSel ||= {})[t.projectId] = id; return commit();
-    case 'toggle-sub': { const s = t.subgoals.find(x => x.id === el.dataset.sub); s.done = !s.done; return commit() }
+    case 'toggle-sub': { const s = t.subgoals.find(x => x.id === el.dataset.sub); s.done = !s.done; showSiteOf(t); return commit() }
     case 'edit-task': return openTask(id);
     case 'toggle-theme': { const th = theme(id); th.collapsed = !th.collapsed; return commit() }
     case 'rename-theme': { const th = theme(id); const n = await ask('Nouveau nom de la thématique', { input: th.name, ok: 'Renommer' }); if (n && n.trim()) { th.name = n.trim(); commit() } return }
